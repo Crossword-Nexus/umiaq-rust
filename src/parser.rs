@@ -320,35 +320,29 @@ mod tests {
 
     #[test]
     fn test_valid_binding_simple_pass() {
-        let mut constraints = HashMap::new();
-        constraints.insert("pattern".to_string(), "abc*".to_string());
+        let constraints = HashMap::from([("pattern".to_string(), "abc*".to_string())]);
         let bindings = HashMap::new();
         assert!(is_valid_binding("abcat", &constraints, &bindings));
     }
 
     #[test]
     fn test_valid_binding_pattern_fail() {
-        let mut constraints = HashMap::new();
-        constraints.insert("pattern".to_string(), "abc*".to_string());
+        let constraints = HashMap::from([("pattern".to_string(), "abc*".to_string())]);
         let bindings = HashMap::new();
         assert!(!is_valid_binding("xyz", &constraints, &bindings));
     }
 
     #[test]
     fn test_valid_binding_not_equal_fail() {
-        let mut constraints = HashMap::new();
-        constraints.insert("not_equal".to_string(), "B".to_string());
-        let mut bindings = HashMap::new();
-        bindings.insert("B".to_string(), "TEST".to_string());
+        let constraints = HashMap::from([("not_equal".to_string(), "B".to_string())]);
+        let bindings = HashMap::from([("B".to_string(), "TEST".to_string())]);
         assert!(!is_valid_binding("TEST", &constraints, &bindings));
     }
 
     #[test]
     fn test_valid_binding_not_equal_pass() {
-        let mut constraints = HashMap::new();
-        constraints.insert("not_equal".to_string(), "B".to_string());
-        let mut bindings = HashMap::new();
-        bindings.insert("B".to_string(), "TEST".to_string());
+        let constraints = HashMap::from([("not_equal".to_string(), "B".to_string())]);
+        let bindings = HashMap::from([("B".to_string(), "TEST".to_string())]);
         assert!(is_valid_binding("OTHER", &constraints, &bindings));
     }
 
