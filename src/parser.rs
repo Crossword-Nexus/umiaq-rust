@@ -10,7 +10,6 @@ use nom::{
     Parser,
 };
 
-
 use regex::Regex;
 use std::collections::HashMap;
 
@@ -86,14 +85,18 @@ fn match_pattern_internal(
         bindings: &mut HashMap<String, String>,
         results: &mut Vec<HashMap<String, String>>,
         all_matches: bool,
+        word: &str,
     ) -> bool {
         if parts.is_empty() {
             if chars.is_empty() {
-                results.push(bindings.clone());
+                let mut full_result = bindings.clone();
+                full_result.insert("word".to_string(), word.to_string());
+                results.push(full_result);
                 return !all_matches; // Stop if we only want the first match
             }
             return false;
         }
+
 
         let (first, rest) = (&parts[0], &parts[1..]);
 
@@ -101,34 +104,34 @@ fn match_pattern_internal(
             PatternPart::Lit(s) => {
                 let s = s.to_uppercase();
                 if chars.starts_with(&s.chars().collect::<Vec<_>>()) {
-                    return helper(&chars[s.len()..], rest, bindings, results, all_matches);
+                    return helper(&chars[s.len()..], rest, bindings, results, all_matches, word);
                 }
             }
             PatternPart::Dot => {
                 if !chars.is_empty() {
-                    return helper(&chars[1..], rest, bindings, results, all_matches);
+                    return helper(&chars[1..], rest, bindings, results, all_matches, word);
                 }
             }
             PatternPart::Star => {
                 for i in 0..=chars.len() {
-                    if helper(&chars[i..], rest, bindings, results, all_matches) && !all_matches {
+                    if helper(&chars[i..], rest, bindings, results, all_matches, word) && !all_matches {
                         return true;
                     }
                 }
             }
             PatternPart::Vowel => {
                 if matches!(chars.first(), Some(c) if "AEIOUY".contains(*c)) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches);
+                    return helper(&chars[1..], rest, bindings, results, all_matches, word);
                 }
             }
             PatternPart::Consonant => {
                 if matches!(chars.first(), Some(c) if "BCDFGHJKLMNPQRSTVWXZ".contains(*c)) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches);
+                    return helper(&chars[1..], rest, bindings, results, all_matches, word);
                 }
             }
             PatternPart::Charset(set) => {
                 if matches!(chars.first(), Some(c) if set.contains(&c.to_ascii_lowercase())) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches);
+                    return helper(&chars[1..], rest, bindings, results, all_matches, word);
                 }
             }
             PatternPart::Anagram(s) => {
@@ -140,7 +143,7 @@ fn match_pattern_internal(
                     let mut sorted_target: Vec<char> = s.to_uppercase().chars().collect();
                     sorted_target.sort_unstable();
                     if sorted_window == sorted_target {
-                        return helper(&chars[len..], rest, bindings, results, all_matches);
+                        return helper(&chars[len..], rest, bindings, results, all_matches, word);
                     }
                 }
             }
@@ -153,7 +156,7 @@ fn match_pattern_internal(
                         bound_val.clone()
                     };
                     if chars.starts_with(&val.chars().collect::<Vec<_>>()) {
-                        return helper(&chars[val.len()..], rest, bindings, results, all_matches);
+                        return helper(&chars[val.len()..], rest, bindings, results, all_matches, word);
                     }
                 } else {
                     for l in 1..=chars.len() {
@@ -164,7 +167,7 @@ fn match_pattern_internal(
                             candidate.clone()
                         };
                         bindings.insert(name_str.clone(), bound_val);
-                        if helper(&chars[l..], rest, bindings, results, all_matches) && !all_matches {
+                        if helper(&chars[l..], rest, bindings, results, all_matches, word) && !all_matches {
                             return true;
                         }
                         bindings.remove(&name_str);
@@ -177,7 +180,7 @@ fn match_pattern_internal(
     }
 
     let mut bindings = HashMap::new();
-    helper(&chars, parts, &mut bindings, results, all_matches);
+    helper(&chars, parts, &mut bindings, results, all_matches, &word);
 }
 
 
