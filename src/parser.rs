@@ -76,8 +76,13 @@ fn match_pattern_internal(
     all_matches: bool,
     results: &mut Vec<HashMap<String, String>>,
 ) {
-    let word = word.to_uppercase();
-    let chars: Vec<char> = word.chars().collect();
+    fn get_reversed_or_not(first: &PatternPart, val: &str) -> String {
+        if matches!(first, PatternPart::RevVar(_)) {
+            val.chars().rev().collect::<String>()
+        } else {
+            val.to_owned()
+        }
+    }
 
     fn helper(
         chars: &[char],
@@ -150,22 +155,14 @@ fn match_pattern_internal(
             PatternPart::Var(name) | PatternPart::RevVar(name) => {
                 let name_str = name.to_string();
                 if let Some(bound_val) = bindings.get(&name_str) {
-                    let val = if matches!(first, PatternPart::RevVar(_)) {
-                        bound_val.chars().rev().collect::<String>()
-                    } else {
-                        bound_val.clone()
-                    };
+                    let val = get_reversed_or_not(first, bound_val);
                     if chars.starts_with(&val.chars().collect::<Vec<_>>()) {
                         return helper(&chars[val.len()..], rest, bindings, results, all_matches, word);
                     }
                 } else {
                     for l in 1..=chars.len() {
                         let candidate: String = chars[..l].iter().collect();
-                        let bound_val = if matches!(first, PatternPart::RevVar(_)) {
-                            candidate.chars().rev().collect::<String>()
-                        } else {
-                            candidate.clone()
-                        };
+                        let bound_val = get_reversed_or_not(first, &candidate);
                         bindings.insert(name_str.clone(), bound_val);
                         if helper(&chars[l..], rest, bindings, results, all_matches, word) && !all_matches {
                             return true;
@@ -178,6 +175,9 @@ fn match_pattern_internal(
 
         false
     }
+
+    let word = word.to_uppercase();
+    let chars: Vec<char> = word.chars().collect();
 
     let mut bindings = HashMap::new();
     helper(&chars, parts, &mut bindings, results, all_matches, &word);
