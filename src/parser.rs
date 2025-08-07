@@ -208,7 +208,7 @@ pub fn pattern_to_regex(parts: &[PatternPart]) -> String {
             PatternPart::Anagram(s) => {
                 let len = s.len();
                 let class = regex::escape(&s.to_uppercase());
-                regex.push_str(&format!("[{}]{{{}}}", class, len));
+                regex.push_str(&format!("[{class}]{{{len}}}"));
             },
         }
     }
@@ -225,7 +225,7 @@ fn parse_pattern(input: &str) -> Result<Vec<PatternPart>, String> {
                 parts.push(part);
                 rest = next;
             }
-            Err(_) => return Err(format!("Could not parse at: {}", rest)),
+            Err(_) => return Err(format!("Could not parse at: {rest}")),
         }
     }
 
@@ -233,12 +233,12 @@ fn parse_pattern(input: &str) -> Result<Vec<PatternPart>, String> {
 }
 
 fn varref(input: &str) -> IResult<&str, PatternPart> {
-    let mut parser = map(one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), |c| PatternPart::Var(c));
+    let mut parser = map(one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), PatternPart::Var);
     parser.parse(input)
 }
 
 fn revref(input: &str) -> IResult<&str, PatternPart> {
-    let mut parser = map(preceded(tag("~"), one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), |c| PatternPart::RevVar(c));
+    let mut parser = map(preceded(tag("~"), one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), PatternPart::RevVar);
     parser.parse(input)
 }
 
@@ -305,7 +305,7 @@ pub fn word_matches_pattern(word: &str, pattern: &str) -> Result<bool, String> {
 
     // First, check fast regex filter
     let regex_str = pattern_to_regex(&parts);
-    let re = Regex::new(&format!("^{}$", regex_str)).map_err(|e| e.to_string())?;
+    let re = Regex::new(&format!("^{regex_str}$")).map_err(|e| e.to_string())?;
     if !re.is_match(&word.to_uppercase()) {
         return Ok(false);
     }
