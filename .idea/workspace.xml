@@ -11,14 +11,11 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Add &quot;word&quot; to helper function">
-      <change afterPath="$PROJECT_DIR$/src/patterns.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/umiaq.rs" afterDir="false" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Small fix to regex">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/umiaq.rs" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,6 +53,9 @@
   <component name="MacroExpansionManager">
     <option name="directoryName" value="efKcYGn5" />
   </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 3
 }</component>
@@ -90,7 +90,7 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="Cargo.Test parser::tests::test_match_pattern_exists_with_constraints">
+  <component name="RunManager" selected="Cargo.Test parser::tests">
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package umiaq-rust --bin umiaq-rust" />
@@ -182,9 +182,9 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Cargo.Test parser::tests::test_match_pattern_exists_with_constraints" />
         <item itemvalue="Cargo.Test parser::tests" />
         <item itemvalue="Cargo.Test patterns::tests" />
+        <item itemvalue="Cargo.Test parser::tests::test_match_pattern_exists_with_constraints" />
         <item itemvalue="Cargo.Test parser::tests::test_match_pattern_all_examples" />
         <item itemvalue="Cargo.Test parser::tests" />
       </list>
@@ -202,7 +202,7 @@
       <updated>1754576290461</updated>
       <workItem from="1754576293045" duration="1358000" />
       <workItem from="1754577666024" duration="6493000" />
-      <workItem from="1754612088552" duration="1578000" />
+      <workItem from="1754612088552" duration="3384000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -236,7 +236,23 @@
       <option name="project" value="LOCAL" />
       <updated>1754578769829</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Add patterns.rs">
+      <option name="closed" value="true" />
+      <created>1754613692922</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1754613692922</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Small fix to regex">
+      <option name="closed" value="true" />
+      <created>1754621418988</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1754621418988</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -246,6 +262,8 @@
     <MESSAGE value="Initial commit" />
     <MESSAGE value="Test commit" />
     <MESSAGE value="Add &quot;word&quot; to helper function" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add &quot;word&quot; to helper function" />
+    <MESSAGE value="Add patterns.rs" />
+    <MESSAGE value="Small fix to regex" />
+    <option name="LAST_COMMIT_MESSAGE" value="Small fix to regex" />
   </component>
 </project>

@@ -95,6 +95,15 @@ fn match_pattern_internal(
     results: &mut Vec<HashMap<String, String>>,
     constraints: Option<&HashMap<String, HashMap<String, String>>>,
 ) {
+
+    // Before we do anything else, do a regex filter
+    let regex_str = format!("^{}$", pattern_to_regex(parts));
+    if let Ok(regex) = Regex::new(&regex_str) {
+        if !regex.is_match(word) {
+            return;
+        }
+    }
+
     fn get_reversed_or_not(first: &PatternPart, val: &str) -> String {
         if matches!(first, PatternPart::RevVar(_)) {
             val.chars().rev().collect::<String>()
@@ -336,26 +345,6 @@ fn pattern_part(input: &str) -> IResult<&str, PatternPart> {
     parser.parse(input)
 }
 
-// Checks if a word matches the pattern
-pub fn word_matches_pattern(
-    word: &str,
-    pattern: &str,
-    constraints: Option<&HashMap<String, HashMap<String, String>>>,
-) -> Result<bool, String> {
-    let parts = parse_pattern(pattern)?;
-
-    // First, check fast regex filter
-    let regex_str = pattern_to_regex(&parts);
-    let re = Regex::new(&format!("^{regex_str}$")).map_err(|e| e.to_string())?;
-    if !re.is_match(&word.to_uppercase()) {
-        return Ok(false);
-    }
-
-    // Then run recursive matcher with constraints
-    Ok(match_pattern_exists(word, &parts, constraints))
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -364,14 +353,14 @@ mod tests {
     fn test_valid_binding_simple_pass() {
         let constraints = HashMap::from([("pattern".to_string(), "abc*".to_string())]);
         let bindings = HashMap::new();
-        assert!(is_valid_binding("abcat", &constraints, &bindings));
+        assert!(is_valid_binding("ABCAT", &constraints, &bindings));
     }
 
     #[test]
     fn test_valid_binding_pattern_fail() {
         let constraints = HashMap::from([("pattern".to_string(), "abc*".to_string())]);
         let bindings = HashMap::new();
-        assert!(!is_valid_binding("xyz", &constraints, &bindings));
+        assert!(!is_valid_binding("XYZ", &constraints, &bindings));
     }
 
     #[test]
@@ -427,7 +416,7 @@ mod tests {
         ]);
         assert!(match_pattern_exists("INCH", &patt, Some(&constraints)));
         let constraints2 = HashMap::from([
-            ("A".to_string(), HashMap::from([("pattern".to_string(), ".*z.*".to_string())]))
+            ("A".to_string(), HashMap::from([("pattern".to_string(), "*z*".to_string())]))
         ]);
         assert!(!match_pattern_exists("INCH", &patt, Some(&constraints2)));
     }
