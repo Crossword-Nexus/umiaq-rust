@@ -9,7 +9,7 @@ static LEN_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unw
 static NEQ_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
 /// Matches complex constraints like `A=(3-5:a*)` with optional length and pattern
-static COMPLEX_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^([A-Z])=\(?([\d\-]*)\:?([^)]*)\)?$").unwrap());
+static COMPLEX_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^([A-Z])=\(?([\d\-]*):?([^)]*)\)?$").unwrap());
 
 #[derive(Debug, Clone)]
 /// Represents constraints for a single variable (e.g., A, B, C)
