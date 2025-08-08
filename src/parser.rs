@@ -350,6 +350,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_match_pattern_exists() {
+        let patt1 = parse_pattern("A~A[rstlne]/jon@#.*").unwrap();
+        assert!(match_pattern_exists("AARONJUDGE", &patt1, None));
+        assert!(!match_pattern_exists("NOON", &patt1, None));
+        assert!(!match_pattern_exists("TOON", &patt1, None));
+    }
+
+    #[test]
     fn test_valid_binding_simple_pass() {
         let constraints = HashMap::from([("pattern".to_string(), "abc*".to_string())]);
         let bindings = HashMap::new();

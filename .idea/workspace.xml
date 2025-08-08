@@ -11,11 +11,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Small fix to regex">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Add a pre-regex filter in match_pattern_internal">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/umiaq.rs" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -90,7 +88,7 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="Cargo.Test parser::tests">
+  <component name="RunManager" selected="Cargo.Test parser::tests::test_match_pattern_exists">
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package umiaq-rust --bin umiaq-rust" />
@@ -145,6 +143,23 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration name="Test parser::tests::test_match_pattern_exists" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package umiaq-rust --bin umiaq-rust parser::tests::test_match_pattern_exists -- --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Test parser::tests::test_match_pattern_exists_with_constraints" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="command" value="test --package umiaq-rust --bin umiaq-rust parser::tests::test_match_pattern_exists_with_constraints -- --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -182,11 +197,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Cargo.Test parser::tests::test_match_pattern_exists" />
         <item itemvalue="Cargo.Test parser::tests" />
         <item itemvalue="Cargo.Test patterns::tests" />
         <item itemvalue="Cargo.Test parser::tests::test_match_pattern_exists_with_constraints" />
         <item itemvalue="Cargo.Test parser::tests::test_match_pattern_all_examples" />
-        <item itemvalue="Cargo.Test parser::tests" />
       </list>
     </recent_temporary>
   </component>
@@ -202,7 +217,7 @@
       <updated>1754576290461</updated>
       <workItem from="1754576293045" duration="1358000" />
       <workItem from="1754577666024" duration="6493000" />
-      <workItem from="1754612088552" duration="3384000" />
+      <workItem from="1754612088552" duration="4123000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -252,7 +267,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754621418988</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Add a pre-regex filter in match_pattern_internal">
+      <option name="closed" value="true" />
+      <created>1754623115712</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1754623115712</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -264,6 +287,7 @@
     <MESSAGE value="Add &quot;word&quot; to helper function" />
     <MESSAGE value="Add patterns.rs" />
     <MESSAGE value="Small fix to regex" />
-    <option name="LAST_COMMIT_MESSAGE" value="Small fix to regex" />
+    <MESSAGE value="Add a pre-regex filter in match_pattern_internal" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add a pre-regex filter in match_pattern_internal" />
   </component>
 </project>
