@@ -14,7 +14,34 @@ static COMPLEX_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^([A-Z])=\(?([\d\-]*):?([^)]*)\)?$").unwrap());
 
 #[derive(Debug, Clone)]
-/// Represents a single pattern (e.g., "AB", "A=(3:a*)") extracted from input
+/// A single raw form string plus *solver metadata*; **not tokenized**.
+/// Use `parse_equation(&pattern.raw_string)` to get `Vec<FormPart>`.
+///
+/// ## Solver metadata (what it is and why it exists)
+/// - `lookup_keys`: `Option<HashSet<char>>`
+///   - **What:** The subset of this form’s variables that also appear in forms
+///     that have already been placed earlier in `Patterns::ordered_list`.
+///   - **When it’s set:** Assigned by `Patterns::ordered_partitions()` *after* the
+///     forms have been reordered for solving.
+///   - **Why it helps:** During the multi-form join, candidate bindings for this
+///     form can be bucketed by the concrete values of these variables and then
+///     matched in O(1)/O(log N) time against earlier choices, instead of scanning
+///     all candidates. In other words, `lookup_keys` is the *join key* that lets
+///     you intersect partial solutions cheaply.
+///   - **How it’s used:** When you collect matches for each form, you can index
+///     (e.g., `HashMap<JoinKey, Vec<Bindings>>`) by the values of `lookup_keys`.
+///     Then, when recursing, you fetch only the compatible bucket for the next form.
+///
+/// Note: `Pattern` intentionally keeps `raw_string` (e.g., "AB", "A~A", "/sett")
+/// unparsed; tokenization to `Vec<FormPart>` is deferred to matching time.
+///
+/// Example:
+/// - Input: `"ABC;BC;C"`
+/// - Reordering picks `"ABC"` first, then `"BC"`, then `"C"`.
+/// - `lookup_keys`:
+///     * for `"ABC"`: `None` (first form has nothing prior)
+///     * for `"BC"`: `Some({'B','C'})` (overlap with already-chosen variables)
+///     * for `"C"`:  `Some({'C'})`
 pub struct Pattern {
     /// The raw string representation of the pattern, such as "AB" or "/triangle"
     pub raw_string: String,
@@ -46,7 +73,17 @@ impl Pattern {
 }
 
 #[derive(Debug, Default)]
-/// A container for all parsed patterns and variable constraints
+/// The **parsed equation** at a structural level: extracted constraints + collected forms
+/// + a solver-friendly order. Forms here are still raw strings; tokenize each with
+/// `parse_equation` when matching.
+///
+/// - `list`: all non-constraint forms in original order
+/// - `var_constraints`: per-variable rules parsed from things like `|A|=5`, `!=AB`,
+///   `A=(3-5:a*)`
+/// - `ordered_list`: `list` reordered so that forms with many variables appear
+///   earlier and subsequent forms maximize overlap with already-chosen variables.
+///   As part of this step, each later form’s `lookup_keys` is set to the overlap
+///   with the variables seen so far (its *join key*).
 pub struct Patterns {
     /// List of patterns directly extracted from the input string (not constraints)
     pub list: Vec<Pattern>,
