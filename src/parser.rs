@@ -1,4 +1,3 @@
-// src/lib.rs
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -15,27 +14,37 @@ use std::fmt::Write as _;
 use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 
-/// A "form" is something like l@#A* or ABc/abc
+/// Represents a single parsed token (component) from a "form" string.
+///
+/// Examples of forms:
+/// - `l@#A*` (literal + vowel + consonant + variable + wildcard)
+/// - `ABc/abc` (two variables, lowercase literal, and an anagram)
+///
+/// Variants correspond to different token types:
 #[derive(Debug, Clone, PartialEq)]
 pub enum FormPart {
-    Var(char),           // A-Z variable reference
-    RevVar(char),        // ~A reversed variable reference
-    Lit(String),         // literal lowercase string
-    Dot,                 // . wildcard for any single character
-    Star,                // * wildcard for any number of characters
-    Vowel,               // @ vowel character
-    Consonant,           // # consonant character
-    Charset(Vec<char>),  // [abc] character set
-    Anagram(String),     // /abc indicates an anagram of given letters
+    Var(char),           // Uppercase A–Z variable reference (e.g. 'A')
+    RevVar(char),        // '~A' reversed variable reference
+    Lit(String),         // Literal lowercase sequence (will be uppercased internally)
+    Dot,                 // '.' wildcard: exactly one character
+    Star,                // '*' wildcard: zero or more characters
+    Vowel,               // '@' wildcard: any vowel (AEIOUY)
+    Consonant,           // '#' wildcard: any consonant (BCDF...Z)
+    Charset(Vec<char>),  // '[abc]': any of the given characters
+    Anagram(String),     // '/abc': any permutation of the given letters
 }
 
-/// Check if a binding is valid, given a value
+/// Validate whether a candidate binding value is allowed under a `VarConstraint`.
+///
+/// Checks:
+/// 1. If `form` is present, the value must itself match that form.
+/// 2. The value must not equal any variable listed in `not_equal` that is already bound.
 pub fn is_valid_binding(
     val: &str,
     constraints: &VarConstraint,
     bindings: &Bindings,
 ) -> bool {
-    // 1) nested form constraint
+    // 1) Apply nested form constraint if present
     if let Some(form_str) = &constraints.form {
         match parse_equation(form_str) {
             Ok(p) => {
@@ -43,11 +52,11 @@ pub fn is_valid_binding(
                     return false;
                 }
             }
-            Err(_) => return false,
+            Err(_) => return false, // If the nested form is invalid, reject
         }
     }
 
-    // 2) not_equal is a HashSet<char>
+    // 2) Check "not equal" constraints
     for &other in &constraints.not_equal {
         if let Some(existing) = bindings.get(&other) {
             if existing == val {
@@ -59,7 +68,7 @@ pub fn is_valid_binding(
     true
 }
 
-/// Returns the first successful binding (if any)
+/// Return the first binding set that satisfies the equation, or `None` if none match.
 pub fn match_equation(
     word: &str,
     parts: &[FormPart],
@@ -70,7 +79,7 @@ pub fn match_equation(
     results.into_iter().next()
 }
 
-/// Returns a boolean
+/// Return `true` if at least one binding satisfies the equation.
 pub fn match_equation_exists(
     word: &str,
     parts: &[FormPart],
@@ -81,7 +90,7 @@ pub fn match_equation_exists(
     results.into_iter().next().is_some()
 }
 
-/// Returns all successful bindings
+/// Return all bindings that satisfy the equation.
 pub fn match_equation_all(
     word: &str,
     parts: &[FormPart],
@@ -92,6 +101,11 @@ pub fn match_equation_all(
     results
 }
 
+/// Core backtracking search that tries to match `word` against `parts`.
+///
+/// - Does an initial regex prefilter to skip impossible words quickly.
+/// - Recursively attempts to bind variables and match literals/wildcards.
+/// - Stops early if `all_matches` is false and a single match is found.
 fn match_equation_internal(
     word: &str,
     parts: &[FormPart],
@@ -99,6 +113,7 @@ fn match_equation_internal(
     results: &mut Vec<Bindings>,
     constraints: Option<&VarConstraints>,
 ) {
+    /// Helper to reverse a bound value if the part is `RevVar`.
     fn get_reversed_or_not(first: &FormPart, val: &str) -> String {
         if matches!(first, FormPart::RevVar(_)) {
             val.chars().rev().collect::<String>()
@@ -107,6 +122,13 @@ fn match_equation_internal(
         }
     }
 
+    /// Recursive matching helper.
+    ///
+    /// `chars`   – remaining characters of the word
+    /// `parts`   – remaining pattern parts
+    /// `bindings`– current variable assignments
+    /// `results` – collection of successful bindings
+    /// `all_matches` – whether to collect all or stop at first
     fn helper(
         chars: &[char],
         parts: &[FormPart],
@@ -116,12 +138,13 @@ fn match_equation_internal(
         word: &str,
         constraints: Option<&VarConstraints>,
     ) -> bool {
+        // Base case: no parts left
         if parts.is_empty() {
             if chars.is_empty() {
                 let mut full_result = bindings.clone();
                 full_result.set_word(word);
                 results.push(full_result);
-                return !all_matches;
+                return !all_matches; // Stop early if only one match needed
             }
             return false;
         }
@@ -130,17 +153,20 @@ fn match_equation_internal(
 
         match first {
             FormPart::Lit(s) => {
+                // Literal match (case-insensitive, stored uppercased)
                 let s = s.to_uppercase();
                 if chars.starts_with(&s.chars().collect::<Vec<_>>()) {
                     return helper(&chars[s.len()..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Dot => {
+                // Single-char wildcard
                 if !chars.is_empty() {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Star => {
+                // Zero-or-more wildcard; try all possible splits
                 for i in 0..=chars.len() {
                     if helper(&chars[i..], rest, bindings, results, all_matches, word, constraints)
                         && !all_matches
@@ -165,6 +191,7 @@ fn match_equation_internal(
                 }
             }
             FormPart::Anagram(s) => {
+                // Match if the next N chars are an anagram of target
                 let len = s.len();
                 if chars.len() >= len {
                     let window: String = chars[..len].iter().collect();
@@ -179,16 +206,18 @@ fn match_equation_internal(
             }
             FormPart::Var(name) | FormPart::RevVar(name) => {
                 if let Some(bound_val) = bindings.get(&name) {
+                    // Already bound: must match exactly
                     let val = get_reversed_or_not(first, bound_val);
                     if chars.starts_with(&val.chars().collect::<Vec<_>>()) {
                         return helper(&chars[val.len()..], rest, bindings, results, all_matches, word, constraints);
                     }
                 } else {
+                    // Not bound yet: try binding to all possible lengths
                     for l in 1..=chars.len() {
                         let candidate: String = chars[..l].iter().collect();
                         let bound_val = get_reversed_or_not(first, &candidate);
 
-                        // Apply constraints here if present
+                        // Apply variable-specific constraints
                         let valid = if let Some(all_c) = constraints {
                             if let Some(c) = all_c.get(*name) {
                                 is_valid_binding(&bound_val, c, bindings)
@@ -216,28 +245,31 @@ fn match_equation_internal(
         false
     }
 
-    // Before we do anything else, do a regex filter
+    // === PREFILTER STEP ===
+    // Convert pattern to a regex and check before attempting backtracking.
     let regex_str = format!("^{}$", form_to_regex(parts));
     if let Ok(regex) = Regex::new(&regex_str) {
         if !regex.is_match(word) {
-            return;
+            return; // Fail fast
         }
     }
 
+    // Normalize word and start recursive matching
     let word = word.to_uppercase();
     let chars: Vec<char> = word.chars().collect();
-
     let mut bindings = Bindings::new();
     helper(&chars, parts, &mut bindings, results, all_matches, &word, constraints);
 }
 
-
+/// Convert a parsed `FormPart` sequence into a regex string.
+///
+/// Used for the initial fast prefilter in `match_equation_internal`.
 pub fn form_to_regex(parts: &[FormPart]) -> String {
     let mut regex = String::new();
     for part in parts {
         match part {
             FormPart::Var(_) | FormPart::RevVar(_) => {
-                regex.push_str(".+");
+                regex.push_str(".+"); // Variable: one or more chars
             },
             FormPart::Lit(s) => {
                 regex.push_str(&regex::escape(&s.to_uppercase()));
@@ -256,7 +288,6 @@ pub fn form_to_regex(parts: &[FormPart]) -> String {
             FormPart::Anagram(s) => {
                 let len = s.len();
                 let class = regex::escape(&s.to_uppercase());
-                // TODO? do something if there's an error?
                 let _ = write!(regex, "[{class}]{{{len}}}");
             },
         }
@@ -264,6 +295,9 @@ pub fn form_to_regex(parts: &[FormPart]) -> String {
     regex
 }
 
+/// Parse a form string into a `Vec<FormPart>` sequence.
+///
+/// Walks the input, consuming tokens one at a time with `equation_part`.
 pub fn parse_equation(input: &str) -> Result<Vec<FormPart>, String> {
     let mut rest = input;
     let mut parts = Vec::new();
@@ -274,67 +308,62 @@ pub fn parse_equation(input: &str) -> Result<Vec<FormPart>, String> {
                 parts.push(part);
                 rest = next;
             }
-            Err(_) => return Err(format!("Could not parse at: {rest}")), // TODO? avoid swallowing error?
+            Err(_) => return Err(format!("Could not parse at: {rest}")),
         }
     }
 
     Ok(parts)
 }
 
+// === Token parsers ===
+// These small functions use `nom` combinators to recognize individual token types.
+
 fn varref(input: &str) -> IResult<&str, FormPart> {
-    let mut parser = map(one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), FormPart::Var);
-    parser.parse(input)
+    map(one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), FormPart::Var).parse(input)
 }
 
 fn revref(input: &str) -> IResult<&str, FormPart> {
-    let mut parser = map(preceded(tag("~"), one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), FormPart::RevVar);
-    parser.parse(input)
+    map(preceded(tag("~"), one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), FormPart::RevVar).parse(input)
 }
 
 fn literal(input: &str) -> IResult<&str, FormPart> {
-    let mut parser = map(many1(one_of("abcdefghijklmnopqrstuvwxyz")), |chars| {
+    map(many1(one_of("abcdefghijklmnopqrstuvwxyz")), |chars| {
         FormPart::Lit(chars.into_iter().collect())
-    });
-    parser.parse(input)
+    }).parse(input)
 }
 
 fn dot(input: &str) -> IResult<&str, FormPart> {
-    let mut parser = map(tag("."), |_| FormPart::Dot);
-    parser.parse(input)
+    map(tag("."), |_| FormPart::Dot).parse(input)
 }
 
 fn star(input: &str) -> IResult<&str, FormPart> {
-    let mut parser = map(tag("*"), |_| FormPart::Star);
-    parser.parse(input)
+    map(tag("*"), |_| FormPart::Star).parse(input)
 }
 
 fn vowel(input: &str) -> IResult<&str, FormPart> {
-    let mut parser = map(tag("@"), |_| FormPart::Vowel);
-    parser.parse(input)
+    map(tag("@"), |_| FormPart::Vowel).parse(input)
 }
 
 fn consonant(input: &str) -> IResult<&str, FormPart> {
-    let mut parser = map(tag("#"), |_| FormPart::Consonant);
-    parser.parse(input)
+    map(tag("#"), |_| FormPart::Consonant).parse(input)
 }
 
 fn charset(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("[")(input)?;
-    let mut parser = many1(one_of("abcdefghijklmnopqrstuvwxyz"));
-    let (input, chars) = parser.parse(input)?;
+    let (input, chars) = many1(one_of("abcdefghijklmnopqrstuvwxyz")).parse(input)?;
     let (input, _) = tag("]")(input)?;
     Ok((input, FormPart::Charset(chars)))
 }
 
 fn anagram(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("/")(input)?;
-    let mut parser = many1(one_of("abcdefghijklmnopqrstuvwxyz"));
-    let (input, chars) = parser.parse(input)?;
+    let (input, chars) = many1(one_of("abcdefghijklmnopqrstuvwxyz")).parse(input)?;
     Ok((input, FormPart::Anagram(chars.into_iter().collect())))
 }
 
+/// Try parsing any valid token from the input.
 fn equation_part(input: &str) -> IResult<&str, FormPart> {
-    let mut parser = alt((
+    alt((
         revref,
         varref,
         anagram,
@@ -344,9 +373,9 @@ fn equation_part(input: &str) -> IResult<&str, FormPart> {
         star,
         vowel,
         consonant,
-    ));
-    parser.parse(input)
+    )).parse(input)
 }
+
 
 #[cfg(test)]
 mod tests {

@@ -11,12 +11,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="turn off &quot;unused&quot; warnings">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/constraints.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/constraints.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/patterns.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/patterns.rs" afterDir="false" />
-    </list>
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="replace the word &quot;pattern&quot; where it shouldn't be" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -350,7 +345,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754772155208</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="replace the word &quot;pattern&quot; where it shouldn't be">
+      <option name="closed" value="true" />
+      <created>1754776592755</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1754776592755</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -372,6 +375,7 @@
     <MESSAGE value="small changes" />
     <MESSAGE value="remove unneeded imports" />
     <MESSAGE value="turn off &quot;unused&quot; warnings" />
-    <option name="LAST_COMMIT_MESSAGE" value="turn off &quot;unused&quot; warnings" />
+    <MESSAGE value="replace the word &quot;pattern&quot; where it shouldn't be" />
+    <option name="LAST_COMMIT_MESSAGE" value="replace the word &quot;pattern&quot; where it shouldn't be" />
   </component>
 </project>
