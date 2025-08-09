@@ -15,6 +15,16 @@ impl Bindings {
         Self { map: HashMap::new() }
     }
 
+    /// Bind a variable to a value
+    pub fn set(&mut self, var: char, val: String) {
+        self.map.insert(var, val);
+    }
+
+    /// Retrieve the binding for a variable
+    pub fn get(&self, var: &char) -> Option<&String> {
+        self.map.get(var)
+    }
+
     /// Assign the word binding to '*'
     pub fn set_word(&mut self, word: &str) {
         self.map.insert(WORD_SENTINEL, word.to_string());

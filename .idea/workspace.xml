@@ -11,11 +11,8 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Add a pre-regex filter in match_pattern_internal">
-      <change afterPath="$PROJECT_DIR$/src/bindings.rs" afterDir="false" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="add bindings.rs">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/constraints.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/constraints.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -277,7 +274,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754623115712</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="add bindings.rs">
+      <option name="closed" value="true" />
+      <created>1754752014668</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1754752014668</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -290,6 +295,7 @@
     <MESSAGE value="Add patterns.rs" />
     <MESSAGE value="Small fix to regex" />
     <MESSAGE value="Add a pre-regex filter in match_pattern_internal" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add a pre-regex filter in match_pattern_internal" />
+    <MESSAGE value="add bindings.rs" />
+    <option name="LAST_COMMIT_MESSAGE" value="add bindings.rs" />
   </component>
 </project>
