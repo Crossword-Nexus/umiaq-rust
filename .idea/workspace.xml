@@ -11,8 +11,12 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="add bindings.rs">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="empty out solver.rs">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/bindings.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/bindings.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/constraints.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/constraints.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -61,34 +65,35 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Cargo.Run.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test parser::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test parser::tests::test_match_pattern_all_examples.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test parser::tests::test_match_pattern_exists_with_constraints.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test patterns::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test patterns::tests::test_parse_length_range.executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Run.executor": "Run",
+    "Cargo.Test parser::tests.executor": "Run",
+    "Cargo.Test parser::tests::test_match_pattern_all_examples.executor": "Run",
+    "Cargo.Test parser::tests::test_match_pattern_exists_with_constraints.executor": "Run",
+    "Cargo.Test parser::tests::test_valid_binding_not_equal_pass.executor": "Run",
+    "Cargo.Test patterns::tests.executor": "Run",
+    "Cargo.Test patterns::tests::test_parse_length_range.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "org.jetbrains.plugins.github.ui.GithubSettingsConfigurable",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
-  <component name="RunManager" selected="Cargo.Test patterns::tests">
+}]]></component>
+  <component name="RunManager" selected="Cargo.Test parser::tests">
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package umiaq-rust --bin umiaq-rust" />
@@ -142,8 +147,8 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test parser::tests::test_match_pattern_exists_with_constraints" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package umiaq-rust --bin umiaq-rust parser::tests::test_match_pattern_exists_with_constraints -- --exact" />
+    <configuration name="Test parser::tests::test_valid_binding_not_equal_pass" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package umiaq-rust --bin umiaq-rust parser::tests::test_valid_binding_not_equal_pass -- --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <envs />
       <option name="emulateTerminal" value="true" />
@@ -196,11 +201,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Cargo.Test parser::tests" />
+        <item itemvalue="Cargo.Test parser::tests::test_valid_binding_not_equal_pass" />
         <item itemvalue="Cargo.Test patterns::tests" />
         <item itemvalue="Cargo.Test patterns::tests::test_parse_length_range" />
         <item itemvalue="Cargo.Test parser::tests::test_match_pattern_exists" />
-        <item itemvalue="Cargo.Test parser::tests" />
-        <item itemvalue="Cargo.Test parser::tests::test_match_pattern_exists_with_constraints" />
       </list>
     </recent_temporary>
   </component>
@@ -282,7 +287,23 @@
       <option name="project" value="LOCAL" />
       <updated>1754752014668</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Add &quot;get&quot; and &quot;set&quot; for Bindings">
+      <option name="closed" value="true" />
+      <created>1754760973386</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1754760973386</updated>
+    </task>
+    <task id="LOCAL-00010" summary="empty out solver.rs">
+      <option name="closed" value="true" />
+      <created>1754761474745</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1754761474745</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -296,6 +317,8 @@
     <MESSAGE value="Small fix to regex" />
     <MESSAGE value="Add a pre-regex filter in match_pattern_internal" />
     <MESSAGE value="add bindings.rs" />
-    <option name="LAST_COMMIT_MESSAGE" value="add bindings.rs" />
+    <MESSAGE value="Add &quot;get&quot; and &quot;set&quot; for Bindings" />
+    <MESSAGE value="empty out solver.rs" />
+    <option name="LAST_COMMIT_MESSAGE" value="empty out solver.rs" />
   </component>
 </project>

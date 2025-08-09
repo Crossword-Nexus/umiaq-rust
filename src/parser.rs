@@ -11,8 +11,9 @@ use nom::{
 };
 
 use regex::Regex;
-use std::collections::HashMap;
 use std::fmt::Write as _;
+use crate::bindings::Bindings;
+use crate::constraints::{VarConstraint, VarConstraints};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PatternPart {
@@ -27,14 +28,14 @@ pub enum PatternPart {
     Anagram(String),     // /abc indicates an anagram of given letters
 }
 
-// Reinserted full implementations
-
+/// Check if a binding is valid, given a value
 pub fn is_valid_binding(
     val: &str,
-    constraints: &HashMap<String, String>,
-    bindings: &HashMap<String, String>,
+    constraints: &VarConstraint,
+    bindings: &Bindings,
 ) -> bool {
-    if let Some(pattern_str) = constraints.get("pattern") {
+    // 1) nested pattern constraint
+    if let Some(pattern_str) = &constraints.pattern {
         match parse_pattern(pattern_str) {
             Ok(p) => {
                 if !match_pattern_exists(val, &p, None) {
@@ -45,12 +46,11 @@ pub fn is_valid_binding(
         }
     }
 
-    if let Some(not_eq) = constraints.get("not_equal") {
-        for other in not_eq.chars() {
-            if let Some(existing) = bindings.get(&other.to_string()) {
-                if existing == val {
-                    return false;
-                }
+    // 2) not_equal is a HashSet<char>
+    for &other in &constraints.not_equal {
+        if let Some(existing) = bindings.get(&other) {
+            if existing == val {
+                return false;
             }
         }
     }
@@ -62,8 +62,8 @@ pub fn is_valid_binding(
 pub fn match_pattern(
     word: &str,
     parts: &[PatternPart],
-    constraints: Option<&HashMap<String, HashMap<String, String>>>,
-) -> Option<HashMap<String, String>> {
+    constraints: Option<&VarConstraints>,
+) -> Option<Bindings> {
     let mut results = Vec::new();
     match_pattern_internal(word, parts, false, &mut results, constraints);
     results.into_iter().next()
@@ -73,18 +73,20 @@ pub fn match_pattern(
 pub fn match_pattern_exists(
     word: &str,
     parts: &[PatternPart],
-    constraints: Option<&HashMap<String, HashMap<String, String>>>,
+    constraints: Option<&VarConstraints>,
 ) -> bool {
-    match_pattern(word, parts, constraints).is_some()
+    let mut results: Vec<Bindings> = Vec::new();
+    match_pattern_internal(word, parts, false, &mut results, constraints);
+    results.into_iter().next().is_some()
 }
 
 /// Returns all successful bindings
 pub fn match_pattern_all(
     word: &str,
     parts: &[PatternPart],
-    constraints: Option<&HashMap<String, HashMap<String, String>>>,
-) -> Vec<HashMap<String, String>> {
-    let mut results = Vec::new();
+    constraints: Option<&VarConstraints>,
+) -> Vec<Bindings> {
+    let mut results: Vec<Bindings> = Vec::new();
     match_pattern_internal(word, parts, true, &mut results, constraints);
     results
 }
@@ -93,8 +95,8 @@ fn match_pattern_internal(
     word: &str,
     parts: &[PatternPart],
     all_matches: bool,
-    results: &mut Vec<HashMap<String, String>>,
-    constraints: Option<&HashMap<String, HashMap<String, String>>>,
+    results: &mut Vec<Bindings>,
+    constraints: Option<&VarConstraints>,
 ) {
     fn get_reversed_or_not(first: &PatternPart, val: &str) -> String {
         if matches!(first, PatternPart::RevVar(_)) {
@@ -107,16 +109,16 @@ fn match_pattern_internal(
     fn helper(
         chars: &[char],
         parts: &[PatternPart],
-        bindings: &mut HashMap<String, String>,
-        results: &mut Vec<HashMap<String, String>>,
+        bindings: &mut Bindings,
+        results: &mut Vec<Bindings>,
         all_matches: bool,
         word: &str,
-        constraints: Option<&HashMap<String, HashMap<String, String>>>,
+        constraints: Option<&VarConstraints>,
     ) -> bool {
         if parts.is_empty() {
             if chars.is_empty() {
                 let mut full_result = bindings.clone();
-                full_result.insert("word".to_string(), word.to_string());
+                full_result.set_word(word);
                 results.push(full_result);
                 return !all_matches;
             }
@@ -175,8 +177,7 @@ fn match_pattern_internal(
                 }
             }
             PatternPart::Var(name) | PatternPart::RevVar(name) => {
-                let name_str = name.to_string();
-                if let Some(bound_val) = bindings.get(&name_str) {
+                if let Some(bound_val) = bindings.get(&name) {
                     let val = get_reversed_or_not(first, bound_val);
                     if chars.starts_with(&val.chars().collect::<Vec<_>>()) {
                         return helper(&chars[val.len()..], rest, bindings, results, all_matches, word, constraints);
@@ -188,7 +189,7 @@ fn match_pattern_internal(
 
                         // Apply constraints here if present
                         let valid = if let Some(all_c) = constraints {
-                            if let Some(c) = all_c.get(&name_str) {
+                            if let Some(c) = all_c.get(*name) {
                                 is_valid_binding(&bound_val, c, bindings)
                             } else {
                                 true
@@ -201,11 +202,11 @@ fn match_pattern_internal(
                             continue;
                         }
 
-                        bindings.insert(name_str.clone(), bound_val);
+                        bindings.set(*name, bound_val);
                         if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints) && !all_matches {
                             return true;
                         }
-                        bindings.remove(&name_str);
+                        bindings.remove(*name);
                     }
                 }
             }
@@ -225,7 +226,7 @@ fn match_pattern_internal(
     let word = word.to_uppercase();
     let chars: Vec<char> = word.chars().collect();
 
-    let mut bindings = HashMap::new();
+    let mut bindings = Bindings::new();
     helper(&chars, parts, &mut bindings, results, all_matches, &word, constraints);
 }
 
@@ -359,75 +360,105 @@ mod tests {
     }
 
     #[test]
+    fn test_valid_binding_not_equal_pass() {
+        // A must be != B; current B is bound to "TEST"
+        let mut vc = VarConstraint::default();
+        vc.not_equal.insert('B');
+
+        let mut b = Bindings::new();
+        b.set('B', "TEST".to_string());
+
+        // "OTHER" != "TEST" so this should pass
+        assert!(is_valid_binding("OTHER", &vc, &b));
+    }
+
+    #[test]
     fn test_valid_binding_simple_pass() {
-        let constraints = HashMap::from([("pattern".to_string(), "abc*".to_string())]);
-        let bindings = HashMap::new();
-        assert!(is_valid_binding("ABCAT", &constraints, &bindings));
+        let mut vc = VarConstraint::default();
+        vc.pattern = Option::from("abc*".to_string());
+
+        let b = Bindings::new();
+        assert!(is_valid_binding("ABCAT", &vc, &b));
     }
 
     #[test]
     fn test_valid_binding_pattern_fail() {
-        let constraints = HashMap::from([("pattern".to_string(), "abc*".to_string())]);
-        let bindings = HashMap::new();
-        assert!(!is_valid_binding("XYZ", &constraints, &bindings));
+        let mut vc = VarConstraint::default();
+        vc.pattern = Option::from("abc*".to_string());
+
+        let b = Bindings::new();
+        assert!(!is_valid_binding("XYZ", &vc, &b));
     }
 
     #[test]
     fn test_valid_binding_not_equal_fail() {
-        let constraints = HashMap::from([("not_equal".to_string(), "B".to_string())]);
-        let bindings = HashMap::from([("B".to_string(), "TEST".to_string())]);
-        assert!(!is_valid_binding("TEST", &constraints, &bindings));
-    }
+        let mut vc = VarConstraint::default();
+        vc.not_equal.insert('B');
 
-    #[test]
-    fn test_valid_binding_not_equal_pass() {
-        let constraints = HashMap::from([("not_equal".to_string(), "B".to_string())]);
-        let bindings = HashMap::from([("B".to_string(), "TEST".to_string())]);
-        assert!(is_valid_binding("OTHER", &constraints, &bindings));
+        let mut b = Bindings::new();
+        b.set('B', "TEST".to_string());
+        assert!(!is_valid_binding("TEST", &vc, &b));
     }
 
     #[test]
     fn test_match_pattern_with_constraints() {
         let patt = parse_pattern("AB").unwrap();
-        let constraints = HashMap::from([
-            ("A".to_string(), HashMap::from([
-                ("not_equal".to_string(), "B".to_string())
-            ])),
-            ("B".to_string(), HashMap::new())
-        ]);
-        let result = match_pattern("INCH", &patt, Some(&constraints));
+        // create a constraints holder
+        let mut var_constraints = VarConstraints::default();
+        // add !=AB
+        // first, add it for A
+        let mut vc_a = VarConstraint::default();
+        vc_a.not_equal.insert('B');
+        var_constraints.insert('A', vc_a);
+        // now add it for B
+        let mut vc_b = VarConstraint::default();
+        vc_b.not_equal.insert('A');
+        var_constraints.insert('B', vc_b);
+        let result = match_pattern("INCH", &patt, Some(&var_constraints));
         assert!(result.is_some());
         let m = result.unwrap();
-        assert_ne!(m.get("A"), m.get("B"));
+        assert_ne!(m.get(&'A'), m.get(&'B'));
     }
 
     #[test]
     fn test_match_pattern_all_with_constraints() {
         let patt = parse_pattern("AA").unwrap();
-        let constraints = HashMap::from([
-            ("A".to_string(), HashMap::from([
-                ("min_length".to_string(), "2".to_string()),
-                ("max_length".to_string(), "3".to_string())
-            ]))
-        ]);
-        let matches = match_pattern_all("INCHIN", &patt, Some(&constraints));
+        // We add length constraints
+        let mut var_constraints = VarConstraints::default();
+        let mut vc = VarConstraint::default();
+        const MIN_LENGTH: Option<usize> = Some(2);
+        const MAX_LENGTH: Option<usize> = Some(2);
+        // min length 2, max_length 3
+        vc.min_length = MIN_LENGTH;
+        vc.max_length = MAX_LENGTH;
+        // associate this constraint with variable 'A'
+        var_constraints.insert('A', vc);
+
+        let matches = match_pattern_all("INCHIN", &patt, Some(&var_constraints));
         for m in matches.iter() {
-            let val = m.get("A").unwrap();
-            assert!(val.len() >= 2 && val.len() <= 3);
+            let val = m.get(&'A').unwrap();
+            assert!(val.len() >= MIN_LENGTH.unwrap() && val.len() <= MAX_LENGTH.unwrap());
         }
     }
 
     #[test]
     fn test_match_pattern_exists_with_constraints() {
         let patt = parse_pattern("AB").unwrap();
-        let constraints = HashMap::from([
-            ("A".to_string(), HashMap::from([("pattern".to_string(), "*i.*".to_string())]))
-        ]);
-        assert!(match_pattern_exists("INCH", &patt, Some(&constraints)));
-        let constraints2 = HashMap::from([
-            ("A".to_string(), HashMap::from([("pattern".to_string(), "*z*".to_string())]))
-        ]);
-        assert!(!match_pattern_exists("INCH", &patt, Some(&constraints2)));
+        // First constraint: A=(*i.*)
+        let mut var_constraints1 = VarConstraints::default();
+        let mut vc = VarConstraint::default();
+        vc.pattern = Option::from("*i.*".to_string());
+        var_constraints1.insert('A', vc.clone());
+
+        assert!(match_pattern_exists("INCH", &patt, Some(&var_constraints1)));
+
+        // Second constraint: A=(*z*)
+        let mut var_constraints2 = VarConstraints::default();
+        let mut vc2 = VarConstraint::default();
+        vc2.pattern = Option::from("*z*".to_string());
+        var_constraints2.insert('A', vc2.clone());
+
+        assert!(!match_pattern_exists("INCH", &patt, Some(&var_constraints2)));
     }
 }
 

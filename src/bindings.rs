@@ -25,6 +25,11 @@ impl Bindings {
         self.map.get(var)
     }
 
+    /// Remove a binding for the given variable (if it exists)
+    pub fn remove(&mut self, var: char) {
+        self.map.remove(&var);
+    }
+
     /// Assign the word binding to '*'
     pub fn set_word(&mut self, word: &str) {
         self.map.insert(WORD_SENTINEL, word.to_string());

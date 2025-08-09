@@ -1,17 +1,41 @@
 // constraints.rs
 use std::collections::{HashMap, HashSet};
 
-pub type VarName = char;
-
 /// Map from variable name (e.g., 'A') to its constraint bundle.
-pub type VarConstraints = HashMap<VarName, VarConstraint>;
+#[derive(Debug, Clone, Default)]
+pub struct VarConstraints {
+    inner: HashMap<char, VarConstraint>,
+}
+
+impl VarConstraints {
+    pub fn new() -> Self {
+        Self { inner: HashMap::new() }
+    }
+
+    pub fn insert(&mut self, var: char, constraint: VarConstraint) {
+        self.inner.insert(var, constraint);
+    }
+
+    pub fn ensure(&mut self, var: char) -> &mut VarConstraint {
+        self.inner.entry(var).or_default()
+    }
+
+    pub fn get(&self, var: char) -> Option<&VarConstraint> {
+        self.inner.get(&var)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&char, &VarConstraint)> {
+        self.inner.iter()
+    }
+}
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VarConstraint {
     pub min_length: Option<usize>,
     pub max_length: Option<usize>,
     pub pattern:    Option<String>,     // e.g. "a*" or "*z*"
-    pub not_equal:  HashSet<VarName>,   // e.g. for "!=AB", A -> {'B'}, B -> {'A'}
+    pub not_equal:  HashSet<char>,   // e.g. for "!=AB", A -> {'B'}, B -> {'A'}
 }
 
 impl VarConstraint {
@@ -22,9 +46,4 @@ impl VarConstraint {
         let max = self.max_length.unwrap_or(default_max);
         (min, max)
     }
-}
-
-/// Convenience to get or create the `VarConstraint` for a var.
-pub fn ensure_var(vc: &mut VarConstraints, var: VarName) -> &mut VarConstraint {
-    vc.entry(var).or_default()
 }
