@@ -6,23 +6,12 @@ pub type VarName = char;
 /// Map from variable name (e.g., 'A') to its constraint bundle.
 pub type VarConstraints = HashMap<VarName, VarConstraint>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VarConstraint {
     pub min_length: Option<usize>,
     pub max_length: Option<usize>,
     pub pattern:    Option<String>,     // e.g. "a*" or ".*Z.*"
     pub not_equal:  HashSet<VarName>,   // e.g. for "!=AB", A -> {'B'}, B -> {'A'}
-}
-
-impl Default for VarConstraint {
-    fn default() -> Self {
-        Self {
-            min_length: None,
-            max_length: None,
-            pattern:    None,
-            not_equal:  HashSet::new(),
-        }
-    }
 }
 
 impl VarConstraint {
@@ -35,7 +24,7 @@ impl VarConstraint {
     }
 }
 
-/// Convenience to get or create the VarConstraint for a var.
-pub fn ensure_var<'a>(vc: &'a mut VarConstraints, var: VarName) -> &'a mut VarConstraint {
+/// Convenience to get or create the `VarConstraint` for a var.
+pub fn ensure_var(vc: &mut VarConstraints, var: VarName) -> &mut VarConstraint {
     vc.entry(var).or_default()
 }
