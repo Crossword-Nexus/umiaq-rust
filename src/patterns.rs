@@ -35,6 +35,7 @@ impl Pattern {
         }
     }
 
+    // TODO? just do this once (lazily) rather than recomputing it each time?
     /// Extracts all uppercase ASCII letters from the pattern string.
     /// These are treated as variable names (e.g., A, B, C).
     pub fn variables(&self) -> HashSet<char> {
@@ -68,7 +69,7 @@ impl Patterns {
     /// Recognizes:
     /// - exact length (e.g., `|A|=5`)
     /// - inequality constraints (e.g., `!=AB`)
-    /// - complex constraints (length + pattern) (e.g., `A=(3-5:a*)`)
+    /// - complex constraints (e.g., length + pattern) (e.g., `A=(3-5:a*)`)
     /// Non-constraint entries are added to `self.list` as actual patterns.
     fn make_list(&mut self, input: &str) {
         let parts: Vec<&str> = input.split(';').collect();
@@ -81,7 +82,7 @@ impl Patterns {
                 let entry = self
                     .var_constraints
                     .entry(var)
-                    .or_insert_with(VarConstraint::default);
+                    .or_default();
                 entry.min_length = Some(len);
                 entry.max_length = Some(len);
             } else if let Some(cap) = NEQ_RE.captures(part) {
@@ -91,7 +92,7 @@ impl Patterns {
                     let entry = self
                         .var_constraints
                         .entry(v)
-                        .or_insert_with(VarConstraint::default);
+                        .or_default();
                     entry.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
             } else if let Some(cap) = COMPLEX_RE.captures(part) {
@@ -102,7 +103,7 @@ impl Patterns {
                 let entry = self
                     .var_constraints
                     .entry(var)
-                    .or_insert_with(VarConstraint::default);
+                    .or_default();
 
                 if let Some((min, max)) = parse_length_range(len) {
                     entry.min_length = min;
