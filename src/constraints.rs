@@ -34,7 +34,7 @@ impl VarConstraints {
 pub struct VarConstraint {
     pub min_length: Option<usize>,
     pub max_length: Option<usize>,
-    pub pattern:    Option<String>,     // e.g. "a*" or "*z*"
+    pub form:    Option<String>,     // e.g. "a*" or "*z*"
     pub not_equal:  HashSet<char>,   // e.g. for "!=AB", A -> {'B'}, B -> {'A'}
 }
 

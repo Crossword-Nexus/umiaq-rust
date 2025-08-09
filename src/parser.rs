@@ -15,8 +15,9 @@ use std::fmt::Write as _;
 use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 
+/// A "form" is something like l@#A* or ABc/abc
 #[derive(Debug, Clone, PartialEq)]
-pub enum PatternPart {
+pub enum FormPart {
     Var(char),           // A-Z variable reference
     RevVar(char),        // ~A reversed variable reference
     Lit(String),         // literal lowercase string
@@ -34,11 +35,11 @@ pub fn is_valid_binding(
     constraints: &VarConstraint,
     bindings: &Bindings,
 ) -> bool {
-    // 1) nested pattern constraint
-    if let Some(pattern_str) = &constraints.pattern {
-        match parse_pattern(pattern_str) {
+    // 1) nested form constraint
+    if let Some(form_str) = &constraints.form {
+        match parse_equation(form_str) {
             Ok(p) => {
-                if !match_pattern_exists(val, &p, None) {
+                if !match_equation_exists(val, &p, None) {
                     return false;
                 }
             }
@@ -59,47 +60,47 @@ pub fn is_valid_binding(
 }
 
 /// Returns the first successful binding (if any)
-pub fn match_pattern(
+pub fn match_equation(
     word: &str,
-    parts: &[PatternPart],
+    parts: &[FormPart],
     constraints: Option<&VarConstraints>,
 ) -> Option<Bindings> {
     let mut results = Vec::new();
-    match_pattern_internal(word, parts, false, &mut results, constraints);
+    match_equation_internal(word, parts, false, &mut results, constraints);
     results.into_iter().next()
 }
 
 /// Returns a boolean
-pub fn match_pattern_exists(
+pub fn match_equation_exists(
     word: &str,
-    parts: &[PatternPart],
+    parts: &[FormPart],
     constraints: Option<&VarConstraints>,
 ) -> bool {
     let mut results: Vec<Bindings> = Vec::new();
-    match_pattern_internal(word, parts, false, &mut results, constraints);
+    match_equation_internal(word, parts, false, &mut results, constraints);
     results.into_iter().next().is_some()
 }
 
 /// Returns all successful bindings
-pub fn match_pattern_all(
+pub fn match_equation_all(
     word: &str,
-    parts: &[PatternPart],
+    parts: &[FormPart],
     constraints: Option<&VarConstraints>,
 ) -> Vec<Bindings> {
     let mut results: Vec<Bindings> = Vec::new();
-    match_pattern_internal(word, parts, true, &mut results, constraints);
+    match_equation_internal(word, parts, true, &mut results, constraints);
     results
 }
 
-fn match_pattern_internal(
+fn match_equation_internal(
     word: &str,
-    parts: &[PatternPart],
+    parts: &[FormPart],
     all_matches: bool,
     results: &mut Vec<Bindings>,
     constraints: Option<&VarConstraints>,
 ) {
-    fn get_reversed_or_not(first: &PatternPart, val: &str) -> String {
-        if matches!(first, PatternPart::RevVar(_)) {
+    fn get_reversed_or_not(first: &FormPart, val: &str) -> String {
+        if matches!(first, FormPart::RevVar(_)) {
             val.chars().rev().collect::<String>()
         } else {
             val.to_owned()
@@ -108,7 +109,7 @@ fn match_pattern_internal(
 
     fn helper(
         chars: &[char],
-        parts: &[PatternPart],
+        parts: &[FormPart],
         bindings: &mut Bindings,
         results: &mut Vec<Bindings>,
         all_matches: bool,
@@ -128,18 +129,18 @@ fn match_pattern_internal(
         let (first, rest) = (&parts[0], &parts[1..]);
 
         match first {
-            PatternPart::Lit(s) => {
+            FormPart::Lit(s) => {
                 let s = s.to_uppercase();
                 if chars.starts_with(&s.chars().collect::<Vec<_>>()) {
                     return helper(&chars[s.len()..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
-            PatternPart::Dot => {
+            FormPart::Dot => {
                 if !chars.is_empty() {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
-            PatternPart::Star => {
+            FormPart::Star => {
                 for i in 0..=chars.len() {
                     if helper(&chars[i..], rest, bindings, results, all_matches, word, constraints)
                         && !all_matches
@@ -148,22 +149,22 @@ fn match_pattern_internal(
                     }
                 }
             }
-            PatternPart::Vowel => {
+            FormPart::Vowel => {
                 if matches!(chars.first(), Some(c) if "AEIOUY".contains(*c)) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
-            PatternPart::Consonant => {
+            FormPart::Consonant => {
                 if matches!(chars.first(), Some(c) if "BCDFGHJKLMNPQRSTVWXZ".contains(*c)) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
-            PatternPart::Charset(set) => {
+            FormPart::Charset(set) => {
                 if matches!(chars.first(), Some(c) if set.contains(&c.to_ascii_lowercase())) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
-            PatternPart::Anagram(s) => {
+            FormPart::Anagram(s) => {
                 let len = s.len();
                 if chars.len() >= len {
                     let window: String = chars[..len].iter().collect();
@@ -176,7 +177,7 @@ fn match_pattern_internal(
                     }
                 }
             }
-            PatternPart::Var(name) | PatternPart::RevVar(name) => {
+            FormPart::Var(name) | FormPart::RevVar(name) => {
                 if let Some(bound_val) = bindings.get(&name) {
                     let val = get_reversed_or_not(first, bound_val);
                     if chars.starts_with(&val.chars().collect::<Vec<_>>()) {
@@ -216,7 +217,7 @@ fn match_pattern_internal(
     }
 
     // Before we do anything else, do a regex filter
-    let regex_str = format!("^{}$", pattern_to_regex(parts));
+    let regex_str = format!("^{}$", form_to_regex(parts));
     if let Ok(regex) = Regex::new(&regex_str) {
         if !regex.is_match(word) {
             return;
@@ -231,28 +232,28 @@ fn match_pattern_internal(
 }
 
 
-pub fn pattern_to_regex(parts: &[PatternPart]) -> String {
+pub fn form_to_regex(parts: &[FormPart]) -> String {
     let mut regex = String::new();
     for part in parts {
         match part {
-            PatternPart::Var(_) | PatternPart::RevVar(_) => {
+            FormPart::Var(_) | FormPart::RevVar(_) => {
                 regex.push_str(".+");
             },
-            PatternPart::Lit(s) => {
+            FormPart::Lit(s) => {
                 regex.push_str(&regex::escape(&s.to_uppercase()));
             },
-            PatternPart::Dot => regex.push('.'),
-            PatternPart::Star => regex.push_str(".*"),
-            PatternPart::Vowel => regex.push_str("[AEIOUY]"),
-            PatternPart::Consonant => regex.push_str("[BCDFGHJKLMNPQRSTVWXZ]"),
-            PatternPart::Charset(chars) => {
+            FormPart::Dot => regex.push('.'),
+            FormPart::Star => regex.push_str(".*"),
+            FormPart::Vowel => regex.push_str("[AEIOUY]"),
+            FormPart::Consonant => regex.push_str("[BCDFGHJKLMNPQRSTVWXZ]"),
+            FormPart::Charset(chars) => {
                 regex.push('[');
                 for c in chars {
                     regex.push(c.to_ascii_uppercase());
                 }
                 regex.push(']');
             },
-            PatternPart::Anagram(s) => {
+            FormPart::Anagram(s) => {
                 let len = s.len();
                 let class = regex::escape(&s.to_uppercase());
                 // TODO? do something if there's an error?
@@ -263,12 +264,12 @@ pub fn pattern_to_regex(parts: &[PatternPart]) -> String {
     regex
 }
 
-pub fn parse_pattern(input: &str) -> Result<Vec<PatternPart>, String> {
+pub fn parse_equation(input: &str) -> Result<Vec<FormPart>, String> {
     let mut rest = input;
     let mut parts = Vec::new();
 
     while !rest.is_empty() {
-        match pattern_part(rest) {
+        match equation_part(rest) {
             Ok((next, part)) => {
                 parts.push(part);
                 rest = next;
@@ -280,59 +281,59 @@ pub fn parse_pattern(input: &str) -> Result<Vec<PatternPart>, String> {
     Ok(parts)
 }
 
-fn varref(input: &str) -> IResult<&str, PatternPart> {
-    let mut parser = map(one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), PatternPart::Var);
+fn varref(input: &str) -> IResult<&str, FormPart> {
+    let mut parser = map(one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), FormPart::Var);
     parser.parse(input)
 }
 
-fn revref(input: &str) -> IResult<&str, PatternPart> {
-    let mut parser = map(preceded(tag("~"), one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), PatternPart::RevVar);
+fn revref(input: &str) -> IResult<&str, FormPart> {
+    let mut parser = map(preceded(tag("~"), one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), FormPart::RevVar);
     parser.parse(input)
 }
 
-fn literal(input: &str) -> IResult<&str, PatternPart> {
+fn literal(input: &str) -> IResult<&str, FormPart> {
     let mut parser = map(many1(one_of("abcdefghijklmnopqrstuvwxyz")), |chars| {
-        PatternPart::Lit(chars.into_iter().collect())
+        FormPart::Lit(chars.into_iter().collect())
     });
     parser.parse(input)
 }
 
-fn dot(input: &str) -> IResult<&str, PatternPart> {
-    let mut parser = map(tag("."), |_| PatternPart::Dot);
+fn dot(input: &str) -> IResult<&str, FormPart> {
+    let mut parser = map(tag("."), |_| FormPart::Dot);
     parser.parse(input)
 }
 
-fn star(input: &str) -> IResult<&str, PatternPart> {
-    let mut parser = map(tag("*"), |_| PatternPart::Star);
+fn star(input: &str) -> IResult<&str, FormPart> {
+    let mut parser = map(tag("*"), |_| FormPart::Star);
     parser.parse(input)
 }
 
-fn vowel(input: &str) -> IResult<&str, PatternPart> {
-    let mut parser = map(tag("@"), |_| PatternPart::Vowel);
+fn vowel(input: &str) -> IResult<&str, FormPart> {
+    let mut parser = map(tag("@"), |_| FormPart::Vowel);
     parser.parse(input)
 }
 
-fn consonant(input: &str) -> IResult<&str, PatternPart> {
-    let mut parser = map(tag("#"), |_| PatternPart::Consonant);
+fn consonant(input: &str) -> IResult<&str, FormPart> {
+    let mut parser = map(tag("#"), |_| FormPart::Consonant);
     parser.parse(input)
 }
 
-fn charset(input: &str) -> IResult<&str, PatternPart> {
+fn charset(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("[")(input)?;
     let mut parser = many1(one_of("abcdefghijklmnopqrstuvwxyz"));
     let (input, chars) = parser.parse(input)?;
     let (input, _) = tag("]")(input)?;
-    Ok((input, PatternPart::Charset(chars)))
+    Ok((input, FormPart::Charset(chars)))
 }
 
-fn anagram(input: &str) -> IResult<&str, PatternPart> {
+fn anagram(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("/")(input)?;
     let mut parser = many1(one_of("abcdefghijklmnopqrstuvwxyz"));
     let (input, chars) = parser.parse(input)?;
-    Ok((input, PatternPart::Anagram(chars.into_iter().collect())))
+    Ok((input, FormPart::Anagram(chars.into_iter().collect())))
 }
 
-fn pattern_part(input: &str) -> IResult<&str, PatternPart> {
+fn equation_part(input: &str) -> IResult<&str, FormPart> {
     let mut parser = alt((
         revref,
         varref,
@@ -352,11 +353,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_match_pattern_exists() {
-        let patt1 = parse_pattern("A~A[rstlne]/jon@#.*").unwrap();
-        assert!(match_pattern_exists("AARONJUDGE", &patt1, None));
-        assert!(!match_pattern_exists("NOON", &patt1, None));
-        assert!(!match_pattern_exists("TOON", &patt1, None));
+    fn test_match_equation_exists() {
+        let patt1 = parse_equation("A~A[rstlne]/jon@#.*").unwrap();
+        assert!(match_equation_exists("AARONJUDGE", &patt1, None));
+        assert!(!match_equation_exists("NOON", &patt1, None));
+        assert!(!match_equation_exists("TOON", &patt1, None));
     }
 
     #[test]
@@ -375,16 +376,16 @@ mod tests {
     #[test]
     fn test_valid_binding_simple_pass() {
         let mut vc = VarConstraint::default();
-        vc.pattern = Option::from("abc*".to_string());
+        vc.form = Option::from("abc*".to_string());
 
         let b = Bindings::new();
         assert!(is_valid_binding("ABCAT", &vc, &b));
     }
 
     #[test]
-    fn test_valid_binding_pattern_fail() {
+    fn test_valid_binding_fail() {
         let mut vc = VarConstraint::default();
-        vc.pattern = Option::from("abc*".to_string());
+        vc.form = Option::from("abc*".to_string());
 
         let b = Bindings::new();
         assert!(!is_valid_binding("XYZ", &vc, &b));
@@ -401,8 +402,8 @@ mod tests {
     }
 
     #[test]
-    fn test_match_pattern_with_constraints() {
-        let patt = parse_pattern("AB").unwrap();
+    fn test_match_equation_with_constraints() {
+        let patt = parse_equation("AB").unwrap();
         // create a constraints holder
         let mut var_constraints = VarConstraints::default();
         // add !=AB
@@ -414,15 +415,15 @@ mod tests {
         let mut vc_b = VarConstraint::default();
         vc_b.not_equal.insert('A');
         var_constraints.insert('B', vc_b);
-        let result = match_pattern("INCH", &patt, Some(&var_constraints));
+        let result = match_equation("INCH", &patt, Some(&var_constraints));
         assert!(result.is_some());
         let m = result.unwrap();
         assert_ne!(m.get(&'A'), m.get(&'B'));
     }
 
     #[test]
-    fn test_match_pattern_all_with_constraints() {
-        let patt = parse_pattern("AA").unwrap();
+    fn test_match_equation_all_with_constraints() {
+        let patt = parse_equation("AA").unwrap();
         // We add length constraints
         let mut var_constraints = VarConstraints::default();
         let mut vc = VarConstraint::default();
@@ -434,7 +435,7 @@ mod tests {
         // associate this constraint with variable 'A'
         var_constraints.insert('A', vc);
 
-        let matches = match_pattern_all("INCHIN", &patt, Some(&var_constraints));
+        let matches = match_equation_all("INCHIN", &patt, Some(&var_constraints));
         for m in matches.iter() {
             let val = m.get(&'A').unwrap();
             assert!(val.len() >= MIN_LENGTH.unwrap() && val.len() <= MAX_LENGTH.unwrap());
@@ -442,23 +443,23 @@ mod tests {
     }
 
     #[test]
-    fn test_match_pattern_exists_with_constraints() {
-        let patt = parse_pattern("AB").unwrap();
+    fn test_match_equation_exists_with_constraints() {
+        let patt = parse_equation("AB").unwrap();
         // First constraint: A=(*i.*)
         let mut var_constraints1 = VarConstraints::default();
         let mut vc = VarConstraint::default();
-        vc.pattern = Option::from("*i.*".to_string());
+        vc.form = Option::from("*i.*".to_string());
         var_constraints1.insert('A', vc.clone());
 
-        assert!(match_pattern_exists("INCH", &patt, Some(&var_constraints1)));
+        assert!(match_equation_exists("INCH", &patt, Some(&var_constraints1)));
 
         // Second constraint: A=(*z*)
         let mut var_constraints2 = VarConstraints::default();
         let mut vc2 = VarConstraint::default();
-        vc2.pattern = Option::from("*z*".to_string());
+        vc2.form = Option::from("*z*".to_string());
         var_constraints2.insert('A', vc2.clone());
 
-        assert!(!match_pattern_exists("INCH", &patt, Some(&var_constraints2)));
+        assert!(!match_equation_exists("INCH", &patt, Some(&var_constraints2)));
     }
 }
 

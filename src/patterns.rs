@@ -110,7 +110,7 @@ impl Patterns {
                 }
 
                 if !patt.is_empty() && patt != "*" {
-                    entry.pattern = Some(patt);
+                    entry.form = Some(patt);
                 }
             } else {
                 self.list.push(Pattern::new(*part));
@@ -209,7 +209,7 @@ mod tests {
         let b = patterns.var_constraints.get(&'B').unwrap();
         assert_eq!(b.min_length, Some(2));
         assert_eq!(b.max_length, Some(2));
-        assert_eq!(b.pattern.as_deref(), Some("b*"));
+        assert_eq!(b.form.as_deref(), Some("b*"));
         let set_2: HashSet<char> = ['A'].into_iter().collect();
         assert_eq!(b.not_equal, set_2);
     }
