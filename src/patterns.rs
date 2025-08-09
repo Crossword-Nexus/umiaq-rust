@@ -1,15 +1,16 @@
-use std::collections::{HashMap, HashSet};
 use regex::Regex;
-use once_cell::sync::Lazy;
+use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 
 /// Matches exact length constraints like `|A|=5`
-static LEN_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
+static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
 
 /// Matches inequality constraints like `!=AB`
-static NEQ_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
+static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
 /// Matches complex constraints like `A=(3-5:a*)` with optional length and pattern
-static COMPLEX_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^([A-Z])=\(?([\d\-]*):?([^)]*)\)?$").unwrap());
+static COMPLEX_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^([A-Z])=\(?([\d\-]*):?([^)]*)\)?$").unwrap());
 
 #[derive(Debug, Clone)]
 /// Represents constraints for a single variable (e.g., A, B, C)
@@ -64,7 +65,10 @@ impl Pattern {
     /// Extracts all uppercase ASCII letters from the pattern string.
     /// These are treated as variable names (e.g., A, B, C).
     pub fn variables(&self) -> HashSet<char> {
-        self.string.chars().filter(|c| c.is_ascii_uppercase()).collect()
+        self.string
+            .chars()
+            .filter(char::is_ascii_uppercase)
+            .collect()
     }
 }
 
@@ -105,14 +109,20 @@ impl Patterns {
                 // Extract the variable (e.g., A) and its required length
                 let var = cap[1].chars().next().unwrap();
                 let len = cap[2].parse::<usize>().unwrap();
-                let entry = self.var_constraints.entry(var).or_insert_with(VarConstraint::new);
+                let entry = self
+                    .var_constraints
+                    .entry(var)
+                    .or_insert_with(VarConstraint::new);
                 entry.min_length = Some(len);
                 entry.max_length = Some(len);
             } else if let Some(cap) = NEQ_RE.captures(part) {
                 // Extract all variables from inequality constraint (e.g., !=AB means A != B)
                 let vars: Vec<char> = cap[1].chars().collect();
                 for &v in &vars {
-                    let entry = self.var_constraints.entry(v).or_insert_with(VarConstraint::new);
+                    let entry = self
+                        .var_constraints
+                        .entry(v)
+                        .or_insert_with(VarConstraint::new);
                     entry.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
             } else if let Some(cap) = COMPLEX_RE.captures(part) {
@@ -120,7 +130,10 @@ impl Patterns {
                 let var = cap[1].chars().next().unwrap();
                 let len = &cap[2];
                 let patt = cap[3].to_string();
-                let entry = self.var_constraints.entry(var).or_insert_with(VarConstraint::new);
+                let entry = self
+                    .var_constraints
+                    .entry(var)
+                    .or_insert_with(VarConstraint::new);
 
                 if let Some((min, max)) = parse_length_range(len) {
                     entry.min_length = min;
@@ -158,7 +171,7 @@ impl Patterns {
 
         while !patt_list.is_empty() {
             // Collect all variables used in the ordered patterns so far
-            let found_vars: HashSet<char> = ordered.iter().flat_map(|p| p.variables()).collect();
+            let found_vars: HashSet<char> = ordered.iter().flat_map(Pattern::variables).collect();
 
             // Find the pattern that shares the most variables with `found_vars`
             let (ix, mut next) = patt_list
@@ -172,7 +185,11 @@ impl Patterns {
                 .map(|(i, _)| (i, patt_list[i].clone()))
                 .unwrap();
 
-            let lookup_keys = next.variables().intersection(&found_vars).copied().collect();
+            let lookup_keys = next
+                .variables()
+                .intersection(&found_vars)
+                .copied()
+                .collect();
             next.lookup_keys = Some(lookup_keys);
             patt_list.remove(ix);
             ordered.push(next);
@@ -189,8 +206,11 @@ fn parse_length_range(input: &str) -> Option<(Option<usize>, Option<usize>)> {
         return None;
     }
     let parts: Vec<&str> = input.split('-').collect();
-    let min = parts.get(0).and_then(|s| s.parse::<usize>().ok());
-    let max = parts.get(1).or_else(|| parts.get(0)).and_then(|s| s.parse::<usize>().ok());
+    let min = parts.first().and_then(|s| s.parse::<usize>().ok());
+    let max = parts
+        .get(1)
+        .or_else(|| parts.first())
+        .and_then(|s| s.parse::<usize>().ok());
     Some((min, max))
 }
 
