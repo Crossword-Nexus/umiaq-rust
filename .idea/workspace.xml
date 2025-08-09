@@ -11,12 +11,8 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="empty out solver.rs">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/bindings.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/bindings.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/constraints.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/constraints.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Update parser.rs to use constraints and bindings">
+      <change beforePath="$PROJECT_DIR$/src/patterns.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/patterns.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -303,7 +299,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754761474745</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="Update parser.rs to use constraints and bindings">
+      <option name="closed" value="true" />
+      <created>1754764373061</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1754764373061</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -319,6 +323,7 @@
     <MESSAGE value="add bindings.rs" />
     <MESSAGE value="Add &quot;get&quot; and &quot;set&quot; for Bindings" />
     <MESSAGE value="empty out solver.rs" />
-    <option name="LAST_COMMIT_MESSAGE" value="empty out solver.rs" />
+    <MESSAGE value="Update parser.rs to use constraints and bindings" />
+    <option name="LAST_COMMIT_MESSAGE" value="Update parser.rs to use constraints and bindings" />
   </component>
 </project>

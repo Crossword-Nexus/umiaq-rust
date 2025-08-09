@@ -1,6 +1,7 @@
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
+use crate::constraints::{VarConstraint, VarConstraints};
 
 /// Matches exact length constraints like `|A|=5`
 static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
@@ -11,34 +12,6 @@ static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").un
 /// Matches complex constraints like `A=(3-5:a*)` with optional length and pattern
 static COMPLEX_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^([A-Z])=\(?([\d\-]*):?([^)]*)\)?$").unwrap());
-
-#[derive(Debug, Clone)]
-/// Represents constraints for a single variable (e.g., A, B, C)
-pub struct VarConstraint {
-    /// Minimum allowed length for the variable's value
-    pub min_length: Option<usize>,
-    /// Maximum allowed length for the variable's value
-    pub max_length: Option<usize>,
-    /// Optional sub-pattern the variable's value must match
-    pub pattern: Option<String>,
-    /// List of variable names this one must not be equal to
-    pub not_equal: Vec<char>,
-}
-
-impl VarConstraint {
-    /// Constructs a new `VarConstraint` with all fields set to their default empty state.
-    ///
-    /// This avoids the need for the `Default` trait to be implemented manually,
-    /// and makes initialization explicit when inserting new constraint entries.
-    pub fn new() -> Self {
-        Self {
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            not_equal: Vec::new(),
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 /// Represents a single pattern (e.g., "AB", "A=(3:a*)") extracted from input
@@ -108,7 +81,7 @@ impl Patterns {
                 let entry = self
                     .var_constraints
                     .entry(var)
-                    .or_insert_with(VarConstraint::new);
+                    .or_insert_with(VarConstraint::default);
                 entry.min_length = Some(len);
                 entry.max_length = Some(len);
             } else if let Some(cap) = NEQ_RE.captures(part) {
@@ -118,7 +91,7 @@ impl Patterns {
                     let entry = self
                         .var_constraints
                         .entry(v)
-                        .or_insert_with(VarConstraint::new);
+                        .or_insert_with(VarConstraint::default);
                     entry.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
             } else if let Some(cap) = COMPLEX_RE.captures(part) {
@@ -129,7 +102,7 @@ impl Patterns {
                 let entry = self
                     .var_constraints
                     .entry(var)
-                    .or_insert_with(VarConstraint::new);
+                    .or_insert_with(VarConstraint::default);
 
                 if let Some((min, max)) = parse_length_range(len) {
                     entry.min_length = min;
@@ -228,13 +201,15 @@ mod tests {
         let a = patterns.var_constraints.get(&'A').unwrap();
         assert_eq!(a.min_length, Some(3));
         assert_eq!(a.max_length, Some(3));
-        assert_eq!(a.not_equal, vec!['B']);
+        let set_1: HashSet<char> = ['B'].into_iter().collect();
+        assert_eq!(a.not_equal, set_1);
 
         let b = patterns.var_constraints.get(&'B').unwrap();
         assert_eq!(b.min_length, Some(2));
         assert_eq!(b.max_length, Some(2));
         assert_eq!(b.pattern.as_deref(), Some("b*"));
-        assert_eq!(b.not_equal, vec!['A']);
+        let set_2: HashSet<char> = ['A'].into_iter().collect();
+        assert_eq!(b.not_equal, set_2);
     }
 
     #[test]
