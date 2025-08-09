@@ -11,9 +11,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Update parser.rs to use constraints and bindings">
-      <change beforePath="$PROJECT_DIR$/src/patterns.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/patterns.rs" afterDir="false" />
-    </list>
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Update patterns.rs to use constraints" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -307,7 +305,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754764373061</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="Update patterns.rs to use constraints">
+      <option name="closed" value="true" />
+      <created>1754767537243</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1754767537243</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -324,6 +330,7 @@
     <MESSAGE value="Add &quot;get&quot; and &quot;set&quot; for Bindings" />
     <MESSAGE value="empty out solver.rs" />
     <MESSAGE value="Update parser.rs to use constraints and bindings" />
-    <option name="LAST_COMMIT_MESSAGE" value="Update parser.rs to use constraints and bindings" />
+    <MESSAGE value="Update patterns.rs to use constraints" />
+    <option name="LAST_COMMIT_MESSAGE" value="Update patterns.rs to use constraints" />
   </component>
 </project>
