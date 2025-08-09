@@ -8,7 +8,7 @@ mod solver;
 
 /// Umiaq — pattern-matching word list solver
 #[derive(Parser, Debug)]
-#[command(author = "Alex Boisvert", version, about, long_about = None)]
+#[command(author = "Alex Boisvert and Jeremy Horwitz", version, about, long_about = None)]
 struct Args {
     /// Pattern input string, e.g., "AB;BA;|A|=2;|B|=2;!=AB"
     input: String,

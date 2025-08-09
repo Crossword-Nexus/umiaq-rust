@@ -244,7 +244,7 @@ pub fn pattern_to_regex(parts: &[PatternPart]) -> String {
             PatternPart::Dot => regex.push('.'),
             PatternPart::Star => regex.push_str(".*"),
             PatternPart::Vowel => regex.push_str("[AEIOUY]"),
-            PatternPart::Consonant => regex.push_str("[B-DF-HJ-NP-TV-Z]"),
+            PatternPart::Consonant => regex.push_str("[BCDFGHJKLMNPQRSTVWXZ]"),
             PatternPart::Charset(chars) => {
                 regex.push('[');
                 for c in chars {
