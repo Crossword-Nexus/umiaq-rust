@@ -10,8 +10,8 @@ pub type VarConstraints = HashMap<VarName, VarConstraint>;
 pub struct VarConstraint {
     pub min_length: Option<usize>,
     pub max_length: Option<usize>,
-    pub pattern:    Option<String>,     // e.g., "a*" or ".*Z.*"
-    pub not_equal:  HashSet<VarName>,   // e.g., for "!=AB", A -> {'B'}, B -> {'A'}
+    pub pattern:    Option<String>,     // e.g. "a*" or "*z*"
+    pub not_equal:  HashSet<VarName>,   // e.g. for "!=AB", A -> {'B'}, B -> {'A'}
 }
 
 impl VarConstraint {

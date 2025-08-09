@@ -2,6 +2,7 @@ use clap::Parser; // for argument parsing
 mod parser;
 mod patterns;
 mod constraints;
+mod bindings;
 // from parser.rs
 
 /// Umiaq — pattern-matching word list solver
