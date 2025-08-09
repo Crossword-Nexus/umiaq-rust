@@ -1,5 +1,6 @@
 // constraints.rs
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 /// A collection of constraints for variables in a pattern-matching equation.
 ///
@@ -37,6 +38,31 @@ impl VarConstraints {
     pub fn iter(&self) -> impl Iterator<Item = (&char, &VarConstraint)> {
         self.inner.iter()
     }
+
+    /// Convenience: number of variables with constraints.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Convenience: true if no constraints are stored.
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
+/// Pretty, deterministic display (sorted by variable) like:
+/// A: len=[Some(2), Some(4)], form=Some("a*"), not_equal={B,C}
+impl fmt::Display for VarConstraints {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut keys: Vec<char> = self.inner.keys().copied().collect();
+        keys.sort_unstable();
+        for (i, k) in keys.iter().enumerate() {
+            let vc = &self.inner[k];
+            if i > 0 { writeln!(f)?; }
+            write!(f, "{k}: {vc}")?;
+        }
+        Ok(())
+    }
 }
 
 /// A set of rules restricting what a single variable can match.
@@ -63,5 +89,100 @@ impl VarConstraint {
         let min = self.min_length.unwrap_or(default_min);
         let max = self.max_length.unwrap_or(default_max);
         (min, max)
+    }
+}
+
+/// Compact human-readable display for a single constraint.
+impl fmt::Display for VarConstraint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Show not_equal in sorted order for stability
+        let mut ne: Vec<char> = self.not_equal.iter().copied().collect();
+        ne.sort_unstable();
+        write!(
+            f,
+            "len=[{:?}, {:?}], form={:?}, not_equal={{{}}}",
+            self.min_length,
+            self.max_length,
+            self.form.as_deref(),
+            ne.into_iter().collect::<String>()
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bounds_with_defaults() {
+        let vc = VarConstraint::default();
+        assert_eq!(vc.bounds(1, 99), (1, 99));
+    }
+
+    #[test]
+    fn bounds_with_overrides() {
+        let mut vc = VarConstraint::default();
+        vc.min_length = Some(2);
+        vc.max_length = Some(5);
+        assert_eq!(vc.bounds(1, 99), (2, 5));
+    }
+
+    #[test]
+    fn ensure_creates_default() {
+        let mut vcs = VarConstraints::new();
+        assert!(vcs.get('A').is_none());
+        {
+            let a = vcs.ensure('A');
+            // default created; tweak it
+            a.min_length = Some(3);
+        }
+        assert_eq!(vcs.get('A').unwrap().min_length, Some(3));
+        assert_eq!(vcs.len(), 1);
+    }
+
+    #[test]
+    fn insert_and_get_roundtrip() {
+        let mut vcs = VarConstraints::new();
+        let mut vc = VarConstraint::default();
+        vc.form = Some("*z*".into());
+        vc.not_equal.extend(['B', 'C']);
+        vcs.insert('A', vc.clone());
+        assert_eq!(vcs.get('A'), Some(&vc));
+    }
+
+    #[test]
+    fn display_varconstraint_is_stable() {
+        let mut vc = VarConstraint::default();
+        vc.min_length = Some(2);
+        vc.max_length = Some(4);
+        vc.form = Some("a*".into());
+        vc.not_equal.extend(['C', 'B']); // out of order on purpose
+        let shown = vc.to_string();
+        // not_equal should be sorted -> {BC}
+        assert!(shown.contains("len=[Some(2), Some(4)]"));
+        assert!(shown.contains("form=Some(\"a*\")"));
+        assert!(shown.contains("not_equal={BC}"));
+    }
+
+    #[test]
+    fn display_varconstraints_multiline_sorted() {
+        let mut vcs = VarConstraints::new();
+        let mut a = VarConstraint::default();
+        a.min_length = Some(1);
+        let mut c = VarConstraint::default();
+        c.max_length = Some(9);
+        let mut b = VarConstraint::default();
+        b.form = Some("*x*".into());
+        // Insert out of order to verify deterministic sort in Display
+        vcs.insert('C', c);
+        vcs.insert('A', a);
+        vcs.insert('B', b);
+
+        let s = vcs.to_string();
+        let lines: Vec<&str> = s.lines().collect();
+        assert_eq!(lines.len(), 3);
+        assert!(lines[0].starts_with("A: "));
+        assert!(lines[1].starts_with("B: "));
+        assert!(lines[2].starts_with("C: "));
     }
 }
