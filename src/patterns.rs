@@ -44,7 +44,7 @@ impl VarConstraint {
 /// Represents a single pattern (e.g., "AB", "A=(3:a*)") extracted from input
 pub struct Pattern {
     /// The raw string representation of the pattern, such as "AB" or "/triangle"
-    pub string: String,
+    pub raw_string: String,
     /// Set of variable names that this pattern shares with previously processed ones,
     /// used for optimizing lookups in recursive solving
     pub lookup_keys: Option<HashSet<char>>,
@@ -57,7 +57,7 @@ impl Pattern {
     /// The resulting `lookup_keys` is initialized to `None`.
     pub fn new(string: impl Into<String>) -> Self {
         Self {
-            string: string.into(),
+            raw_string: string.into(),
             lookup_keys: None,
         }
     }
@@ -65,31 +65,27 @@ impl Pattern {
     /// Extracts all uppercase ASCII letters from the pattern string.
     /// These are treated as variable names (e.g., A, B, C).
     pub fn variables(&self) -> HashSet<char> {
-        self.string
+        self.raw_string
             .chars()
             .filter(char::is_ascii_uppercase)
             .collect()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 /// A container for all parsed patterns and variable constraints
 pub struct Patterns {
     /// List of patterns directly extracted from the input string (not constraints)
     pub list: Vec<Pattern>,
     /// Map of variable names (A-Z) to their associated constraints
     pub var_constraints: HashMap<char, VarConstraint>,
-    /// Re-ordered list of patterns, optimized for solving (most constrained first)
+    /// Reordered list of patterns, optimized for solving (most-constrained first)
     pub ordered_list: Vec<Pattern>,
 }
 
 impl Patterns {
     pub fn new(input: &str) -> Self {
-        let mut patterns = Patterns {
-            list: Vec::new(),
-            var_constraints: HashMap::new(),
-            ordered_list: Vec::new(),
-        };
+        let mut patterns = Patterns::default();
         patterns.make_list(input);
         patterns.ordered_list = patterns.ordered_partitions();
         patterns
@@ -97,9 +93,9 @@ impl Patterns {
 
     /// Parses the input string into constraint entries and pattern entries.
     /// Recognizes:
-    /// - `|A|=5` for exact length
-    /// - `!=AB` for inequality constraints
-    /// - `A=(3-5:a*)` for complex constraints (length + pattern)
+    /// - exact length (e.g., `|A|=5`)
+    /// - inequality constraints (e.g., `!=AB`)
+    /// - complex constraints (length + pattern) (e.g., `A=(3-5:a*)`)
     /// Non-constraint entries are added to `self.list` as actual patterns.
     fn make_list(&mut self, input: &str) {
         let parts: Vec<&str> = input.split(';').collect();
@@ -152,7 +148,7 @@ impl Patterns {
     /// Reorders the list of patterns to improve solving efficiency.
     /// First selects the pattern with the most variables,
     /// then repeatedly selects the next pattern with the most overlap with those already chosen.
-    /// This ensures early patterns can help prune the solution space.
+    /// This ensures early patterns can help prune the solution space. // TODO is "ensures" correct?
     fn ordered_partitions(&self) -> Vec<Pattern> {
         let mut patt_list = self.list.clone();
         let mut ordered = Vec::new();
@@ -199,18 +195,19 @@ impl Patterns {
     }
 }
 
-/// Parses a string like "3-5", "-5", or "3-" into min and max length values.
-/// Returns `Some((min, max))` where each is an `Option<usize>`.
+/// Parses a string like "3-5", "-5", "3-", or "3" into min and max length values.
+/// Returns `Some((min, max))` where each is an `Option<usize>` unless the input is empty, in which
+/// case it returns `None`.
 fn parse_length_range(input: &str) -> Option<(Option<usize>, Option<usize>)> {
     if input.is_empty() {
         return None;
     }
     let parts: Vec<&str> = input.split('-').collect();
+    if parts.len() > 2 { // TODO? return error instead?
+        return None;
+    }
     let min = parts.first().and_then(|s| s.parse::<usize>().ok());
-    let max = parts
-        .get(1)
-        .or_else(|| parts.first())
-        .and_then(|s| s.parse::<usize>().ok());
+    let max = parts.last().and_then(|s| s.parse::<usize>().ok());
     Some((min, max))
 }
 
@@ -225,7 +222,7 @@ mod tests {
 
         // Test raw pattern list
         assert_eq!(patterns.list.len(), 1);
-        assert_eq!(patterns.list[0].string, "AB");
+        assert_eq!(patterns.list[0].raw_string, "AB");
 
         // Test constraints
         let a = patterns.var_constraints.get(&'A').unwrap();
@@ -251,5 +248,15 @@ mod tests {
 
         assert!(vars0.len() >= vars1.len());
         assert!(vars1.intersection(&vars0).count() >= vars2.intersection(&vars0).count());
+    }
+
+    #[test]
+    fn test_parse_length_range() {
+        assert_eq!(parse_length_range("2-3"), Some((Some(2), Some(3))));
+        assert_eq!(parse_length_range("-3"), Some((None, Some(3))));
+        assert_eq!(parse_length_range("1-"), Some((Some(1), None)));
+        assert_eq!(parse_length_range("7"), Some((Some(7), Some(7))));
+        assert_eq!(parse_length_range(""), None);
+        assert_eq!(parse_length_range("1-2-3"), None);
     }
 }

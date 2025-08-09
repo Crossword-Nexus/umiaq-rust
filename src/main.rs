@@ -8,7 +8,7 @@ mod constraints;
 #[derive(Parser, Debug)]
 #[command(author = "Alex Boisvert", version, about, long_about = None)]
 struct Args {
-    /// Pattern input string, e.g. "AB;BA;|A|=2;|B|=2;!=AB"
+    /// Pattern input string, e.g., "AB;BA;|A|=2;|B|=2;!=AB"
     input: String,
 
     /// Turn on debugging output
