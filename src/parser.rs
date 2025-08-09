@@ -12,6 +12,7 @@ use nom::{
 
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt::Write as _;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PatternPart {
@@ -95,15 +96,6 @@ fn match_pattern_internal(
     results: &mut Vec<HashMap<String, String>>,
     constraints: Option<&HashMap<String, HashMap<String, String>>>,
 ) {
-
-    // Before we do anything else, do a regex filter
-    let regex_str = format!("^{}$", pattern_to_regex(parts));
-    if let Ok(regex) = Regex::new(&regex_str) {
-        if !regex.is_match(word) {
-            return;
-        }
-    }
-
     fn get_reversed_or_not(first: &PatternPart, val: &str) -> String {
         if matches!(first, PatternPart::RevVar(_)) {
             val.chars().rev().collect::<String>()
@@ -222,6 +214,14 @@ fn match_pattern_internal(
         false
     }
 
+    // Before we do anything else, do a regex filter
+    let regex_str = format!("^{}$", pattern_to_regex(parts));
+    if let Ok(regex) = Regex::new(&regex_str) {
+        if !regex.is_match(word) {
+            return;
+        }
+    }
+
     let word = word.to_uppercase();
     let chars: Vec<char> = word.chars().collect();
 
@@ -254,7 +254,8 @@ pub fn pattern_to_regex(parts: &[PatternPart]) -> String {
             PatternPart::Anagram(s) => {
                 let len = s.len();
                 let class = regex::escape(&s.to_uppercase());
-                regex.push_str(&format!("[{class}]{{{len}}}"));
+                // TODO? do something if there's an error?
+                let _ = write!(regex, "[{class}]{{{len}}}");
             },
         }
     }
