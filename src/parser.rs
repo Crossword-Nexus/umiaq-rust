@@ -272,7 +272,7 @@ pub fn parse_pattern(input: &str) -> Result<Vec<PatternPart>, String> {
                 parts.push(part);
                 rest = next;
             }
-            Err(_) => return Err(format!("Could not parse at: {rest}")),
+            Err(_) => return Err(format!("Could not parse at: {rest}")), // TODO? avoid swallowing error?
         }
     }
 
