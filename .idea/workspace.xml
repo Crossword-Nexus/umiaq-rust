@@ -11,8 +11,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="small changes">
-      <change beforePath="$PROJECT_DIR$/src/solver.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/solver.rs" afterDir="false" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="remove unneeded imports">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/patterns.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/patterns.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -331,7 +332,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754769925067</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="remove unneeded imports">
+      <option name="closed" value="true" />
+      <created>1754770568282</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1754770568282</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -351,6 +360,7 @@
     <MESSAGE value="Update patterns.rs to use constraints" />
     <MESSAGE value="remove unused import" />
     <MESSAGE value="small changes" />
-    <option name="LAST_COMMIT_MESSAGE" value="small changes" />
+    <MESSAGE value="remove unneeded imports" />
+    <option name="LAST_COMMIT_MESSAGE" value="remove unneeded imports" />
   </component>
 </project>

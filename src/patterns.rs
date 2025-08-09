@@ -193,6 +193,8 @@ mod tests {
         let input = "AB;|A|=3;!=AB;B=(2:b*)";
         let patterns = Patterns::new(input);
 
+        println!("{:?}", patterns);
+
         // Test raw pattern list
         assert_eq!(patterns.list.len(), 1);
         assert_eq!(patterns.list[0].raw_string, "AB");

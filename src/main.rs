@@ -1,3 +1,8 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+// the above turns off warnings about unused things
+
 use clap::Parser; // for argument parsing
 mod parser;
 mod patterns;
