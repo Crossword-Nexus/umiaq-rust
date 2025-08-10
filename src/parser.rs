@@ -46,7 +46,7 @@ pub fn is_valid_binding(
 ) -> bool {
     // 1. Apply nested form constraint if present
     if let Some(form_str) = &constraints.form {
-        match parse_equation(form_str) {
+        match parse_form(form_str) {
             Ok(p) => {
                 if !match_equation_exists(val, &p, None) {
                     return false;
@@ -294,7 +294,7 @@ pub fn form_to_regex(parts: &[FormPart]) -> String {
 /// Parse a form string into a `Vec<FormPart>` sequence.
 ///
 /// Walks the input, consuming tokens one at a time with `equation_part`.
-pub fn parse_equation(input: &str) -> Result<Vec<FormPart>, String> {
+pub fn parse_form(input: &str) -> Result<Vec<FormPart>, String> {
     let mut rest = input;
     let mut parts = Vec::new();
 
@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn test_match_equation_exists() {
-        let patt1 = parse_equation("A~A[rstlne]/jon@#.*").unwrap();
+        let patt1 = parse_form("A~A[rstlne]/jon@#.*").unwrap();
         assert!(match_equation_exists("AARONJUDGE", &patt1, None));
         assert!(!match_equation_exists("NOON", &patt1, None));
         assert!(!match_equation_exists("TOON", &patt1, None));
@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_match_equation_with_constraints() {
-        let patt = parse_equation("AB").unwrap();
+        let patt = parse_form("AB").unwrap();
         // create a constraints holder
         let mut var_constraints = VarConstraints::default();
         // add !=AB
@@ -448,7 +448,7 @@ mod tests {
 
     #[test]
     fn test_match_equation_all_with_constraints() {
-        let patt = parse_equation("AA").unwrap();
+        let patt = parse_form("AA").unwrap();
         // We add length constraints
         let mut var_constraints = VarConstraints::default();
         let mut vc = VarConstraint::default();
@@ -469,7 +469,7 @@ mod tests {
 
     #[test]
     fn test_match_equation_exists_with_constraints() {
-        let patt = parse_equation("AB").unwrap();
+        let patt = parse_form("AB").unwrap();
         // First constraint: A=(*i.*)
         let mut var_constraints1 = VarConstraints::default();
         let mut vc = VarConstraint::default();

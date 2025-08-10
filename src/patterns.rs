@@ -204,6 +204,38 @@ impl Patterns {
 
         ordered
     }
+
+    /// Number of forms (from `ordered_list`)
+    pub fn len(&self) -> usize {
+        self.ordered_list.len()
+    }
+
+    /// Convenience (often handy with `len`)
+    pub fn is_empty(&self) -> bool {
+        self.ordered_list.is_empty()
+    }
+
+    /// Iterate over forms in solver-friendly order
+    pub fn iter(&self) -> std::slice::Iter<'_, Pattern> {
+        self.ordered_list.iter()
+    }
+}
+
+/// Enable `for p in &patterns { ... }`.
+///
+/// Why `&Patterns` and not `Patterns`?
+/// - `for x in collection` desugars to `IntoIterator::into_iter(collection)`.
+/// - If we implement `IntoIterator` for **`Patterns`**, iteration would *consume* (move) the
+///   whole `Patterns`, which we don’t want here.
+/// - Implementing it for **`&Patterns`** lets you iterate **by reference** without moving.
+impl<'a> IntoIterator for &'a Patterns {
+    type Item = &'a Pattern;
+    type IntoIter = std::slice::Iter<'a, Pattern>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        // Delegate to the slice iterator over the underlying Vec
+        self.ordered_list.iter()
+    }
 }
 
 /// Parses a string like "3-5", "-5", "3-", or "3" into min and max length values.
