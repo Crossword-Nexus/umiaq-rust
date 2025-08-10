@@ -9,6 +9,14 @@ pub struct Bindings {
     map: HashMap<char, String>,
 }
 
+impl Default for Bindings {
+    fn default() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+}
+
 impl Bindings {
     /// Create a new, empty set of bindings
     pub fn new() -> Self {
@@ -43,5 +51,10 @@ impl Bindings {
     /// Iterate over the bindings
     pub fn iter(&self) -> impl Iterator<Item = (&char, &String)> {
         self.map.iter()
+    }
+
+    /// Get the map
+    pub fn get_map(&self) -> &HashMap<char, String> { 
+        &self.map
     }
 }

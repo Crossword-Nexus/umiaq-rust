@@ -33,65 +33,114 @@ pub struct CandidateBuckets {
 }
 
 /// Read in an equation string and return results from the word list
+///
+/// - `input`: equation in our pattern syntax (e.g., `"AB;BA;|A|=2;..."`)
+/// - `word_list`: list of candidate words to test
+/// - `num_results`: maximum number of *final* results to return
+///
+/// Returns:
+/// - A `Vec` of solutions, each solution being a `Vec<Binding>` where each `Binding`
+///   maps variable names (chars) to concrete substrings they were bound to in that solution.
 pub fn solve_equation(
     input: &str,
     word_list: &[&str],
     num_results: usize
 ) -> Vec<Vec<Binding>> {
-    // 1. Build "patterns" from the input
+    // 1. Parse the input equation string into our `Patterns` struct.
+    //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let pattern_obj = Patterns::new(input);
 
-    // 2. Prepare per-pattern candidate buckets
+    // 2. Prepare storage for candidate buckets, one per pattern.
+    //    `CandidateBuckets` tracks (a) the bindings bucketed by shared variable values, and
+    //    (b) a count so we can stop early if a pattern gets too many matches.
     let mut words: Vec<CandidateBuckets> = Vec::with_capacity(pattern_obj.len());
     for _ in &pattern_obj {
         words.push(CandidateBuckets::default());
     }
 
-    // 2. Parse each pattern once; keep index-aligned vectors
+    // 3. Parse each pattern's string form once into a vector of `FormPart`s.
+    //    These are index-aligned with `pattern_obj`.
     let parsed_patterns: Vec<Vec<FormPart>> = pattern_obj
         .iter()
-        .map(|p| {
-            parse_form(&p.raw_string).unwrap()
-        })
+        .map(|p| parse_form(&p.raw_string).unwrap())
         .collect();
 
-    // 3. Grab our constraints
+    // 4. Pull out the per-variable constraints collected from the equation.
     let var_constraints = &pattern_obj.var_constraints;
 
-    // 4. Take an initial pass through the word list.
-    // For each of our "patterns", find words that match, and add them appropriately.
-
-    // loop through words
-    'words_loop: for word in word_list.iter() {
-        // loop through patterns
+    // 5. Iterate through every candidate word.
+    'words_loop: for &word in word_list.iter() {
+        // Check each pattern against this word
         for (i, patt) in pattern_obj.iter().enumerate() {
-            let matches = match_equation_all(&word, &parsed_patterns[i], Some(&pattern_obj.var_constraints));
-            for binding in matches {
-                // Determine the hash key based on shared variable bindings
-                //let key = patt.lookup_keys.as_ref().map(|keys| {
-                //    keys.iter().map(|k| (k.clone(), binding.get(*k).unwrap().clone())).collect()
-                //});
-
-                //words[i].get(key).or_default().push(binding);
-                //word_counts[i] += 1;
+            // Skip this pattern if we already have too many matches for it
+            if words[i].count >= MAX_INITIAL_MATCHES {
+                continue;
             }
 
-            //if word_counts[i] >= MAX_INITIAL_MATCHES {
-            //    break 'words_loop;
-            //}
+            // Try matching the word against the parsed pattern.
+            // `match_equation_all` returns a list of `Bindings` (variable→string maps)
+            // that satisfy the pattern given the current constraints.
+            let matches = match_equation_all(word, &parsed_patterns[i], Some(var_constraints));
+
+            // 6. For each binding produced for this pattern/word:
+            for binding in matches {
+                // ---- Build the lookup key for bucketing ----
+                // `LookupKey` is:
+                //   None => no shared variables with previous patterns
+                //   Some(Vec<(char, String)>) => specific values for shared variables,
+                //                                sorted for deterministic equality/hash.
+                let key: LookupKey = match patt.lookup_keys.as_ref() {
+                    None => None,
+                    Some(keys) => {
+                        let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
+                        for &var in keys {
+                            if let Some(val) = binding.get(var) {
+                                pairs.push((var, val.clone()));
+                            } else {
+                                // If any shared var is missing, this binding can't be used
+                                pairs.clear();
+                                break;
+                            }
+                        }
+                        if pairs.is_empty() && !keys.is_empty() {
+                            continue; // skip binding entirely
+                        }
+                        // Sort by variable name so the key is deterministic
+                        pairs.sort_unstable_by_key(|(c, _)| *c);
+                        Some(pairs)
+                    }
+                };
+
+                // ---- Store the binding in the correct bucket ----
+                // Clone the inner `HashMap<char, String>` from the `Bindings` wrapper
+                let this_binding: Binding = binding.get_map().clone();
+
+                // Insert into the appropriate bucket (creating a new Vec if needed)
+                words[i].buckets.entry(key).or_default().push(this_binding);
+
+                // Track how many bindings we've stored for this pattern
+                words[i].count += 1;
+
+                // Stop scanning more words entirely if this pattern hit the cap
+                if words[i].count >= MAX_INITIAL_MATCHES {
+                    continue 'words_loop;
+                }
+            }
         }
     }
 
-
-    // for debugging purposes
+    // ---- Debug: dump internal state ----
     println!("{pattern_obj:?}");
     println!("{words:?}");
     println!("{parsed_patterns:?}");
     println!("{var_constraints:?}");
 
-    // Return an empty vec for now
+    // TODO: Implement recursive join logic to combine per-pattern matches
+    //       into complete solutions. For now, return an empty Vec.
     Vec::new()
 }
+
+
 
 #[test]
 fn test_solve_equation() {
