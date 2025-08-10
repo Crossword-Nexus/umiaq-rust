@@ -34,8 +34,7 @@ pub fn solve_equation(
     input: &str,
     word_list: Vec<&str>,
     num_results: usize
-//) -> Vec<Vec<Binding>> {
-) {
+) -> Vec<Vec<Binding>> {
     // 1. Build "patterns" from the input
     let pattern_obj = Patterns::new(input);
 
@@ -65,8 +64,8 @@ pub fn solve_equation(
     println!("{:?}", parsed_patterns);
     println!("{:?}", var_constraints);
 
-
-    return
+    // Return an empty vec for now
+    Vec::new()
 }
 
 #[test]

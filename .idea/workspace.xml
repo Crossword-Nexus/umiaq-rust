@@ -11,10 +11,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="testing and display for constraints">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/patterns.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/patterns.rs" afterDir="false" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs">
       <change beforePath="$PROJECT_DIR$/src/solver.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/solver.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -378,7 +375,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754778252662</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs">
+      <option name="closed" value="true" />
+      <created>1754802724220</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1754802724220</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -403,6 +408,7 @@
     <MESSAGE value="replace the word &quot;pattern&quot; where it shouldn't be" />
     <MESSAGE value="better comments" />
     <MESSAGE value="testing and display for constraints" />
-    <option name="LAST_COMMIT_MESSAGE" value="testing and display for constraints" />
+    <MESSAGE value="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs" />
+    <option name="LAST_COMMIT_MESSAGE" value="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs" />
   </component>
 </project>
