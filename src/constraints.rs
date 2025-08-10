@@ -72,12 +72,23 @@ impl fmt::Display for VarConstraints {
 /// - `form` is an optional sub-pattern the variable's match must satisfy
 ///   (e.g., `"a*"` means "must start with `a`"; `"*z*"` means "must contain `z`").
 /// - `not_equal` lists variables whose matches must *not* be identical to this one.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VarConstraint {
-    pub min_length: Option<usize>,
-    pub max_length: Option<usize>,
+    pub min_length: usize,
+    pub max_length: usize,
     pub form: Option<String>,     // e.g., "a*" or "*z*"
     pub not_equal: HashSet<char>, // e.g., A's set contains 'B' if `A != B` is required
+}
+
+impl Default for VarConstraint {
+    fn default() -> Self {
+        Self {
+            min_length: 1,
+            max_length: usize::MAX,
+            form:    None,
+            not_equal:  HashSet::new(),
+        }
+    }
 }
 
 impl VarConstraint {
@@ -85,10 +96,16 @@ impl VarConstraint {
     ///
     /// - If a bound is missing, falls back to the provided defaults.
     /// - This is often used when generating regex prefilters or substring loops.
-    pub fn bounds(&self, default_min: usize, default_max: usize) -> (usize, usize) {
-        let min = self.min_length.unwrap_or(default_min);
-        let max = self.max_length.unwrap_or(default_max);
+    pub fn bounds(&self) -> (usize, usize) {
+        let min = self.min_length;
+        let max = self.max_length;
         (min, max)
+    }
+
+    /// Set both min and max to the same exact length.
+    pub fn set_exact_len(&mut self, len: usize) {
+        self.min_length = len;
+        self.max_length = len;
     }
 }
 
@@ -114,20 +131,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bounds_with_defaults() {
-        let vc = VarConstraint::default();
-        assert_eq!(vc.bounds(1, 99), (1, 99));
-    }
-
-    #[test]
     fn bounds_with_overrides() {
         let vc = VarConstraint {
-            min_length: Some(2),
-            max_length: Some(5),
+            min_length: 2,
+            max_length: 5,
             form: None,
             not_equal: HashSet::new()
         };
-        assert_eq!(vc.bounds(1, 99), (2, 5));
+        assert_eq!(vc.bounds(), (2, 5));
     }
 
     #[test]
@@ -137,9 +148,9 @@ mod tests {
         {
             let a = vcs.ensure('A');
             // default created; tweak it
-            a.min_length = Some(3);
+            a.min_length = 3;
         }
-        assert_eq!(vcs.get('A').unwrap().min_length, Some(3));
+        assert_eq!(vcs.get('A').unwrap().min_length, 3);
         assert_eq!(vcs.len(), 1);
     }
 
@@ -156,13 +167,13 @@ mod tests {
     #[test]
     fn display_varconstraint_is_stable() {
         let mut vc = VarConstraint::default();
-        vc.min_length = Some(2);
-        vc.max_length = Some(4);
+        vc.min_length = 2;
+        vc.max_length = 4;
         vc.form = Some("a*".into());
         vc.not_equal.extend(['C', 'B']); // out of order on purpose
         let shown = vc.to_string();
         // not_equal should be sorted -> {BC}
-        assert!(shown.contains("len=[Some(2), Some(4)]"));
+        assert!(shown.contains("len=[2, 4]"));
         assert!(shown.contains("form=Some(\"a*\")"));
         assert!(shown.contains("not_equal={BC}"));
     }
@@ -171,9 +182,9 @@ mod tests {
     fn display_varconstraints_multiline_sorted() {
         let mut vcs = VarConstraints::default();
         let mut a = VarConstraint::default();
-        a.min_length = Some(1);
+        a.min_length = 1;
         let mut c = VarConstraint::default();
-        c.max_length = Some(9);
+        c.max_length = 2;
         let mut b = VarConstraint::default();
         b.form = Some("*x*".into());
         // Insert out of order to verify deterministic sort in Display
