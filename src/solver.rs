@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use crate::patterns::Patterns;
-use crate::parser::{parse_form, FormPart};
+use crate::parser::{match_equation_all, parse_form, FormPart};
+
+/// The max number of matches to grab during our initial pass through the word list
+const MAX_INITIAL_MATCHES: usize = 50_000;
 
 /// A single solution’s variable bindings:
 /// maps a variable name (e.g., 'A') to the concrete substring it was bound to.
@@ -54,6 +57,31 @@ pub fn solve_equation(
 
     // 3. Grab our constraints
     let var_constraints = &pattern_obj.var_constraints;
+
+    // 4. Take an initial pass through the word list.
+    // For each of our "patterns", find words that match, and add them appropriately.
+
+    // loop through words
+    'words_loop: for word in word_list.iter() {
+        // loop through patterns
+        for (i, patt) in pattern_obj.iter().enumerate() {
+            let matches = match_equation_all(&word, &parsed_patterns[i], Some(&pattern_obj.var_constraints));
+            for binding in matches {
+                // Determine the hash key based on shared variable bindings
+                //let key = patt.lookup_keys.as_ref().map(|keys| {
+                //    keys.iter().map(|k| (k.clone(), binding.get(*k).unwrap().clone())).collect()
+                //});
+
+                //words[i].get(key).or_default().push(binding);
+                //word_counts[i] += 1;
+            }
+
+            //if word_counts[i] >= MAX_INITIAL_MATCHES {
+            //    break 'words_loop;
+            //}
+        }
+    }
+
 
     // for debugging purposes
     println!("{pattern_obj:?}");

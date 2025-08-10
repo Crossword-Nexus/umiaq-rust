@@ -1,7 +1,7 @@
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
-use crate::constraints::VarConstraint;
+use crate::constraints::{VarConstraint, VarConstraints};
 
 /// Matches exact length constraints like `|A|=5`
 static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
@@ -89,7 +89,7 @@ pub struct Patterns {
     /// List of patterns directly extracted from the input string (not constraints)
     pub list: Vec<Pattern>,
     /// Map of variable names (A-Z) to their associated constraints
-    pub var_constraints: HashMap<char, VarConstraint>,
+    pub var_constraints: VarConstraints,
     /// Reordered list of patterns, optimized for solving (most-constrained first)
     pub ordered_list: Vec<Pattern>,
 }
@@ -117,20 +117,14 @@ impl Patterns {
                 // Extract the variable (e.g., A) and its required length
                 let var = cap[1].chars().next().unwrap();
                 let len = cap[2].parse::<usize>().unwrap();
-                let entry = self
-                    .var_constraints
-                    .entry(var)
-                    .or_default();
-                entry.min_length = Some(len);
-                entry.max_length = Some(len);
+                self.var_constraints.ensure(var).set_exact_len(len);
             } else if let Some(cap) = NEQ_RE.captures(part) {
                 // Extract all variables from inequality constraint (e.g., !=AB means A != B)
                 let vars: Vec<char> = cap[1].chars().collect();
                 for &v in &vars {
                     let entry = self
                         .var_constraints
-                        .entry(v)
-                        .or_default();
+                        .ensure(v);
                     entry.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
             } else if let Some(cap) = COMPLEX_RE.captures(part) {
@@ -140,12 +134,11 @@ impl Patterns {
                 let patt = cap[3].to_string();
                 let entry = self
                     .var_constraints
-                    .entry(var)
-                    .or_default();
+                    .ensure(var);
 
                 if let Some((min, max)) = parse_length_range(len) {
-                    entry.min_length = min;
-                    entry.max_length = max;
+                    entry.min_length = min.unwrap();
+                    entry.max_length = max.unwrap();
                 }
 
                 if !patt.is_empty() && patt != "*" {
@@ -271,15 +264,15 @@ mod tests {
         assert_eq!(patterns.list[0].raw_string, "AB");
 
         // Test constraints
-        let a = patterns.var_constraints.get(&'A').unwrap();
-        assert_eq!(a.min_length, Some(3));
-        assert_eq!(a.max_length, Some(3));
+        let a = patterns.var_constraints.get('A').unwrap();
+        assert_eq!(a.min_length, 3);
+        assert_eq!(a.max_length, 3);
         let set_1: HashSet<char> = ['B'].into_iter().collect();
         assert_eq!(a.not_equal, set_1);
 
-        let b = patterns.var_constraints.get(&'B').unwrap();
-        assert_eq!(b.min_length, Some(2));
-        assert_eq!(b.max_length, Some(2));
+        let b = patterns.var_constraints.get('B').unwrap();
+        assert_eq!(b.min_length, 2);
+        assert_eq!(b.max_length, 2);
         assert_eq!(b.form.as_deref(), Some("b*"));
         let set_2: HashSet<char> = ['A'].into_iter().collect();
         assert_eq!(b.not_equal, set_2);

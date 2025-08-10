@@ -452,8 +452,8 @@ mod tests {
         // We add length constraints
         let mut var_constraints = VarConstraints::default();
         let mut vc = VarConstraint::default();
-        const MIN_LENGTH: Option<usize> = Some(2);
-        const MAX_LENGTH: Option<usize> = Some(2);
+        const MIN_LENGTH: usize = 2;
+        const MAX_LENGTH: usize = 2;
         // min length 2, max_length 3
         vc.min_length = MIN_LENGTH;
         vc.max_length = MAX_LENGTH;
@@ -463,7 +463,7 @@ mod tests {
         let matches = match_equation_all("INCHIN", &patt, Some(&var_constraints));
         for m in matches.iter() {
             let val = m.get('A').unwrap();
-            assert!(val.len() >= MIN_LENGTH.unwrap() && val.len() <= MAX_LENGTH.unwrap());
+            assert!(val.len() >= MIN_LENGTH && val.len() <= MAX_LENGTH);
         }
     }
 
