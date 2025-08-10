@@ -71,3 +71,10 @@ fn test_solve_equation() {
     let input = "l.x".to_string();
     solve_equation(&input, &word_list, 5);
 }
+
+#[test]
+fn test_solve_equation2() {
+    let word_list: Vec<&str> = vec!["INCH", "CHIN", "DADA"];
+    let input = "AB;BA;|A|=2;|B|=2;!=AB".to_string();
+    solve_equation(&input, &word_list, 5);
+}

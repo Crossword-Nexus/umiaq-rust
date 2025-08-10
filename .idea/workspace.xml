@@ -11,8 +11,8 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs">
-      <change beforePath="$PROJECT_DIR$/src/solver.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/solver.rs" afterDir="false" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="change return type for solve_equation">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -383,7 +383,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754802724220</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="change return type for solve_equation">
+      <option name="closed" value="true" />
+      <created>1754803855219</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1754803855219</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -409,6 +417,7 @@
     <MESSAGE value="better comments" />
     <MESSAGE value="testing and display for constraints" />
     <MESSAGE value="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs" />
-    <option name="LAST_COMMIT_MESSAGE" value="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs" />
+    <MESSAGE value="change return type for solve_equation" />
+    <option name="LAST_COMMIT_MESSAGE" value="change return type for solve_equation" />
   </component>
 </project>
