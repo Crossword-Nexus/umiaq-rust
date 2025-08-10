@@ -145,10 +145,11 @@ mod tests {
 
     #[test]
     fn insert_and_get_roundtrip() {
+        let mut vcs = VarConstraints::default();
         let mut vc = VarConstraint::default();
         vc.form = Some("*z*".into());
         vc.not_equal.extend(['B', 'C']);
-        let vcs = VarConstraints::of(HashMap::from([('A', vc.clone())]));
+        vcs.insert('A', vc.clone());
         assert_eq!(vcs.get('A'), Some(&vc));
     }
 
