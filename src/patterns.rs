@@ -74,8 +74,8 @@ impl Pattern {
 }
 
 #[derive(Debug, Default)]
-/// The **parsed equation** at a structural level: extracted constraints + collected forms
-/// + a solver-friendly order. Forms here are still raw strings; tokenize each with
+/// The **parsed equation** at a structural level: extracted constraints + collected forms +
+/// a solver-friendly order. Forms here are still raw strings; tokenize each with
 /// `parse_equation` when matching.
 ///
 /// - `list`: all non-constraint forms in original order
@@ -107,6 +107,7 @@ impl Patterns {
     /// - exact length (e.g., `|A|=5`)
     /// - inequality constraints (e.g., `!=AB`)
     /// - complex constraints (e.g., length + pattern) (e.g., `A=(3-5:a*)`)
+    ///
     /// Non-constraint entries are added to `self.list` as actual patterns.
     fn make_list(&mut self, input: &str) {
         let parts: Vec<&str> = input.split(';').collect();
