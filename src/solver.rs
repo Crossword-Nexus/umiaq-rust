@@ -16,12 +16,12 @@ pub type Binding = HashMap<char, String>;
 /// - The sort happens once when we construct the key, not on hash/compare.
 pub type LookupKey = Option<Vec<(char, String)>>;
 
-/// All candidates for one pattern (“bucketed” by LookupKey).
+/// All candidates for one pattern (“bucketed” by `LookupKey`).
 /// - `buckets`: groups candidate bindings that share the same values for the
 ///   pattern’s `lookup_keys` (variables that must align with previously chosen patterns).
 /// - `count`: mirrors Python’s `word_counts[i]` and is used to stop early when a global cap
 ///   per-pattern is reached (e.g., `MAX_WORD_COUNT`). We track it here to avoid recomputing.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CandidateBuckets {
     /// Mapping from lookup key -> all bindings that fit that key
     pub buckets: HashMap<LookupKey, Vec<Binding>>,
@@ -32,7 +32,7 @@ pub struct CandidateBuckets {
 /// Read in an equation string and return results from the word list
 pub fn solve_equation(
     input: &str,
-    word_list: Vec<&str>,
+    word_list: &[&str],
     num_results: usize
 ) -> Vec<Vec<Binding>> {
     // 1. Build "patterns" from the input
@@ -41,10 +41,7 @@ pub fn solve_equation(
     // 2. Prepare per-pattern candidate buckets
     let mut words: Vec<CandidateBuckets> = Vec::with_capacity(pattern_obj.len());
     for _ in &pattern_obj {
-        words.push(CandidateBuckets {
-            buckets: HashMap::new(),
-            count: 0,
-        });
+        words.push(CandidateBuckets::default());
     }
 
     // 2. Parse each pattern once; keep index-aligned vectors
@@ -59,10 +56,10 @@ pub fn solve_equation(
     let var_constraints = &pattern_obj.var_constraints;
 
     // for debugging purposes
-    println!("{:?}", pattern_obj);
-    println!("{:?}", words);
-    println!("{:?}", parsed_patterns);
-    println!("{:?}", var_constraints);
+    println!("{pattern_obj:?}");
+    println!("{words:?}");
+    println!("{parsed_patterns:?}");
+    println!("{var_constraints:?}");
 
     // Return an empty vec for now
     Vec::new()
@@ -72,5 +69,5 @@ pub fn solve_equation(
 fn test_solve_equation() {
     let word_list: Vec<&str> = vec!["LAX", "TAX", "LOX"];
     let input = "l.x".to_string();
-    solve_equation(&input, word_list, 5);
+    solve_equation(&input, &word_list, 5);
 }
