@@ -13,9 +13,9 @@ pub struct VarConstraints {
 }
 
 impl VarConstraints {
-    /// Create an empty `VarConstraints` map.
-    pub fn new() -> Self {
-        Self { inner: HashMap::new() }
+    /// Create a `VarConstraints` map whose internal map is `map`.
+    pub fn of(map: HashMap<char, VarConstraint>) -> Self {
+        Self { inner: map }
     }
 
     /// Insert a complete `VarConstraint` for a variable.
@@ -70,14 +70,14 @@ impl fmt::Display for VarConstraints {
 /// Fields are optional so that constraints can be partial:
 /// - `min_length` / `max_length` limit how many characters the variable can bind to.
 /// - `form` is an optional sub-pattern the variable's match must satisfy
-///   (e.g., `"a*"` means must start with `a`; `"*z*"` means must contain `z`).
+///   (e.g., `"a*"` means "must start with `a`"; `"*z*"` means "must contain `z`").
 /// - `not_equal` lists variables whose matches must *not* be identical to this one.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VarConstraint {
     pub min_length: Option<usize>,
     pub max_length: Option<usize>,
-    pub form: Option<String>,     // e.g. "a*" or "*z*"
-    pub not_equal: HashSet<char>, // e.g. A's set contains 'B' if `A != B` is required
+    pub form: Option<String>,     // e.g., "a*" or "*z*"
+    pub not_equal: HashSet<char>, // e.g., A's set contains 'B' if `A != B` is required
 }
 
 impl VarConstraint {
@@ -121,15 +121,18 @@ mod tests {
 
     #[test]
     fn bounds_with_overrides() {
-        let mut vc = VarConstraint::default();
-        vc.min_length = Some(2);
-        vc.max_length = Some(5);
+        let vc = VarConstraint {
+            min_length: Some(2),
+            max_length: Some(5),
+            form: None,
+            not_equal: HashSet::new()
+        };
         assert_eq!(vc.bounds(1, 99), (2, 5));
     }
 
     #[test]
     fn ensure_creates_default() {
-        let mut vcs = VarConstraints::new();
+        let mut vcs = VarConstraints::default();
         assert!(vcs.get('A').is_none());
         {
             let a = vcs.ensure('A');
@@ -142,7 +145,7 @@ mod tests {
 
     #[test]
     fn insert_and_get_roundtrip() {
-        let mut vcs = VarConstraints::new();
+        let mut vcs = VarConstraints::default();
         let mut vc = VarConstraint::default();
         vc.form = Some("*z*".into());
         vc.not_equal.extend(['B', 'C']);
@@ -166,7 +169,7 @@ mod tests {
 
     #[test]
     fn display_varconstraints_multiline_sorted() {
-        let mut vcs = VarConstraints::new();
+        let mut vcs = VarConstraints::default();
         let mut a = VarConstraint::default();
         a.min_length = Some(1);
         let mut c = VarConstraint::default();

@@ -21,8 +21,8 @@ impl Bindings {
     }
 
     /// Retrieve the binding for a variable
-    pub fn get(&self, var: &char) -> Option<&String> {
-        self.map.get(var)
+    pub fn get(&self, var: char) -> Option<&String> {
+        self.map.get(&var)
     }
 
     /// Remove a binding for the given variable (if it exists)

@@ -18,19 +18,19 @@ use crate::constraints::{VarConstraint, VarConstraints};
 ///
 /// Examples of forms:
 /// - `l@#A*` (literal + vowel + consonant + variable + wildcard)
-/// - `ABc/abc` (two variables, lowercase literal, and an anagram)
+/// - `ABc/abc` (two variables + lowercase literal + an anagram)
 ///
 /// Variants correspond to different token types:
 #[derive(Debug, Clone, PartialEq)]
 pub enum FormPart {
-    Var(char),           // Uppercase A–Z variable reference (e.g. 'A')
-    RevVar(char),        // '~A' reversed variable reference
-    Lit(String),         // Literal lowercase sequence (will be uppercased internally)
-    Dot,                 // '.' wildcard: exactly one character
-    Star,                // '*' wildcard: zero or more characters
+    Var(char),           // 'A': uppercase A–Z variable reference
+    RevVar(char),        // '~A': reversed variable reference
+    Lit(String),         // 'abc': literal lowercase sequence (will be uppercased internally)
+    Dot,                 // '.' wildcard: exactly one letter
+    Star,                // '*' wildcard: zero or more letters
     Vowel,               // '@' wildcard: any vowel (AEIOUY)
-    Consonant,           // '#' wildcard: any consonant (BCDF...Z)
-    Charset(Vec<char>),  // '[abc]': any of the given characters
+    Consonant,           // '#' wildcard: any consonant (BCDF...XZ)
+    Charset(Vec<char>),  // '[abc]': any of the given letters
     Anagram(String),     // '/abc': any permutation of the given letters
 }
 
@@ -44,7 +44,7 @@ pub fn is_valid_binding(
     constraints: &VarConstraint,
     bindings: &Bindings,
 ) -> bool {
-    // 1) Apply nested form constraint if present
+    // 1. Apply nested form constraint if present
     if let Some(form_str) = &constraints.form {
         match parse_equation(form_str) {
             Ok(p) => {
@@ -56,9 +56,9 @@ pub fn is_valid_binding(
         }
     }
 
-    // 2) Check "not equal" constraints
+    // 2. Check "not equal" constraints
     for &other in &constraints.not_equal {
-        if let Some(existing) = bindings.get(&other) {
+        if let Some(existing) = bindings.get(other) {
             if existing == val {
                 return false;
             }
@@ -124,10 +124,10 @@ fn match_equation_internal(
 
     /// Recursive matching helper.
     ///
-    /// `chars`   – remaining characters of the word
-    /// `parts`   – remaining pattern parts
-    /// `bindings`– current variable assignments
-    /// `results` – collection of successful bindings
+    /// `chars`       – remaining characters of the word
+    /// `parts`       – remaining pattern parts
+    /// `bindings`    – current variable assignments
+    /// `results`     – collection of successful bindings
     /// `all_matches` – whether to collect all or stop at first
     fn helper(
         chars: &[char],
@@ -205,7 +205,7 @@ fn match_equation_internal(
                 }
             }
             FormPart::Var(name) | FormPart::RevVar(name) => {
-                if let Some(bound_val) = bindings.get(&name) {
+                if let Some(bound_val) = bindings.get(*name) {
                     // Already bound: must match exactly
                     let val = get_reversed_or_not(first, bound_val);
                     if chars.starts_with(&val.chars().collect::<Vec<_>>()) {
@@ -268,12 +268,8 @@ pub fn form_to_regex(parts: &[FormPart]) -> String {
     let mut regex = String::new();
     for part in parts {
         match part {
-            FormPart::Var(_) | FormPart::RevVar(_) => {
-                regex.push_str(".+"); // Variable: one or more chars
-            },
-            FormPart::Lit(s) => {
-                regex.push_str(&regex::escape(&s.to_uppercase()));
-            },
+            FormPart::Var(_) | FormPart::RevVar(_) => regex.push_str(".+"), // Variable: one or more chars
+            FormPart::Lit(s) => regex.push_str(&regex::escape(&s.to_uppercase())),
             FormPart::Dot => regex.push('.'),
             FormPart::Star => regex.push_str(".*"),
             FormPart::Vowel => regex.push_str("[AEIOUY]"),
@@ -447,7 +443,7 @@ mod tests {
         let result = match_equation("INCH", &patt, Some(&var_constraints));
         assert!(result.is_some());
         let m = result.unwrap();
-        assert_ne!(m.get(&'A'), m.get(&'B'));
+        assert_ne!(m.get('A'), m.get('B'));
     }
 
     #[test]
@@ -466,7 +462,7 @@ mod tests {
 
         let matches = match_equation_all("INCHIN", &patt, Some(&var_constraints));
         for m in matches.iter() {
-            let val = m.get(&'A').unwrap();
+            let val = m.get('A').unwrap();
             assert!(val.len() >= MIN_LENGTH.unwrap() && val.len() <= MAX_LENGTH.unwrap());
         }
     }
