@@ -69,7 +69,7 @@ pub fn solve_equation(
     let var_constraints = &pattern_obj.var_constraints;
 
     // 5. Iterate through every candidate word.
-    'words_loop: for &word in word_list.iter() {
+    'words_loop: for &word in word_list {
         // Check each pattern against this word
         for (i, patt) in pattern_obj.iter().enumerate() {
             // Skip this pattern if we already have too many matches for it

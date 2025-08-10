@@ -257,7 +257,7 @@ fn match_equation_internal(
     // Normalize word and start recursive matching
     let word = word.to_uppercase();
     let chars: Vec<char> = word.chars().collect();
-    let mut bindings = Bindings::new();
+    let mut bindings = Bindings::default();
     helper(&chars, parts, &mut bindings, results, all_matches, &word, constraints);
 }
 
@@ -391,7 +391,7 @@ mod tests {
         let mut vc = VarConstraint::default();
         vc.not_equal.insert('B');
 
-        let mut b = Bindings::new();
+        let mut b = Bindings::default();
         b.set('B', "TEST".to_string());
 
         // "OTHER" != "TEST" so this should pass
@@ -403,7 +403,7 @@ mod tests {
         let mut vc = VarConstraint::default();
         vc.form = Option::from("abc*".to_string());
 
-        let b = Bindings::new();
+        let b = Bindings::default();
         assert!(is_valid_binding("ABCAT", &vc, &b));
     }
 
@@ -412,7 +412,7 @@ mod tests {
         let mut vc = VarConstraint::default();
         vc.form = Option::from("abc*".to_string());
 
-        let b = Bindings::new();
+        let b = Bindings::default();
         assert!(!is_valid_binding("XYZ", &vc, &b));
     }
 
@@ -421,7 +421,7 @@ mod tests {
         let mut vc = VarConstraint::default();
         vc.not_equal.insert('B');
 
-        let mut b = Bindings::new();
+        let mut b = Bindings::default();
         b.set('B', "TEST".to_string());
         assert!(!is_valid_binding("TEST", &vc, &b));
     }
