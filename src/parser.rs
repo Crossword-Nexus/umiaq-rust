@@ -492,5 +492,198 @@ mod tests {
 
         assert!(!match_equation_exists("INCH", &patt, Some(&var_constraints2)));
     }
+
+    #[test]
+    fn test_parse_form_basic() {
+        let result = parse_form("abc");
+        assert!(result.is_ok());
+        let parts = result.unwrap();
+        assert_eq!(parts.len(), 1);
+        assert!(matches!(parts[0], FormPart::Lit(ref s) if s == "abc"));
+    }
+
+    #[test]
+    fn test_parse_form_variable() {
+        let result = parse_form("A");
+        assert!(result.is_ok());
+        let parts = result.unwrap();
+        assert_eq!(parts.len(), 1);
+        assert!(matches!(parts[0], FormPart::Var('A')));
+    }
+
+    #[test]
+    fn test_parse_form_reversed_variable() {
+        let result = parse_form("~A");
+        assert!(result.is_ok());
+        let parts = result.unwrap();
+        assert_eq!(parts.len(), 1);
+        assert!(matches!(parts[0], FormPart::RevVar('A')));
+    }
+
+    #[test]
+    fn test_parse_form_wildcards() {
+        let result = parse_form(".*@#");
+        assert!(result.is_ok());
+        let parts = result.unwrap();
+        assert_eq!(parts.len(), 4);
+        assert!(matches!(parts[0], FormPart::Dot));
+        assert!(matches!(parts[1], FormPart::Star));
+        assert!(matches!(parts[2], FormPart::Vowel));
+        assert!(matches!(parts[3], FormPart::Consonant));
+    }
+
+    #[test]
+    fn test_parse_form_charset() {
+        let result = parse_form("[abc]");
+        assert!(result.is_ok());
+        let parts = result.unwrap();
+        assert_eq!(parts.len(), 1);
+        assert!(matches!(parts[0], FormPart::Charset(ref chars) if chars == &['a', 'b', 'c']));
+    }
+
+    #[test]
+    fn test_parse_form_anagram() {
+        let result = parse_form("/abc");
+        assert!(result.is_ok());
+        let parts = result.unwrap();
+        assert_eq!(parts.len(), 1);
+        assert!(matches!(parts[0], FormPart::Anagram(ref s) if s == "abc"));
+    }
+
+    #[test]
+    fn test_parse_form_complex() {
+        let result = parse_form("A~A[rstlne]/jon@#.*");
+        assert!(result.is_ok());
+        let parts = result.unwrap();
+        assert_eq!(parts.len(), 8);
+        assert!(matches!(parts[0], FormPart::Var('A')));
+        assert!(matches!(parts[1], FormPart::RevVar('A')));
+        assert!(matches!(parts[2], FormPart::Charset(_))); // TODO check _ value
+        assert!(matches!(parts[3], FormPart::Anagram(_))); // TODO check _ value
+        assert!(matches!(parts[4], FormPart::Vowel));
+        assert!(matches!(parts[5], FormPart::Consonant));
+        assert!(matches!(parts[6], FormPart::Dot));
+        assert!(matches!(parts[7], FormPart::Star));
+    }
+
+    #[test]
+    fn test_form_to_regex_str() {
+        let parts = parse_form("l.x").unwrap();
+        let regex_str = form_to_regex_str(&parts);
+        assert_eq!(regex_str, "L.X");
+    }
+
+    #[test]
+    fn test_form_to_regex_str_with_variables() {
+        let parts = parse_form("AB").unwrap();
+        let regex_str = form_to_regex_str(&parts);
+        assert_eq!(regex_str, ".+.+");
+    }
+
+    #[test]
+    fn test_form_to_regex_str_with_wildcards() {
+        let parts = parse_form(".*@#").unwrap();
+        let regex_str = form_to_regex_str(&parts);
+        assert_eq!(regex_str, "..*[AEIOUY][BCDFGHJKLMNPQRSTVWXZ]");
+    }
+
+    #[test]
+    fn test_palindrome_matching() {
+        let patt = parse_form("A~A").unwrap();
+        assert!(match_equation_exists("NOON", &patt, None));
+        assert!(!match_equation_exists("RADAR", &patt, None));
+        assert!(!match_equation_exists("TEST", &patt, None));
+    }
+
+    #[test]
+    fn test_anagram_matching() {
+        let patt = parse_form("/triangle").unwrap();
+        assert!(match_equation_exists("INTEGRAL", &patt, None));
+        assert!(!match_equation_exists("SQUARE", &patt, None));
+    }
+
+    #[test]
+    fn test_variable_binding() {
+        let patt = parse_form("AB").unwrap();
+        let result = match_equation("INCH", &patt, None);
+        assert!(result.is_some());
+        let binding = result.unwrap();
+        // TODO allow for IN/CH or INC/H
+        assert_eq!(binding.get('A'), Some(&"I".to_string()));
+        assert_eq!(binding.get('B'), Some(&"NCH".to_string()));
+    }
+
+    #[test]
+    fn test_reversed_variable_binding() {
+        let patt = parse_form("A~A").unwrap();
+        let result = match_equation("NOON", &patt, None);
+        assert!(result.is_some());
+        let binding = result.unwrap();
+        assert_eq!(binding.get('A'), Some(&"NO".to_string()));
+    }
+
+    #[test]
+    fn test_literal_matching() {
+        let patt = parse_form("abc").unwrap();
+        assert!(match_equation_exists("ABC", &patt, None));
+        assert!(!match_equation_exists("XYZ", &patt, None));
+    }
+
+    #[test]
+    fn test_dot_wildcard() {
+        let patt = parse_form("a.z").unwrap();
+        assert!(match_equation_exists("ABZ", &patt, None));
+        assert!(match_equation_exists("AZZ", &patt, None));
+        assert!(!match_equation_exists("AZ", &patt, None));
+        assert!(!match_equation_exists("ABBZ", &patt, None));
+    }
+
+    #[test]
+    fn test_star_wildcard() {
+        let patt = parse_form("a*z").unwrap();
+        assert!(match_equation_exists("AZ", &patt, None));
+        assert!(match_equation_exists("ABZ", &patt, None));
+        assert!(match_equation_exists("ABBBZ", &patt, None));
+        assert!(!match_equation_exists("AY", &patt, None));
+    }
+
+    #[test]
+    fn test_vowel_wildcard() {
+        let patt = parse_form("A@Z").unwrap();
+        assert!(match_equation_exists("AAZ", &patt, None));
+        assert!(match_equation_exists("AEZ", &patt, None));
+        assert!(!match_equation_exists("ABZ", &patt, None));
+    }
+
+    #[test]
+    fn test_consonant_wildcard() {
+        let patt = parse_form("A#Z").unwrap();
+        assert!(match_equation_exists("ABZ", &patt, None));
+        assert!(match_equation_exists("ACZ", &patt, None));
+        assert!(!match_equation_exists("AAZ", &patt, None));
+    }
+
+    #[test]
+    fn test_charset_matching() {
+        let patt = parse_form("[abc]").unwrap();
+        assert!(match_equation_exists("A", &patt, None));
+        assert!(match_equation_exists("B", &patt, None));
+        assert!(match_equation_exists("C", &patt, None));
+        assert!(!match_equation_exists("D", &patt, None));
+    }
+
+    #[test]
+    fn test_empty_pattern() {
+        let result = parse_form("");
+        assert!(result.is_ok());
+        let parts = result.unwrap();
+        assert_eq!(parts.len(), 0);
+    }
+
+    #[test]
+    fn test_invalid_pattern() {
+        let result = parse_form("[");
+        assert!(result.is_err());
+    }
 }
 
