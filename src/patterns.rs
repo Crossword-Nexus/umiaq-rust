@@ -19,16 +19,16 @@ static COMPLEX_RE: LazyLock<Regex> =
 ///
 /// ## Solver metadata (what it is and why it exists)
 /// - `lookup_keys`: `Option<HashSet<char>>`
-///   - **What:** The subset of this form’s variables that also appear in forms
+///   - **What:** The subset of this form's variables that also appear in forms
 ///     that have already been placed earlier in `Patterns::ordered_list`.
-///   - **When it’s set:** Assigned by `Patterns::ordered_partitions()` *after* the
+///   - **When it's set:** Assigned by `Patterns::ordered_partitions()` *after* the
 ///     forms have been reordered for solving.
 ///   - **Why it helps:** During the multi-form join, candidate bindings for this
 ///     form can be bucketed by the concrete values of these variables and then
 ///     matched in O(1)/O(log N) time against earlier choices, instead of scanning
 ///     all candidates. In other words, `lookup_keys` is the *join key* that lets
 ///     you intersect partial solutions cheaply.
-///   - **How it’s used:** When you collect matches for each form, you can index
+///   - **How it's used:** When you collect matches for each form, you can index
 ///     (e.g., `HashMap<JoinKey, Vec<Bindings>>`) by the values of `lookup_keys`.
 ///     Then, when recursing, you fetch only the compatible bucket for the next form.
 ///
@@ -83,7 +83,7 @@ impl Pattern {
 ///   `A=(3-5:a*)`
 /// - `ordered_list`: `list` reordered so that forms with many variables appear
 ///   earlier and subsequent forms maximize overlap with already-chosen variables.
-///   As part of this step, each later form’s `lookup_keys` is set to the overlap
+///   As part of this step, each later form's `lookup_keys` is set to the overlap
 ///   with the variables seen so far (its *join key*).
 pub struct Patterns {
     /// List of patterns directly extracted from the input string (not constraints)
@@ -220,7 +220,7 @@ impl Patterns {
 /// Why `&Patterns` and not `Patterns`?
 /// - `for x in collection` desugars to `IntoIterator::into_iter(collection)`.
 /// - If we implement `IntoIterator` for **`Patterns`**, iteration would *consume* (move) the
-///   whole `Patterns`, which we don’t want here.
+///   whole `Patterns`, which we don't want here.
 /// - Implementing it for **`&Patterns`** lets you iterate **by reference** without moving.
 impl<'a> IntoIterator for &'a Patterns {
     type Item = &'a Pattern;

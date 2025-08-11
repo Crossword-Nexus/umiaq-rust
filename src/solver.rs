@@ -5,24 +5,24 @@ use crate::parser::{match_equation_all, parse_form, FormPart};
 /// The max number of matches to grab during our initial pass through the word list
 const MAX_INITIAL_MATCHES: usize = 50_000;
 
-/// A single solution’s variable bindings:
+/// A single solution's variable bindings:
 /// maps a variable name (e.g., 'A') to the concrete substring it was bound to.
 /// - We use `String` because bindings are slices of candidate words and may be reused;
 ///   if cloning shows up in profiles later, we can switch to `Arc<str>`.
 pub type Binding = HashMap<char, String>;
 
 /// Bucket key for indexing candidates by the subset of variables that must agree.
-/// - `None` means “no lookup constraints for this pattern” (Python’s `words[i][None]`).
+/// - `None` means "no lookup constraints for this pattern" (Python's `words[i][None]`).
 /// - When present, we store a *sorted* `(var, value)` list so the key is deterministic
-///   and implements `Eq`/`Hash` naturally. This mirrors Python’s
+///   and implements `Eq`/`Hash` naturally. This mirrors Python's
 ///   `frozenset(dict(...).items())`, but with a stable order.
 /// - The sort happens once when we construct the key, not on hash/compare.
 pub type LookupKey = Option<Vec<(char, String)>>;
 
-/// All candidates for one pattern (“bucketed” by `LookupKey`).
+/// All candidates for one pattern ("bucketed" by `LookupKey`).
 /// - `buckets`: groups candidate bindings that share the same values for the
-///   pattern’s `lookup_keys` (variables that must align with previously chosen patterns).
-/// - `count`: mirrors Python’s `word_counts[i]` and is used to stop early when a global cap
+///   pattern's `lookup_keys` (variables that must align with previously chosen patterns).
+/// - `count`: mirrors Python's `word_counts[i]` and is used to stop early when a global cap
 ///   per-pattern is reached (e.g., `MAX_WORD_COUNT`). We track it here to avoid recomputing.
 #[derive(Debug, Default)]
 pub struct CandidateBuckets {

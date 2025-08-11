@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 const WORD_SENTINEL: char = '*';
 
-/// `Bindings` maps a variable name (char) to the string it’s bound to.
+/// `Bindings` maps a variable name (char) to the string it's bound to.
 /// Special variable `'*'` is reserved for the bound word.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Bindings {
