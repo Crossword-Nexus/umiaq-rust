@@ -253,8 +253,8 @@ fn match_equation_internal(
 
     // === PREFILTER STEP ===
     // Convert pattern to a regex and check before attempting backtracking.
-    let regex_str = format!("^{}$", form_to_regex(parts));
-    if let Ok(regex) = Regex::new(&regex_str) {
+    let regex_str_with_ends = format!("^{}$", form_to_regex_str(parts));
+    if let Ok(regex) = Regex::new(&regex_str_with_ends) {
         if !regex.is_match(word) {
             return; // Fail fast
         }
@@ -270,31 +270,31 @@ fn match_equation_internal(
 /// Convert a parsed `FormPart` sequence into a regex string.
 ///
 /// Used for the initial fast prefilter in `match_equation_internal`.
-pub fn form_to_regex(parts: &[FormPart]) -> String {
-    let mut regex = String::new();
+pub fn form_to_regex_str(parts: &[FormPart]) -> String {
+    let mut regex_str = String::new();
     for part in parts {
         match part {
-            FormPart::Var(_) | FormPart::RevVar(_) => regex.push_str(".+"), // Variable: one or more chars
-            FormPart::Lit(s) => regex.push_str(&regex::escape(&s.to_uppercase())),
-            FormPart::Dot => regex.push('.'),
-            FormPart::Star => regex.push_str(".*"),
-            FormPart::Vowel => regex.push_str(&format!("[{VOWELS}]")),
-            FormPart::Consonant => regex.push_str(&format!("[{CONSONANTS}]")),
+            FormPart::Var(_) | FormPart::RevVar(_) => regex_str.push_str(".+"), // Variable: one or more chars
+            FormPart::Lit(s) => regex_str.push_str(&regex::escape(&s.to_uppercase())),
+            FormPart::Dot => regex_str.push('.'),
+            FormPart::Star => regex_str.push_str(".*"),
+            FormPart::Vowel => regex_str.push_str(&format!("[{VOWELS}]")),
+            FormPart::Consonant => regex_str.push_str(&format!("[{CONSONANTS}]")),
             FormPart::Charset(chars) => {
-                regex.push('[');
+                regex_str.push('[');
                 for c in chars {
-                    regex.push(c.to_ascii_uppercase());
+                    regex_str.push(c.to_ascii_uppercase());
                 }
-                regex.push(']');
+                regex_str.push(']');
             },
             FormPart::Anagram(s) => {
                 let len = s.len();
                 let class = regex::escape(&s.to_uppercase());
-                let _ = write!(regex, "[{class}]{{{len}}}");
+                let _ = write!(regex_str, "[{class}]{{{len}}}");
             },
         }
     }
-    regex
+    regex_str
 }
 
 /// Parse a form string into a `Vec<FormPart>` sequence.
