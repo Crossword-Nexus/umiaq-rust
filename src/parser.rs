@@ -9,10 +9,10 @@ use nom::{
     Parser,
 };
 
-use regex::Regex;
-use std::fmt::Write as _;
 use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
+use regex::Regex;
+use std::fmt::Write as _;
 
 // Character-set constants
 const VOWELS: &str = "AEIOUY";
@@ -29,15 +29,15 @@ const LOWERCASE_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
 /// Variants correspond to different token types:
 #[derive(Debug, Clone, PartialEq)]
 pub enum FormPart {
-    Var(char),           // 'A': uppercase A–Z variable reference
-    RevVar(char),        // '~A': reversed variable reference
-    Lit(String),         // 'abc': literal lowercase sequence (will be uppercased internally)
-    Dot,                 // '.' wildcard: exactly one letter
-    Star,                // '*' wildcard: zero or more letters
-    Vowel,               // '@' wildcard: any vowel (AEIOUY)
-    Consonant,           // '#' wildcard: any consonant (BCDF...XZ)
-    Charset(Vec<char>),  // '[abc]': any of the given letters
-    Anagram(String),     // '/abc': any permutation of the given letters
+    Var(char),          // 'A': uppercase A–Z variable reference
+    RevVar(char),       // '~A': reversed variable reference
+    Lit(String),        // 'abc': literal lowercase sequence (will be uppercased internally)
+    Dot,                // '.' wildcard: exactly one letter
+    Star,               // '*' wildcard: zero or more letters
+    Vowel,              // '@' wildcard: any vowel (AEIOUY)
+    Consonant,          // '#' wildcard: any consonant (BCDF...XZ)
+    Charset(Vec<char>), // '[abc]': any of the given letters
+    Anagram(String),    // '/abc': any permutation of the given letters
 }
 
 /// Validate whether a candidate binding value is allowed under a `VarConstraint`.
@@ -45,11 +45,7 @@ pub enum FormPart {
 /// Checks:
 /// 1. If `form` is present, the value must itself match that form.
 /// 2. The value must not equal any variable listed in `not_equal` that is already bound.
-pub fn is_valid_binding(
-    val: &str,
-    constraints: &VarConstraint,
-    bindings: &Bindings,
-) -> bool {
+pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings) -> bool {
     // 1. Apply nested form constraint if present
     if let Some(form_str) = &constraints.form {
         match parse_form(form_str) {
@@ -286,12 +282,12 @@ pub fn form_to_regex_str(parts: &[FormPart]) -> String {
                     regex_str.push(c.to_ascii_uppercase());
                 }
                 regex_str.push(']');
-            },
+            }
             FormPart::Anagram(s) => {
                 let len = s.len();
                 let class = regex::escape(&s.to_uppercase());
                 let _ = write!(regex_str, "[{class}]{{{len}}}");
-            },
+            }
         }
     }
     regex_str
@@ -365,19 +361,9 @@ fn anagram(input: &str) -> IResult<&str, FormPart> {
 
 /// Try parsing any valid token from the input.
 fn equation_part(input: &str) -> IResult<&str, FormPart> {
-    alt((
-        revref,
-        varref,
-        anagram,
-        charset,
-        literal,
-        dot,
-        star,
-        vowel,
-        consonant,
-    )).parse(input)
+    alt((revref, varref, anagram, charset, literal, dot, star, vowel, consonant))
+    .parse(input)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -686,4 +672,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-

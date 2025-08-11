@@ -85,8 +85,8 @@ impl Default for VarConstraint {
         Self {
             min_length: 1,
             max_length: usize::MAX,
-            form:    None,
-            not_equal:  HashSet::new(),
+            form: None,
+            not_equal: HashSet::new(),
         }
     }
 }
@@ -136,7 +136,7 @@ mod tests {
             min_length: 2,
             max_length: 5,
             form: None,
-            not_equal: HashSet::new()
+            not_equal: HashSet::new(),
         };
         assert_eq!(vc.bounds(), (2, 5));
     }

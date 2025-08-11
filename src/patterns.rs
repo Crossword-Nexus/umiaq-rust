@@ -1,7 +1,7 @@
+use crate::constraints::VarConstraints;
 use regex::Regex;
 use std::collections::HashSet;
 use std::sync::LazyLock;
-use crate::constraints::VarConstraints;
 
 /// Matches exact length constraints like `|A|=5`
 static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
@@ -122,9 +122,7 @@ impl Patterns {
                 // Extract all variables from inequality constraint (e.g., !=AB means A != B)
                 let vars: Vec<char> = cap[1].chars().collect();
                 for &v in &vars {
-                    let entry = self
-                        .var_constraints
-                        .ensure(v);
+                    let entry = self.var_constraints.ensure(v);
                     entry.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
             } else if let Some(cap) = COMPLEX_RE.captures(part) {
@@ -132,9 +130,7 @@ impl Patterns {
                 let var = cap[1].chars().next().unwrap();
                 let len = &cap[2];
                 let patt = cap[3].to_string();
-                let entry = self
-                    .var_constraints
-                    .ensure(var);
+                let entry = self.var_constraints.ensure(var);
 
                 if let Some((min, max)) = parse_length_range(len) {
                     entry.min_length = min.unwrap();

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use crate::patterns::Patterns;
 use crate::parser::{match_equation_all, parse_form, FormPart};
+use crate::patterns::Patterns;
+use std::collections::HashMap;
 
 /// The max number of matches to grab during our initial pass through the word list
 const MAX_INITIAL_MATCHES: usize = 50_000;
@@ -41,11 +41,7 @@ pub struct CandidateBuckets {
 /// Returns:
 /// - A `Vec` of solutions, each solution being a `Vec<Binding>` where each `Binding`
 ///   maps variable names (chars) to concrete substrings they were bound to in that solution.
-pub fn solve_equation(
-    input: &str,
-    word_list: &[&str],
-    num_results: usize
-) -> Vec<Vec<Binding>> {
+pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Vec<Vec<Binding>> {
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let pattern_obj = Patterns::new(input);
@@ -139,8 +135,6 @@ pub fn solve_equation(
     //       into complete solutions. For now, return an empty Vec.
     Vec::new()
 }
-
-
 
 #[test]
 fn test_solve_equation() {
