@@ -14,6 +14,12 @@ use std::fmt::Write as _;
 use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 
+// Character-set constants
+const VOWELS: &str = "AEIOUY";
+const CONSONANTS: &str = "BCDFGHJKLMNPQRSTVWXZ";
+const UPPERCASE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LOWERCASE_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
+
 /// Represents a single parsed token (component) from a "form" string.
 ///
 /// Examples of forms:
@@ -176,12 +182,12 @@ fn match_equation_internal(
                 }
             }
             FormPart::Vowel => {
-                if matches!(chars.first(), Some(c) if "AEIOUY".contains(*c)) {
+                if matches!(chars.first(), Some(c) if VOWELS.contains(*c)) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Consonant => {
-                if matches!(chars.first(), Some(c) if "BCDFGHJKLMNPQRSTVWXZ".contains(*c)) {
+                if matches!(chars.first(), Some(c) if CONSONANTS.contains(*c)) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
@@ -272,8 +278,8 @@ pub fn form_to_regex(parts: &[FormPart]) -> String {
             FormPart::Lit(s) => regex.push_str(&regex::escape(&s.to_uppercase())),
             FormPart::Dot => regex.push('.'),
             FormPart::Star => regex.push_str(".*"),
-            FormPart::Vowel => regex.push_str("[AEIOUY]"),
-            FormPart::Consonant => regex.push_str("[BCDFGHJKLMNPQRSTVWXZ]"),
+            FormPart::Vowel => regex.push_str(&format!("[{VOWELS}]")),
+            FormPart::Consonant => regex.push_str(&format!("[{CONSONANTS}]")),
             FormPart::Charset(chars) => {
                 regex.push('[');
                 for c in chars {
@@ -315,15 +321,15 @@ pub fn parse_form(input: &str) -> Result<Vec<FormPart>, String> {
 // These small functions use `nom` combinators to recognize individual token types.
 
 fn varref(input: &str) -> IResult<&str, FormPart> {
-    map(one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), FormPart::Var).parse(input)
+    map(one_of(UPPERCASE_ALPHABET), FormPart::Var).parse(input)
 }
 
 fn revref(input: &str) -> IResult<&str, FormPart> {
-    map(preceded(tag("~"), one_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), FormPart::RevVar).parse(input)
+    map(preceded(tag("~"), one_of(UPPERCASE_ALPHABET)), FormPart::RevVar).parse(input)
 }
 
 fn literal(input: &str) -> IResult<&str, FormPart> {
-    map(many1(one_of("abcdefghijklmnopqrstuvwxyz")), |chars| {
+    map(many1(one_of(LOWERCASE_ALPHABET)), |chars| {
         FormPart::Lit(chars.into_iter().collect())
     }).parse(input)
 }
@@ -346,14 +352,14 @@ fn consonant(input: &str) -> IResult<&str, FormPart> {
 
 fn charset(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("[")(input)?;
-    let (input, chars) = many1(one_of("abcdefghijklmnopqrstuvwxyz")).parse(input)?;
+    let (input, chars) = many1(one_of(LOWERCASE_ALPHABET)).parse(input)?;
     let (input, _) = tag("]")(input)?;
     Ok((input, FormPart::Charset(chars)))
 }
 
 fn anagram(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("/")(input)?;
-    let (input, chars) = many1(one_of("abcdefghijklmnopqrstuvwxyz")).parse(input)?;
+    let (input, chars) = many1(one_of(LOWERCASE_ALPHABET)).parse(input)?;
     Ok((input, FormPart::Anagram(chars.into_iter().collect())))
 }
 
