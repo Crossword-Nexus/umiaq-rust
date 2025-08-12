@@ -460,7 +460,7 @@ mod tests {
         // associate this constraint with variable 'A'
         var_constraints.insert('A', vc);
 
-        let matches = match_equation_all("INCHIN", &patt, Some(&var_constraints));
+        let matches = match_equation_all("HOTHOT", &patt, Some(&var_constraints));
         println!("{matches:?}");
         for m in matches.iter() {
             let val = m.get('A').unwrap();

@@ -11,10 +11,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="more work on solver.rs">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
-    </list>
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Note that one parser test doesn't pass" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -224,7 +221,7 @@
       <workItem from="1754577666024" duration="6493000" />
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
-      <workItem from="1754994978244" duration="937000" />
+      <workItem from="1754994978244" duration="1283000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -426,7 +423,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754847191012</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="Note that one parser test doesn't pass">
+      <option name="closed" value="true" />
+      <created>1754995980559</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1754995980559</updated>
+    </task>
+    <option name="localTasksCounter" value="27" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -456,6 +461,7 @@
     <MESSAGE value="New test case for solver.rs" />
     <MESSAGE value="Several changes&#10;&#10;* default for VarConstraint&#10;* VarConstraint min_length and max_length are no longer options&#10;* use VarConstraints in patterns.rs&#10;* Add some more to solver.rs" />
     <MESSAGE value="more work on solver.rs" />
-    <option name="LAST_COMMIT_MESSAGE" value="more work on solver.rs" />
+    <MESSAGE value="Note that one parser test doesn't pass" />
+    <option name="LAST_COMMIT_MESSAGE" value="Note that one parser test doesn't pass" />
   </component>
 </project>
