@@ -18,7 +18,11 @@ struct Cli {
     pattern: String,
 
     /// Path to the word list file (word;score per line)
-    #[arg(short, long, default_value = "xwordlist_sorted_trimmed.txt")]
+    #[arg(
+        short,
+        long,
+        default_value = concat!(env!("CARGO_MANIFEST_DIR"), "/data/spreadthewordlist.dict")
+    )]
     wordlist: String,
 
     /// Minimum score filter
