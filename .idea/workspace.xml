@@ -11,11 +11,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Several changes&#10;&#10;* default for VarConstraint&#10;* VarConstraint min_length and max_length are no longer options&#10;* use VarConstraints in patterns.rs&#10;* Add some more to solver.rs">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="more work on solver.rs">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/bindings.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/bindings.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/patterns.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/patterns.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/solver.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/solver.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -69,10 +67,12 @@
     "Cargo.Run.executor": "Run",
     "Cargo.Test constraints::tests.executor": "Run",
     "Cargo.Test parser::tests.executor": "Run",
+    "Cargo.Test parser::tests::test_match_equation_all_with_constraints.executor": "Run",
     "Cargo.Test parser::tests::test_match_pattern_all_examples.executor": "Run",
     "Cargo.Test parser::tests::test_match_pattern_exists_with_constraints.executor": "Run",
     "Cargo.Test parser::tests::test_valid_binding_not_equal_pass.executor": "Run",
     "Cargo.Test patterns::tests.executor": "Run",
+    "Cargo.Test patterns::tests::test_basic_pattern_and_constraints.executor": "Run",
     "Cargo.Test patterns::tests::test_parse_length_range.executor": "Run",
     "Cargo.Test solver::test_solve_equation.executor": "Run",
     "Cargo.Test solver::test_solve_equation2.executor": "Run",
@@ -95,7 +95,7 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="Cargo.Test solver::test_solve_equation2">
+  <component name="RunManager" selected="Cargo.Test parser::tests::test_match_equation_all_with_constraints">
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package umiaq-rust --bin umiaq-rust" />
@@ -114,8 +114,8 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test parser::tests::test_valid_binding_not_equal_pass" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package umiaq-rust --bin umiaq-rust parser::tests::test_valid_binding_not_equal_pass -- --exact" />
+    <configuration name="Test parser::tests::test_match_equation_all_with_constraints" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package umiaq-rust --bin umiaq-rust parser::tests::test_match_equation_all_with_constraints -- --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <envs />
       <option name="emulateTerminal" value="true" />
@@ -131,9 +131,8 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test patterns::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="buildProfileId" value="test" />
-      <option name="command" value="test --package umiaq-rust --bin umiaq-rust patterns::tests" />
+    <configuration name="Test patterns::tests::test_basic_pattern_and_constraints" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package umiaq-rust --bin umiaq-rust patterns::tests::test_basic_pattern_and_constraints -- --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <envs />
       <option name="emulateTerminal" value="true" />
@@ -203,11 +202,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Cargo.Test parser::tests::test_match_equation_all_with_constraints" />
         <item itemvalue="Cargo.Test solver::test_solve_equation2" />
+        <item itemvalue="Cargo.Test patterns::tests::test_basic_pattern_and_constraints" />
         <item itemvalue="Cargo.Test solver::test_solve_equation" />
         <item itemvalue="Cargo.Test patterns::tests::test_parse_length_range" />
-        <item itemvalue="Cargo.Test patterns::tests" />
-        <item itemvalue="Cargo.Test parser::tests::test_valid_binding_not_equal_pass" />
       </list>
     </recent_temporary>
   </component>
@@ -225,6 +224,7 @@
       <workItem from="1754577666024" duration="6493000" />
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
+      <workItem from="1754994978244" duration="937000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -418,7 +418,15 @@
       <option name="project" value="LOCAL" />
       <updated>1754842807204</updated>
     </task>
-    <option name="localTasksCounter" value="25" />
+    <task id="LOCAL-00025" summary="more work on solver.rs">
+      <option name="closed" value="true" />
+      <created>1754847191012</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1754847191012</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -447,6 +455,7 @@
     <MESSAGE value="change return type for solve_equation" />
     <MESSAGE value="New test case for solver.rs" />
     <MESSAGE value="Several changes&#10;&#10;* default for VarConstraint&#10;* VarConstraint min_length and max_length are no longer options&#10;* use VarConstraints in patterns.rs&#10;* Add some more to solver.rs" />
-    <option name="LAST_COMMIT_MESSAGE" value="Several changes&#10;&#10;* default for VarConstraint&#10;* VarConstraint min_length and max_length are no longer options&#10;* use VarConstraints in patterns.rs&#10;* Add some more to solver.rs" />
+    <MESSAGE value="more work on solver.rs" />
+    <option name="LAST_COMMIT_MESSAGE" value="more work on solver.rs" />
   </component>
 </project>
