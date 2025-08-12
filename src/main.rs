@@ -8,6 +8,7 @@ mod constraints;
 mod parser;
 mod patterns;
 mod solver;
+mod wordlist;
 // from parser.rs
 
 /// Umiaq — pattern-matching word list solver

@@ -1,6 +1,7 @@
+use crate::bindings::WORD_SENTINEL;
 use crate::parser::{match_equation_all, parse_form, FormPart};
 use crate::patterns::Patterns;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// The max number of matches to grab during our initial pass through the word list
 const MAX_INITIAL_MATCHES: usize = 50_000;
@@ -31,6 +32,137 @@ pub struct CandidateBuckets {
     /// Total number of bindings added for this pattern (across all keys)
     pub count: usize,
 }
+
+/// Depth-first recursive join of per-pattern candidate buckets into full solutions.
+///
+/// This mirrors `recursive_filter` from `umiaq.py`. We walk patterns in order
+/// (index `idx`) and at each step select only the bucket of candidates whose
+/// shared variables agree with what we’ve already chosen (`env`).
+///
+/// Parameters:
+/// - `idx`: which pattern we’re placing now (0-based).
+/// - `words`: per-pattern candidate buckets (what you built during scanning).
+/// - `lookup_keys`: for each pattern, which variables must agree with previously
+///                  chosen patterns. `None` means “no lookup constraint”
+///                  (use the `None` bucket). `Some(vec)` means we must look up
+///                  a concrete `Some(sorted_pairs)` key—even if `vec` is empty.
+/// - `selected`: the partial solution (one chosen Binding per pattern so far).
+/// - `env`: the accumulated variable → value environment from earlier choices.
+/// - `results`: completed solutions (each is a Vec<Binding>, one per pattern).
+/// - `num_results`: cap on how many full solutions to collect.
+///
+/// Return:
+/// - This function mutates `results` and stops early once it has `num_results`.
+fn recursive_join(
+    idx: usize,
+    words: &Vec<CandidateBuckets>,
+    lookup_keys: &Vec<Option<HashSet<char>>>,
+    selected: &mut Vec<Binding>,
+    env: &mut HashMap<char, String>,
+    results: &mut Vec<Vec<Binding>>,
+    num_results: usize,
+) {
+    // Stop if we’ve met the requested quota of full solutions.
+    if results.len() >= num_results {
+        return;
+    }
+
+    // Base case: if we’ve placed all patterns, `selected` is a full solution.
+    if idx == words.len() {
+        results.push(selected.clone());
+        return;
+    }
+
+    // Decide which bucket of candidates to iterate for pattern `idx`.
+    //
+    // - If this pattern has `None` lookup_keys, we use the `None` bucket.
+    // - If it has `Some(keys)`, we must create the deterministic key
+    //   `Some(sorted_pairs)` using the current `env` and fetch that bucket.
+    //   (This includes the case keys.is_empty() → key is `Some([])`.)
+    let bucket_candidates_opt: Option<&Vec<Binding>> = match &lookup_keys[idx] {
+        None => {
+            // No shared vars for this pattern → use the None bucket.
+            words[idx].buckets.get(&None)
+        }
+        Some(keys) => {
+            // Build (var, value) pairs from env using the set of shared vars.
+            // NOTE: HashSet iteration order is arbitrary — we sort the pairs below
+            // so the final key is stable/deterministic.
+            let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
+            for &var in keys {
+                if let Some(v) = env.get(&var) {
+                    pairs.push((var, v.clone()));
+                } else {
+                    // If any required var isn’t bound yet, there can be no matches for this branch.
+                    return;
+                }
+            }
+            // Deterministic key: sort by the variable name.
+            pairs.sort_unstable_by_key(|(c, _)| *c);
+
+            // IMPORTANT: if `keys` is empty, `pairs` is empty → we intentionally
+            // look up the `Some([])` bucket (not `None`). This matches the way you
+            // bucketed candidates during the scan phase.
+            words[idx].buckets.get(&Some(pairs))
+        }
+    };
+
+    // If there are no candidates in that bucket, dead-end this branch.
+    let Some(bucket_candidates) = bucket_candidates_opt else {
+        return;
+    };
+
+    // Try each candidate binding for this pattern.
+    for cand in bucket_candidates.iter() {
+        if results.len() >= num_results {
+            break; // stop early if we’ve already met the quota
+        }
+
+        // Defensive compatibility check: if a variable is already in `env`,
+        // its value must match the candidate. This *should* already be true
+        // because we selected the bucket using the shared vars—but keep this
+        // in case upstream bucketing logic ever changes.
+        let mut compatible = true;
+        for (k, v) in cand.iter() {
+            if *k == WORD_SENTINEL {
+                continue; // ignore the “whole word” sentinel binding
+            }
+            if let Some(prev) = env.get(k) {
+                if prev != v {
+                    compatible = false;
+                    break;
+                }
+            }
+        }
+        if !compatible {
+            continue;
+        }
+
+        // Extend `env` with any *new* bindings from this candidate (don’t overwrite).
+        // Track what we added so we can backtrack cleanly.
+        let mut added_vars: Vec<char> = Vec::new();
+        for (k, v) in cand.iter() {
+            if *k == WORD_SENTINEL {
+                continue;
+            }
+            if !env.contains_key(k) {
+                env.insert(*k, v.clone());
+                added_vars.push(*k);
+            }
+        }
+
+        // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
+        selected.push(cand.clone());
+        recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results);
+        selected.pop();
+
+        // Backtrack: remove only what we added at this level.
+        for k in added_vars {
+            env.remove(&k);
+        }
+    }
+}
+
 
 /// Read in an equation string and return results from the word list
 ///
@@ -125,27 +257,58 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
         }
     }
 
-    // ---- Debug: dump internal state ----
-    println!("{pattern_obj:?}");
-    println!("{words:?}");
-    println!("{parsed_patterns:?}");
-    println!("{var_constraints:?}");
+    // ---- Recursive join (like umiaq.py’s recursive_filter) ----
+    //
+    // Build an index-aligned vector of `lookup_keys` (one per pattern). Each entry:
+    //   - None  → this pattern contributes to the `None` bucket (no shared vars)
+    //   - Some(vec_of_vars) → this pattern is bucketed by a deterministic
+    //                         `Some(sorted (var,value) pairs)` key
+    //
+    // NOTE: We clone since `p.lookup_keys` is an Option<Vec<char>>. If you’d rather
+    // borrow, you can restructure `recursive_join` to accept slices instead.
+    let lookup_keys: Vec<Option<HashSet<char>>> = pattern_obj
+        .iter()
+        .map(|p| p.lookup_keys.clone())
+        .collect();
 
-    // TODO: Implement recursive join logic to combine per-pattern matches
-    //       into complete solutions. For now, return an empty Vec.
-    Vec::new()
+    // Accumulators for the DFS:
+    // - `results`: finished solutions (Vec<Binding> per pattern)
+    // - `selected`: the current partial solution down this branch
+    // - `env`: running map of variable → concrete string, used to enforce joins
+    let mut results: Vec<Vec<Binding>> = Vec::new();
+    let mut selected: Vec<Binding> = Vec::new();
+    let mut env: std::collections::HashMap<char, String> = std::collections::HashMap::new();
+
+    // Kick off the depth-first join from pattern 0.
+    recursive_join(
+        0,              // start at first pattern
+        &words,         // per-pattern buckets you built above
+        &lookup_keys,   // which variables must agree with previous choices
+        &mut selected,  // current partial solution (initially empty)
+        &mut env,       // current variable environment (initially empty)
+        &mut results,   // collect final solutions here
+        num_results,    // stop once we have this many solutions
+    );
+
+    // Return up to `num_results` combined solutions.
+    results
+
 }
 
 #[test]
 fn test_solve_equation() {
     let word_list: Vec<&str> = vec!["LAX", "TAX", "LOX"];
     let input = "l.x".to_string();
-    solve_equation(&input, &word_list, 5);
+    let results = solve_equation(&input, &word_list, 5);
+    println!("{:?}", results);
+    assert_eq!(results.len(), 2);
 }
 
 #[test]
 fn test_solve_equation2() {
     let word_list: Vec<&str> = vec!["INCH", "CHIN", "DADA", "TEST", "AB"];
     let input = "AB;BA;|A|=2;|B|=2;!=AB".to_string();
-    solve_equation(&input, &word_list, 5);
+    let results = solve_equation(&input, &word_list, 5);
+    println!("{:?}", results);
+    assert_eq!(results.len(), 2);
 }
