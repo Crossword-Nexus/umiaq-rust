@@ -460,6 +460,32 @@ mod tests {
         }
     }
 
+    /// Test AB;|A|=2;|B|=2;!=AB on INCH
+    #[test]
+    fn test_match_equation_all_with_constraints2() {
+        // Pattern
+        let patt = parse_form("AB").unwrap();
+        // Constraints
+        let mut var_constraints = VarConstraints::default();
+        // add !=AB
+        // first, add it for A
+        let mut vc_a = VarConstraint::default();
+        vc_a.not_equal.insert('B');
+        vc_a.min_length = 2;
+        vc_a.max_length = 2;
+        var_constraints.insert('A', vc_a);
+        // now add it for B
+        let mut vc_b = VarConstraint::default();
+        vc_b.not_equal.insert('A');
+        vc_b.min_length = 2;
+        vc_b.max_length = 2;
+        var_constraints.insert('B', vc_b);
+
+        let matches = match_equation_all("INCH", &patt, Some(&var_constraints));
+        println!("{matches:?}");
+        assert_eq!(matches.len(), 1);
+    }
+
     #[test]
     fn test_match_equation_exists_with_constraints() {
         let patt = parse_form("AB").unwrap();
