@@ -21,7 +21,7 @@ Umiaq, rewritten in Rust
 
 ### Pattern Examples
 
-- `"l.x"`: matches words like "LAX", "TAX", "LOX"
+- `"l.x"`: matches words like "LAX", "LOX"
 - `"A~A"`: matches palindromes like "NOON", "RADAR"
 - `"AB;|A|=2;|B|=2;!=AB"`: matches words where A and B are distinct 2-letter substrings
 - `"A@#A"`: matches words with some nonempty string, a vowel, a consonant, and the first nonempty string again
