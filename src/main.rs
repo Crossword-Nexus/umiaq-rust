@@ -3,10 +3,10 @@
 // the above turns off warnings about unused things
 
 use clap::Parser; // for argument parsing
+mod bindings;
+mod constraints;
 mod parser;
 mod patterns;
-mod constraints;
-mod bindings;
 mod solver;
 // from parser.rs
 

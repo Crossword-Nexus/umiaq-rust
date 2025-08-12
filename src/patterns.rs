@@ -1,7 +1,7 @@
+use crate::constraints::VarConstraints;
 use regex::Regex;
 use std::collections::HashSet;
 use std::sync::LazyLock;
-use crate::constraints::VarConstraints;
 
 /// Matches exact length constraints like `|A|=5`
 static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
@@ -19,16 +19,16 @@ static COMPLEX_RE: LazyLock<Regex> =
 ///
 /// ## Solver metadata (what it is and why it exists)
 /// - `lookup_keys`: `Option<HashSet<char>>`
-///   - **What:** The subset of this form’s variables that also appear in forms
+///   - **What:** The subset of this form's variables that also appear in forms
 ///     that have already been placed earlier in `Patterns::ordered_list`.
-///   - **When it’s set:** Assigned by `Patterns::ordered_partitions()` *after* the
+///   - **When it's set:** Assigned by `Patterns::ordered_partitions()` *after* the
 ///     forms have been reordered for solving.
 ///   - **Why it helps:** During the multi-form join, candidate bindings for this
 ///     form can be bucketed by the concrete values of these variables and then
 ///     matched in O(1)/O(log N) time against earlier choices, instead of scanning
 ///     all candidates. In other words, `lookup_keys` is the *join key* that lets
 ///     you intersect partial solutions cheaply.
-///   - **How it’s used:** When you collect matches for each form, you can index
+///   - **How it's used:** When you collect matches for each form, you can index
 ///     (e.g., `HashMap<JoinKey, Vec<Bindings>>`) by the values of `lookup_keys`.
 ///     Then, when recursing, you fetch only the compatible bucket for the next form.
 ///
@@ -83,7 +83,7 @@ impl Pattern {
 ///   `A=(3-5:a*)`
 /// - `ordered_list`: `list` reordered so that forms with many variables appear
 ///   earlier and subsequent forms maximize overlap with already-chosen variables.
-///   As part of this step, each later form’s `lookup_keys` is set to the overlap
+///   As part of this step, each later form's `lookup_keys` is set to the overlap
 ///   with the variables seen so far (its *join key*).
 pub struct Patterns {
     /// List of patterns directly extracted from the input string (not constraints)
@@ -122,9 +122,7 @@ impl Patterns {
                 // Extract all variables from inequality constraint (e.g., !=AB means A != B)
                 let vars: Vec<char> = cap[1].chars().collect();
                 for &v in &vars {
-                    let entry = self
-                        .var_constraints
-                        .ensure(v);
+                    let entry = self.var_constraints.ensure(v);
                     entry.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
             } else if let Some(cap) = COMPLEX_RE.captures(part) {
@@ -132,9 +130,7 @@ impl Patterns {
                 let var = cap[1].chars().next().unwrap();
                 let len = &cap[2];
                 let patt = cap[3].to_string();
-                let entry = self
-                    .var_constraints
-                    .ensure(var);
+                let entry = self.var_constraints.ensure(var);
 
                 if let Some((min, max)) = parse_length_range(len) {
                     entry.min_length = min.unwrap();
@@ -220,7 +216,7 @@ impl Patterns {
 /// Why `&Patterns` and not `Patterns`?
 /// - `for x in collection` desugars to `IntoIterator::into_iter(collection)`.
 /// - If we implement `IntoIterator` for **`Patterns`**, iteration would *consume* (move) the
-///   whole `Patterns`, which we don’t want here.
+///   whole `Patterns`, which we don't want here.
 /// - Implementing it for **`&Patterns`** lets you iterate **by reference** without moving.
 impl<'a> IntoIterator for &'a Patterns {
     type Item = &'a Pattern;

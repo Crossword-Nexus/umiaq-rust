@@ -2,27 +2,14 @@ use std::collections::HashMap;
 
 const WORD_SENTINEL: char = '*';
 
-/// `Bindings` maps a variable name (char) to the string it’s bound to.
+/// `Bindings` maps a variable name (char) to the string it's bound to.
 /// Special variable `'*'` is reserved for the bound word.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Bindings {
     map: HashMap<char, String>,
 }
 
-impl Default for Bindings {
-    fn default() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
-    }
-}
-
 impl Bindings {
-    /// Create a new, empty set of bindings
-    pub fn new() -> Self {
-        Self { map: HashMap::new() }
-    }
-
     /// Bind a variable to a value
     pub fn set(&mut self, var: char, val: String) {
         self.map.insert(var, val);
@@ -54,7 +41,7 @@ impl Bindings {
     }
 
     /// Get the map
-    pub fn get_map(&self) -> &HashMap<char, String> { 
+    pub fn get_map(&self) -> &HashMap<char, String> {
         &self.map
     }
 }
