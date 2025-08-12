@@ -145,7 +145,7 @@ fn test_solve_equation() {
 
 #[test]
 fn test_solve_equation2() {
-    let word_list: Vec<&str> = vec!["INCH", "CHIN", "DADA"];
+    let word_list: Vec<&str> = vec!["INCH", "CHIN", "DADA", "TEST", "AB"];
     let input = "AB;BA;|A|=2;|B|=2;!=AB".to_string();
     solve_equation(&input, &word_list, 5);
 }
