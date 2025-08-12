@@ -11,10 +11,8 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="add a few more words to test word list">
-      <change afterPath="$PROJECT_DIR$/src/wordlist.rs" afterDir="false" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="* Complete solver.rs&#10;* Add wordlist.rs">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/bindings.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/bindings.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/solver.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/solver.rs" afterDir="false" />
     </list>
@@ -99,7 +97,7 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="Cargo.Test solver::test_solve_equation">
+  <component name="RunManager" selected="Cargo.Test solver::test_solve_equation2">
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package umiaq-rust --bin umiaq-rust" />
@@ -206,8 +204,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Cargo.Test solver::test_solve_equation" />
         <item itemvalue="Cargo.Test solver::test_solve_equation2" />
+        <item itemvalue="Cargo.Test solver::test_solve_equation" />
         <item itemvalue="Cargo.Test parser::tests::test_match_equation_all_with_constraints2" />
         <item itemvalue="Cargo.Test parser::tests::test_match_equation_all_with_constraints" />
         <item itemvalue="Cargo.Test patterns::tests::test_basic_pattern_and_constraints" />
@@ -228,7 +226,7 @@
       <workItem from="1754577666024" duration="6493000" />
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
-      <workItem from="1754994978244" duration="8164000" />
+      <workItem from="1754994978244" duration="10182000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -470,14 +468,21 @@
       <option name="project" value="LOCAL" />
       <updated>1755008201907</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="* Complete solver.rs&#10;* Add wordlist.rs">
+      <option name="closed" value="true" />
+      <created>1755031296726</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1755031296726</updated>
+    </task>
+    <option name="localTasksCounter" value="32" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Add patterns.rs" />
     <MESSAGE value="Small fix to regex" />
     <MESSAGE value="Add a pre-regex filter in match_pattern_internal" />
     <MESSAGE value="add bindings.rs" />
@@ -502,6 +507,7 @@
     <MESSAGE value="add failing test" />
     <MESSAGE value="fix is_valid_binding" />
     <MESSAGE value="add a few more words to test word list" />
-    <option name="LAST_COMMIT_MESSAGE" value="add a few more words to test word list" />
+    <MESSAGE value="* Complete solver.rs&#10;* Add wordlist.rs" />
+    <option name="LAST_COMMIT_MESSAGE" value="* Complete solver.rs&#10;* Add wordlist.rs" />
   </component>
 </project>

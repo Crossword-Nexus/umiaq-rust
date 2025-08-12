@@ -1,16 +1,10 @@
-use crate::bindings::WORD_SENTINEL;
+use crate::bindings::{Bindings, WORD_SENTINEL};
 use crate::parser::{match_equation_all, parse_form, FormPart};
 use crate::patterns::Patterns;
 use std::collections::{HashMap, HashSet};
 
 /// The max number of matches to grab during our initial pass through the word list
 const MAX_INITIAL_MATCHES: usize = 50_000;
-
-/// A single solution's variable bindings:
-/// maps a variable name (e.g., 'A') to the concrete substring it was bound to.
-/// - We use `String` because bindings are slices of candidate words and may be reused;
-///   if cloning shows up in profiles later, we can switch to `Arc<str>`.
-pub type Binding = HashMap<char, String>;
 
 /// Bucket key for indexing candidates by the subset of variables that must agree.
 /// - `None` means "no lookup constraints for this pattern" (Python's `words[i][None]`).
@@ -28,7 +22,7 @@ pub type LookupKey = Option<Vec<(char, String)>>;
 #[derive(Debug, Default)]
 pub struct CandidateBuckets {
     /// Mapping from lookup key -> all bindings that fit that key
-    pub buckets: HashMap<LookupKey, Vec<Binding>>,
+    pub buckets: HashMap<LookupKey, Vec<Bindings>>,
     /// Total number of bindings added for this pattern (across all keys)
     pub count: usize,
 }
@@ -57,9 +51,9 @@ fn recursive_join(
     idx: usize,
     words: &Vec<CandidateBuckets>,
     lookup_keys: &Vec<Option<HashSet<char>>>,
-    selected: &mut Vec<Binding>,
+    selected: &mut Vec<Bindings>,
     env: &mut HashMap<char, String>,
-    results: &mut Vec<Vec<Binding>>,
+    results: &mut Vec<Vec<Bindings>>,
     num_results: usize,
 ) {
     // Stop if we’ve met the requested quota of full solutions.
@@ -79,7 +73,7 @@ fn recursive_join(
     // - If it has `Some(keys)`, we must create the deterministic key
     //   `Some(sorted_pairs)` using the current `env` and fetch that bucket.
     //   (This includes the case keys.is_empty() → key is `Some([])`.)
-    let bucket_candidates_opt: Option<&Vec<Binding>> = match &lookup_keys[idx] {
+    let bucket_candidates_opt: Option<&Vec<Bindings>> = match &lookup_keys[idx] {
         None => {
             // No shared vars for this pattern → use the None bucket.
             words[idx].buckets.get(&None)
@@ -173,7 +167,7 @@ fn recursive_join(
 /// Returns:
 /// - A `Vec` of solutions, each solution being a `Vec<Binding>` where each `Binding`
 ///   maps variable names (chars) to concrete substrings they were bound to in that solution.
-pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Vec<Vec<Binding>> {
+pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Vec<Vec<Bindings>> {
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let pattern_obj = Patterns::new(input);
@@ -240,8 +234,8 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
                 };
 
                 // ---- Store the binding in the correct bucket ----
-                // Clone the inner `HashMap<char, String>` from the `Bindings` wrapper
-                let this_binding: Binding = binding.get_map().clone();
+                // Clone the "Bindings"
+                let this_binding: Bindings = binding.clone();
 
                 // Insert into the appropriate bucket (creating a new Vec if needed)
                 words[i].buckets.entry(key).or_default().push(this_binding);
@@ -275,8 +269,8 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
     // - `results`: finished solutions (Vec<Binding> per pattern)
     // - `selected`: the current partial solution down this branch
     // - `env`: running map of variable → concrete string, used to enforce joins
-    let mut results: Vec<Vec<Binding>> = Vec::new();
-    let mut selected: Vec<Binding> = Vec::new();
+    let mut results: Vec<Vec<Bindings>> = Vec::new();
+    let mut selected: Vec<Bindings> = Vec::new();
     let mut env: std::collections::HashMap<char, String> = std::collections::HashMap::new();
 
     // Kick off the depth-first join from pattern 0.
