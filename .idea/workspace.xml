@@ -11,7 +11,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Better AA test case">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="add failing test">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
     </list>
@@ -96,7 +96,7 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="Cargo.Test parser::tests::test_match_equation_all_with_constraints2">
+  <component name="RunManager" selected="Cargo.Test solver::test_solve_equation2">
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package umiaq-rust --bin umiaq-rust" />
@@ -203,10 +203,10 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Cargo.Test parser::tests::test_match_equation_all_with_constraints2" />
         <item itemvalue="Cargo.Test solver::test_solve_equation2" />
-        <item itemvalue="Cargo.Test solver::test_solve_equation" />
+        <item itemvalue="Cargo.Test parser::tests::test_match_equation_all_with_constraints2" />
         <item itemvalue="Cargo.Test parser::tests::test_match_equation_all_with_constraints" />
+        <item itemvalue="Cargo.Test solver::test_solve_equation" />
         <item itemvalue="Cargo.Test patterns::tests::test_basic_pattern_and_constraints" />
       </list>
     </recent_temporary>
@@ -225,7 +225,7 @@
       <workItem from="1754577666024" duration="6493000" />
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
-      <workItem from="1754994978244" duration="1993000" />
+      <workItem from="1754994978244" duration="4678000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -443,14 +443,21 @@
       <option name="project" value="LOCAL" />
       <updated>1754996300283</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="add failing test">
+      <option name="closed" value="true" />
+      <created>1754997000576</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1754997000576</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Initial commit" />
     <MESSAGE value="Test commit" />
     <MESSAGE value="Add &quot;word&quot; to helper function" />
     <MESSAGE value="Add patterns.rs" />
@@ -475,6 +482,7 @@
     <MESSAGE value="more work on solver.rs" />
     <MESSAGE value="Note that one parser test doesn't pass" />
     <MESSAGE value="Better AA test case" />
-    <option name="LAST_COMMIT_MESSAGE" value="Better AA test case" />
+    <MESSAGE value="add failing test" />
+    <option name="LAST_COMMIT_MESSAGE" value="add failing test" />
   </component>
 </project>

@@ -43,10 +43,19 @@ pub enum FormPart {
 /// Validate whether a candidate binding value is allowed under a `VarConstraint`.
 ///
 /// Checks:
+/// 0. If "length" constraints are present, enforce them
 /// 1. If `form` is present, the value must itself match that form.
 /// 2. The value must not equal any variable listed in `not_equal` that is already bound.
 pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings) -> bool {
-    // 1. Apply nested form constraint if present
+    // 0) Length checks (if configured)
+    if constraints.min_length > 0 && val.len() < constraints.min_length {
+        return false;
+    }
+    if constraints.max_length > 0 && val.len() > constraints.max_length {
+        return false;
+    }
+
+    // 1) Apply nested form constraint if present
     if let Some(form_str) = &constraints.form {
         match parse_form(form_str) {
             Ok(p) => {
@@ -54,11 +63,11 @@ pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindi
                     return false;
                 }
             }
-            Err(_) => return false, // If the nested form is invalid, reject
+            Err(_) => return false,
         }
     }
 
-    // 2. Check "not equal" constraints
+    // 2) Check "not equal" constraints
     for &other in &constraints.not_equal {
         if let Some(existing) = bindings.get(other) {
             if existing == val {
@@ -215,7 +224,19 @@ fn match_equation_internal(
                     }
                 } else {
                     // Not bound yet: try binding to all possible lengths
-                    for l in 1..=chars.len() {
+                    // To prune the search space, apply length constraints up front
+                    let mut min_len = 1usize;
+                    let mut max_len = chars.len(); // cannot take more than what’s left
+
+                    if let Some(all_c) = constraints {
+                        if let Some(c) = all_c.get(*name) {
+                            if c.min_length > 0 { min_len = min_len.max(c.min_length); }
+                            if c.max_length > 0 { max_len = max_len.min(c.max_length); }
+                        }
+                    }
+                    if min_len > max_len { return false; }
+
+                    for l in min_len..=max_len {
                         let candidate: String = chars[..l].iter().collect();
                         let bound_val = get_reversed_or_not(first, &candidate);
 
@@ -483,6 +504,7 @@ mod tests {
 
         let matches = match_equation_all("INCH", &patt, Some(&var_constraints));
         println!("{matches:?}");
+        println!("{}", var_constraints);
         assert_eq!(matches.len(), 1);
     }
 
