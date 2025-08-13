@@ -11,7 +11,7 @@
 * improve prefilter for, e.g., `AB;|A|=2;|B|=2` (`.{2}.{2}`) and `AA` (`(.+)\1`)
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * return results in original order (e.g., for `C;BC;ABC`)
-* Actually show the "loading" text in web interface
-* Add support for `<` and `>` like in Qat
-* Get single queries (like `l.x`) to work in the web interface
+* actually show the "loading" text in web interface
+* add support for `<` and `>` like in Qat
+* get single queries (like `l.x`) to work in the web interface
 * misc. TODOs in code
