@@ -12,4 +12,6 @@
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * return results in original order (e.g., for `C;BC;ABC`)
 * Actually show the "loading" text in web interface
+* Add support for `<` and `>` like in Qat
+* Get single queries (like `l.x`) to work in the web interface
 * misc. TODOs in code
