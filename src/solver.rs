@@ -107,7 +107,7 @@ fn recursive_join(
     };
 
     // Try each candidate binding for this pattern.
-    for cand in bucket_candidates.iter() {
+    for cand in bucket_candidates {
         if results.len() >= num_results {
             break; // stop early if we’ve already met the quota
         }

@@ -40,10 +40,21 @@ pub enum FormPart {
     Anagram(String),    // '/abc': any permutation of the given letters
 }
 
-/// A Vec of FormParts along with a compiled regex pre-filter
+/// A `Vec` of `FormPart`s along with a compiled regex prefilter
 pub struct ParsedForm {
     pub parts: Vec<FormPart>,
-    pub prefilter: Option<Regex>,
+    pub prefilter: Regex,
+}
+
+impl ParsedForm {
+    fn of(parts: Vec<FormPart>) -> ParsedForm {
+        // Build the regex string
+        let regex_str = form_to_regex_str(&parts);
+        let anchored = format!("^{regex_str}$");
+        let prefilter = Regex::new(&anchored).unwrap();
+
+        ParsedForm { parts, prefilter }
+    }
 }
 
 /// Validate whether a candidate binding value is allowed under a `VarConstraint`.
@@ -83,17 +94,6 @@ pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindi
     }
 
     true
-}
-
-/// Return the first binding set that satisfies the equation, or `None` if none match.
-pub fn match_equation(
-    word: &str,
-    parts: &ParsedForm,
-    constraints: Option<&VarConstraints>,
-) -> Option<Bindings> {
-    let mut results = Vec::new();
-    match_equation_internal(word, parts, false, &mut results, constraints);
-    results.into_iter().next()
 }
 
 /// Return `true` if at least one binding satisfies the equation.
@@ -275,10 +275,8 @@ fn match_equation_internal(
     }
 
     // === PREFILTER STEP ===
-    if let Some(re) = &parsed_form.prefilter {
-        if !re.is_match(&word) {
-            return;
-        }
+    if !(parsed_form.prefilter).is_match(word) {
+        return;
     }
 
     // Normalize word and start recursive matching
@@ -318,7 +316,7 @@ pub fn form_to_regex_str(parts: &[FormPart]) -> String {
     regex_str
 }
 
-/// Parse a form string into a ParsedForm object
+/// Parse a form string into a `ParsedForm` object
 ///
 /// Walks the input, consuming tokens one at a time with `equation_part`.
 pub fn parse_form(input: &str) -> Result<ParsedForm, String> {
@@ -335,12 +333,7 @@ pub fn parse_form(input: &str) -> Result<ParsedForm, String> {
         }
     }
 
-    // Build the regex string
-    let regex_str = form_to_regex_str(&parts);
-    let anchored = format!("^{regex_str}$");
-    let prefilter = Regex::new(&anchored).ok();
-
-    Ok(ParsedForm { parts, prefilter })
+    Ok(ParsedForm::of(parts))
 }
 
 // === Token parsers ===
@@ -462,7 +455,7 @@ mod tests {
         let mut vc_b = VarConstraint::default();
         vc_b.not_equal.insert('A');
         var_constraints.insert('B', vc_b);
-        let result = match_equation("INCH", &patt, Some(&var_constraints));
+        let result = match_equation_all("INCH", &patt, Some(&var_constraints)).into_iter().next();
         assert!(result.is_some());
         let m = result.unwrap();
         assert_ne!(m.get('A'), m.get('B'));
@@ -657,7 +650,7 @@ mod tests {
     #[test]
     fn test_variable_binding() {
         let patt = parse_form("AB").unwrap();
-        let result = match_equation("INCH", &patt, None);
+        let result = match_equation_all("INCH", &patt, None).into_iter().next();
         assert!(result.is_some());
         let binding = result.unwrap();
         // TODO allow for IN/CH or INC/H
@@ -668,7 +661,7 @@ mod tests {
     #[test]
     fn test_reversed_variable_binding() {
         let patt = parse_form("A~A").unwrap();
-        let result = match_equation("NOON", &patt, None);
+        let result = match_equation_all("NOON", &patt, None).into_iter().next();
         assert!(result.is_some());
         let binding = result.unwrap();
         assert_eq!(binding.get('A'), Some(&"NO".to_string()));
