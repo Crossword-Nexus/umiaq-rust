@@ -183,10 +183,7 @@ fn match_equation_internal(
         match first {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored uppercased)
-                let s = s.to_uppercase();
-                if chars.starts_with(&s.chars().collect::<Vec<_>>()) {
-                    return helper(&chars[s.len()..], rest, bindings, results, all_matches, word, constraints);
-                }
+                return compare_with_binding(&chars, bindings, results, all_matches, word, constraints, rest, &s.to_ascii_uppercase())
             }
             FormPart::Dot => {
                 // Single-char wildcard
@@ -236,10 +233,7 @@ fn match_equation_internal(
             FormPart::Var(name) | FormPart::RevVar(name) => {
                 if let Some(bound_val) = bindings.get(*name) {
                     // Already bound: must match exactly
-                    let val = get_reversed_or_not(first, bound_val);
-                    if chars.starts_with(&val.chars().collect::<Vec<_>>()) {
-                        return helper(&chars[val.len()..], rest, bindings, results, all_matches, word, constraints);
-                    }
+                    return compare_with_binding(&chars, bindings, results, all_matches, word, constraints, rest, &get_reversed_or_not(first, bound_val))
                 } else {
                     // Not bound yet: try binding to all possible lengths
                     // To prune the search space, apply length constraints up front
@@ -284,6 +278,17 @@ fn match_equation_internal(
         }
 
         false
+    }
+
+    // TODO!! name this better!!
+    fn compare_with_binding(chars: &&[char], bindings: &mut Bindings, results: &mut Vec<Bindings>, all_matches: bool, word: &str, constraints: Option<&VarConstraints>, rest: &[FormPart], val: &str) -> bool {
+        let n = val.len();
+
+        if chars.len() >= n && chars[..n].iter().copied().zip(val.chars()).all(|(a, b)| a == b) {
+            helper(&chars[n..], rest, bindings, results, all_matches, word, constraints)
+        } else {
+            false
+        }
     }
 
     // === PREFILTER STEP ===
