@@ -1,0 +1,15 @@
+{
+  "name": "umiaq-rust",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "umiaq_rust_bg.wasm",
+    "umiaq_rust.js",
+    "umiaq_rust.d.ts"
+  ],
+  "main": "umiaq_rust.js",
+  "types": "umiaq_rust.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

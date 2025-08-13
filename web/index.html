@@ -14,13 +14,10 @@
     (async () => {
       await init();
       const input = "AB;BA;|A|=2;|B|=2;!=AB";
-      const words = ["ABLE","BALE","ALBE","BELA","INCH","CHIN","PAPA"];
-      const numResults = 10;
+      const words = ["ABLE","BALE","BELA","INCH","CHIN","PAPA"];
+      const numResults = 5;
 
-      const raw = solve_equation_wasm(input, words, numResults);
-      // raw: Array<Array<Map>> where "*" holds the bound word
-      const rawObj = raw.map(row => row.map(binding => Object.fromEntries(binding)));
-      const onlyWords = rawObj.map(row => row.map(x => x['*']));
+      const onlyWords = solve_equation_wasm(input, words, numResults);
       console.log(onlyWords);
       document.getElementById("output").textContent = JSON.stringify(onlyWords, null, 2);
     })();

@@ -11,7 +11,6 @@ mod constraints;
 mod wasm_api {
     use super::bindings::Bindings;
     use super::solver::solve_equation;
-    use std::collections::HashMap;
     use wasm_bindgen::prelude::*;
 
     #[wasm_bindgen(start)]
@@ -19,29 +18,34 @@ mod wasm_api {
         console_error_panic_hook::set_once();
     }
 
-    // Convert a Bindings into a JS-ish map (string keys, including "*")
-    fn bindings_to_map(b: &Bindings) -> HashMap<String, String> {
-        b.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+    // Pull just the bound word ("*") out of a Bindings
+    fn binding_to_word(b: &Bindings) -> Option<String> {
+        b.get_word().cloned()
     }
 
     /// JS entry: (input: string, word_list: string[], num_results: number)
-    /// returns Array<Array<Record<string,string>>>
+    /// returns Array<Array<string>> — only the bound words
     #[wasm_bindgen]
     pub fn solve_equation_wasm(
         input: &str,
         word_list: JsValue,
         num_results: usize,
     ) -> Result<JsValue, JsValue> {
+        // word_list: string[] -> Vec<String>
         let words: Vec<String> = serde_wasm_bindgen::from_value(word_list)
             .map_err(|e| JsValue::from_str(&format!("word_list must be string[]: {e}")))?;
 
+        // Borrow as &[&str] for the solver
         let refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
 
-        let raw = solve_equation(input, &refs, num_results);
+        // Call the existing solver
+        let raw = solve_equation(input, &refs, num_results); // Vec<Vec<Bindings>>
 
-        let js_ready: Vec<Vec<HashMap<String, String>>> = raw
-            .iter()
-            .map(|row| row.iter().map(bindings_to_map).collect())
+        // Keep only the "*" word from each Bindings
+        // If any Binding lacks a word, it's skipped (filter_map).
+        let js_ready: Vec<Vec<String>> = raw
+            .into_iter()
+            .map(|row| row.into_iter().filter_map(|b| binding_to_word(&b)).collect())
             .collect();
 
         serde_wasm_bindgen::to_value(&js_ready)

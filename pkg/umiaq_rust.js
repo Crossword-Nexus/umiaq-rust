@@ -178,7 +178,7 @@ function takeFromExternrefTable0(idx) {
 }
 /**
  * JS entry: (input: string, word_list: string[], num_results: number)
- * returns Array<Array<Record<string,string>>>
+ * returns Array<Array<string>> — only the bound words
  * @param {string} input
  * @param {any} word_list
  * @param {number} num_results
@@ -302,14 +302,6 @@ function __wbg_get_imports() {
         const ret = arg0.length;
         return ret;
     };
-    imports.wbg.__wbg_new_405e22f390576ce2 = function() {
-        const ret = new Object();
-        return ret;
-    };
-    imports.wbg.__wbg_new_5e0be73521bc8c17 = function() {
-        const ret = new Map();
-        return ret;
-    };
     imports.wbg.__wbg_new_78feb108b6472713 = function() {
         const ret = new Array();
         return ret;
@@ -333,15 +325,8 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_set_37837023f3d740e8 = function(arg0, arg1, arg2) {
         arg0[arg1 >>> 0] = arg2;
     };
-    imports.wbg.__wbg_set_3f1d0b984ed272ed = function(arg0, arg1, arg2) {
-        arg0[arg1] = arg2;
-    };
     imports.wbg.__wbg_set_65595bdd868b3009 = function(arg0, arg1, arg2) {
         arg0.set(arg1, arg2 >>> 0);
-    };
-    imports.wbg.__wbg_set_8fc6bf8a5b1071d1 = function(arg0, arg1, arg2) {
-        const ret = arg0.set(arg1, arg2);
-        return ret;
     };
     imports.wbg.__wbg_stack_0ed75d68575b0f3c = function(arg0, arg1) {
         const ret = arg1.stack;
@@ -387,10 +372,6 @@ function __wbg_get_imports() {
     imports.wbg.__wbindgen_is_object = function(arg0) {
         const val = arg0;
         const ret = typeof(val) === 'object' && val !== null;
-        return ret;
-    };
-    imports.wbg.__wbindgen_is_string = function(arg0) {
-        const ret = typeof(arg0) === 'string';
         return ret;
     };
     imports.wbg.__wbindgen_jsval_loose_eq = function(arg0, arg1) {
