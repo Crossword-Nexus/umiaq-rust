@@ -6,4 +6,5 @@
 * add progress indicators for long-running operations
 * implement parallel processing for large word lists
 * add integration tests with real word lists
+* Remove some unnecessary `to_uppercase()` statements
 * misc. TODOs in code
