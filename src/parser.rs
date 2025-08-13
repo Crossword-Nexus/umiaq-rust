@@ -237,8 +237,7 @@ fn match_equation_internal(
                 // Match if the next N chars are an anagram of target
                 let len = s.len();
                 if chars.len() >= len {
-                    let window = &chars[..len];
-                    if are_anagrams(window, s) {
+                    if are_anagrams(&chars[..len], s) {
                         return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints);
                     }
                 }
@@ -307,7 +306,7 @@ fn match_equation_internal(
         }
     }
 
-    // TODO? support beyond 0-127 (i.e., beyond ASCII)?
+    // TODO? support beyond 0-127 (i.e., beyond ASCII)? (at least document behavior (here and in general)!)
     // TODO are we actually guaranteed to have uppercase_word be upperase?
     fn are_anagrams(uppercase_word: &[char], other_word: &str) -> bool {
         if uppercase_word.len() != other_word.len() {
@@ -460,14 +459,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_error_types() {
-        // Test empty-form error
-        let result = parse_form("");
-        assert!(matches!(result.unwrap_err(), ParseError::EmptyForm));
+    fn test_empty_form_error() {
+        let actual = parse_form("");
+        assert!(matches!(actual.unwrap_err(), ParseError::EmptyForm));
+    }
 
-        // Test parse failure
-        let result = parse_form("[");
-        assert!(matches!(result.unwrap_err(), ParseError::ParseFailure { .. }));
+    #[test]
+    fn test_parse_failure_error() {
+        let actual = parse_form("[");
+        assert!(matches!(actual.unwrap_err(), ParseError::ParseFailure { .. }));
     }
 
     #[test]
