@@ -11,9 +11,12 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="* Complete solver.rs&#10;* Add wordlist.rs">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="add word lists">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/solver.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/solver.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -225,7 +228,7 @@
       <workItem from="1754577666024" duration="6493000" />
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
-      <workItem from="1754994978244" duration="11156000" />
+      <workItem from="1754994978244" duration="15692000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -483,14 +486,29 @@
       <option name="project" value="LOCAL" />
       <updated>1755033483212</updated>
     </task>
-    <option name="localTasksCounter" value="33" />
+    <task id="LOCAL-00033" summary="small changes">
+      <option name="closed" value="true" />
+      <created>1755034534233</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1755034534233</updated>
+    </task>
+    <task id="LOCAL-00034" summary="add word lists">
+      <option name="closed" value="true" />
+      <created>1755040832707</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1755040832707</updated>
+    </task>
+    <option name="localTasksCounter" value="35" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Small fix to regex" />
     <MESSAGE value="Add a pre-regex filter in match_pattern_internal" />
     <MESSAGE value="add bindings.rs" />
     <MESSAGE value="Add &quot;get&quot; and &quot;set&quot; for Bindings" />
@@ -498,7 +516,6 @@
     <MESSAGE value="Update parser.rs to use constraints and bindings" />
     <MESSAGE value="Update patterns.rs to use constraints" />
     <MESSAGE value="remove unused import" />
-    <MESSAGE value="small changes" />
     <MESSAGE value="remove unneeded imports" />
     <MESSAGE value="turn off &quot;unused&quot; warnings" />
     <MESSAGE value="replace the word &quot;pattern&quot; where it shouldn't be" />
@@ -515,6 +532,8 @@
     <MESSAGE value="fix is_valid_binding" />
     <MESSAGE value="add a few more words to test word list" />
     <MESSAGE value="* Complete solver.rs&#10;* Add wordlist.rs" />
-    <option name="LAST_COMMIT_MESSAGE" value="* Complete solver.rs&#10;* Add wordlist.rs" />
+    <MESSAGE value="small changes" />
+    <MESSAGE value="add word lists" />
+    <option name="LAST_COMMIT_MESSAGE" value="add word lists" />
   </component>
 </project>

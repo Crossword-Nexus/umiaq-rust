@@ -271,7 +271,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
     // - `env`: running map of variable → concrete string, used to enforce joins
     let mut results: Vec<Vec<Bindings>> = Vec::new();
     let mut selected: Vec<Bindings> = Vec::new();
-    let mut env: std::collections::HashMap<char, String> = std::collections::HashMap::new();
+    let mut env: HashMap<char, String> = HashMap::new();
 
     // Kick off the depth-first join from pattern 0.
     recursive_join(

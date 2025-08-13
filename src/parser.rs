@@ -270,12 +270,14 @@ fn match_equation_internal(
 
     // === PREFILTER STEP ===
     // Convert pattern to a regex and check before attempting backtracking.
+    /*
     let regex_str_with_ends = format!("^{}$", form_to_regex_str(parts));
     if let Ok(regex) = Regex::new(&regex_str_with_ends) {
         if !regex.is_match(word) {
             return; // Fail fast
         }
     }
+    */
 
     // Normalize word and start recursive matching
     let word = word.to_uppercase();
