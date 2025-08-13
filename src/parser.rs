@@ -14,7 +14,7 @@ use crate::constraints::{VarConstraint, VarConstraints};
 use regex::Regex;
 use std::fmt::Write as _;
 use std::collections::HashSet;
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 
 // Character-set constants
 const VOWELS: &str = "AEIOUY";
@@ -22,10 +22,8 @@ const CONSONANTS: &str = "BCDFGHJKLMNPQRSTVWXZ";
 const UPPERCASE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LOWERCASE_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
 
-lazy_static::lazy_static! {
-    static ref VOWEL_SET: HashSet<char> = VOWELS.chars().collect();
-    static ref CONSONANT_SET: HashSet<char> = CONSONANTS.chars().collect();
-}
+static VOWEL_SET: LazyLock<HashSet<char>> = LazyLock::new(|| VOWELS.chars().collect());
+static CONSONANT_SET: LazyLock<HashSet<char>> = LazyLock::new(|| CONSONANTS.chars().collect());
 
 static REGEX_CACHE: OnceLock<std::collections::HashMap<String, Regex>> = OnceLock::new();
 
@@ -236,10 +234,8 @@ fn match_equation_internal(
             FormPart::Anagram(s) => {
                 // Match if the next N chars are an anagram of target
                 let len = s.len();
-                if chars.len() >= len {
-                    if are_anagrams(&chars[..len], s) {
-                        return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints);
-                    }
+                if chars.len() >= len && are_anagrams(&chars[..len], s) {
+                    return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Var(name) | FormPart::RevVar(name) => {
