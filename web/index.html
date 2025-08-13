@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Umiaq WASM Test</title>
+</head>
+<body>
+  <h1>WASM test</h1>
+  <pre id="output"></pre>
+
+  <script type="module">
+    import init, { solve_equation_wasm } from "../pkg/umiaq_rust.js";
+
+    (async () => {
+      await init();
+      const input = "AB;BA;|A|=2;|B|=2;!=AB";
+      const words = ["ABLE","BALE","ALBE","BELA","INCH","CHIN","PAPA"];
+      const numResults = 10;
+
+      const raw = solve_equation_wasm(input, words, numResults);
+      // raw: Array<Array<Object>> where "*" holds the bound word
+      const rawObj = raw.map(row => row.map(binding => Object.fromEntries(binding)));
+      const onlyWords = rawObj.map(row => row.map(x => x['*']));
+      console.log(onlyWords);
+      document.getElementById("output").textContent = JSON.stringify(onlyWords, null, 2);
+    })();
+  </script>
+</body>
+</html>

@@ -11,9 +11,12 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="remove unneeded import">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="More TODOs">
+      <change afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/TODO.md" beforeDir="false" afterPath="$PROJECT_DIR$/TODO.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/wordlist.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/wordlist.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -226,7 +229,7 @@
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
       <workItem from="1754994978244" duration="18421000" />
-      <workItem from="1755085031953" duration="928000" />
+      <workItem from="1755085031953" duration="3343000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -548,14 +551,21 @@
       <option name="project" value="LOCAL" />
       <updated>1755050579507</updated>
     </task>
-    <option name="localTasksCounter" value="41" />
+    <task id="LOCAL-00041" summary="More TODOs">
+      <option name="closed" value="true" />
+      <created>1755086074246</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1755086074246</updated>
+    </task>
+    <option name="localTasksCounter" value="42" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Update patterns.rs to use constraints" />
     <MESSAGE value="remove unused import" />
     <MESSAGE value="remove unneeded imports" />
     <MESSAGE value="turn off &quot;unused&quot; warnings" />
@@ -580,6 +590,7 @@
     <MESSAGE value="Remove unneeded &quot;Arc&quot;" />
     <MESSAGE value="update TODOs" />
     <MESSAGE value="remove unneeded import" />
-    <option name="LAST_COMMIT_MESSAGE" value="remove unneeded import" />
+    <MESSAGE value="More TODOs" />
+    <option name="LAST_COMMIT_MESSAGE" value="More TODOs" />
   </component>
 </project>
