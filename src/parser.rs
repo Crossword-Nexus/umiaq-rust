@@ -98,10 +98,8 @@ pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindi
 
     // 2) Check "not equal" constraints
     for &other in &constraints.not_equal {
-        if let Some(existing) = bindings.get(other) {
-            if existing == val {
-                return false;
-            }
+        if let Some(existing) = bindings.get(other) && existing == val {
+            return false;
         }
     }
 
@@ -234,45 +232,43 @@ fn match_equation_internal(
                 if let Some(bound_val) = bindings.get(*name) {
                     // Already bound: must match exactly
                     return compare_with_binding(&chars, bindings, results, all_matches, word, constraints, rest, &get_reversed_or_not(first, bound_val))
-                } else {
-                    // Not bound yet: try binding to all possible lengths
-                    // To prune the search space, apply length constraints up front
-                    let mut min_len = 1usize;
-                    let mut max_len = chars.len(); // cannot take more than what’s left
+                }
 
-                    if let Some(all_c) = constraints {
+                // Not bound yet: try binding to all possible lengths
+                // To prune the search space, apply length constraints up front
+                let mut min_len = 1usize;
+                let mut max_len = chars.len(); // cannot take more than what’s left
+
+                if let Some(all_c) = constraints && let Some(c) = all_c.get(*name) {
+                    if c.min_length > 0 { min_len = min_len.max(c.min_length); }
+                    if c.max_length > 0 { max_len = max_len.min(c.max_length); }
+                }
+                if min_len > max_len { return false; }
+
+                for l in min_len..=max_len {
+                    let candidate: String = chars[..l].iter().collect();
+                    let bound_val = get_reversed_or_not(first, &candidate);
+
+                    // Apply variable-specific constraints
+                    let valid = if let Some(all_c) = constraints {
                         if let Some(c) = all_c.get(*name) {
-                            if c.min_length > 0 { min_len = min_len.max(c.min_length); }
-                            if c.max_length > 0 { max_len = max_len.min(c.max_length); }
-                        }
-                    }
-                    if min_len > max_len { return false; }
-
-                    for l in min_len..=max_len {
-                        let candidate: String = chars[..l].iter().collect();
-                        let bound_val = get_reversed_or_not(first, &candidate);
-
-                        // Apply variable-specific constraints
-                        let valid = if let Some(all_c) = constraints {
-                            if let Some(c) = all_c.get(*name) {
-                                is_valid_binding(&bound_val, c, bindings)
-                            } else {
-                                true
-                            }
+                            is_valid_binding(&bound_val, c, bindings)
                         } else {
                             true
-                        };
-
-                        if !valid {
-                            continue;
                         }
+                    } else {
+                        true
+                    };
 
-                        bindings.set(*name, bound_val);
-                        if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints) && !all_matches {
-                            return true;
-                        }
-                        bindings.remove(*name);
+                    if !valid {
+                        continue;
                     }
+
+                    bindings.set(*name, bound_val);
+                    if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints) && !all_matches {
+                        return true;
+                    }
+                    bindings.remove(*name);
                 }
             }
         }

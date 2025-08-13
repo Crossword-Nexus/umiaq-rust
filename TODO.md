@@ -8,4 +8,5 @@
 * add integration tests with real word lists
 * remove some unnecessary `to_uppercase()` statements
 * allow for constraints like `|AB|=5`
+* create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * misc. TODOs in code

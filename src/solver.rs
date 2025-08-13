@@ -121,11 +121,9 @@ fn recursive_join(
             if *k == WORD_SENTINEL {
                 continue; // ignore the “whole word” sentinel binding
             }
-            if let Some(prev) = env.get(k) {
-                if prev != v {
-                    compatible = false;
-                    break;
-                }
+            if let Some(prev) = env.get(k) && prev != v {
+                compatible = false;
+                break;
             }
         }
         if !compatible {
