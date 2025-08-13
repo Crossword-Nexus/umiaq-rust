@@ -8,5 +8,7 @@
 * add integration tests with real word lists
 * remove some unnecessary `to_uppercase()` statements
 * allow for constraints like `|AB|=5`
+* improve prefilter for, e.g., `AB;|A|=2;|B|=2` (`.{2}.{2}`) and `AA` (`(.+)\1`)
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
+* WASM stuff for web interface
 * misc. TODOs in code

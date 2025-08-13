@@ -11,7 +11,10 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="update TODOs" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="remove unneeded import">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/TODO.md" beforeDir="false" afterPath="$PROJECT_DIR$/TODO.md" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -28,7 +31,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="misc-250809a" />
+        <entry key="$PROJECT_DIR$" value="misc-250813" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -202,9 +205,9 @@
       <list>
         <item itemvalue="Cargo.Test solver::test_solve_equation2" />
         <item itemvalue="Cargo.Test solver::test_solve_equation" />
+        <item itemvalue="Cargo.Test patterns::tests::test_basic_pattern_and_constraints" />
         <item itemvalue="Cargo.Test parser::tests::test_match_equation_all_with_constraints2" />
         <item itemvalue="Cargo.Test parser::tests::test_match_equation_all_with_constraints" />
-        <item itemvalue="Cargo.Test patterns::tests::test_basic_pattern_and_constraints" />
       </list>
     </recent_temporary>
   </component>
@@ -222,7 +225,8 @@
       <workItem from="1754577666024" duration="6493000" />
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
-      <workItem from="1754994978244" duration="18098000" />
+      <workItem from="1754994978244" duration="18421000" />
+      <workItem from="1755085031953" duration="928000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -528,14 +532,29 @@
       <option name="project" value="LOCAL" />
       <updated>1755050376022</updated>
     </task>
-    <option name="localTasksCounter" value="39" />
+    <task id="LOCAL-00039" summary="update TODOs">
+      <option name="closed" value="true" />
+      <created>1755050541906</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1755050541906</updated>
+    </task>
+    <task id="LOCAL-00040" summary="remove unneeded import">
+      <option name="closed" value="true" />
+      <created>1755050579507</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1755050579507</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Update parser.rs to use constraints and bindings" />
     <MESSAGE value="Update patterns.rs to use constraints" />
     <MESSAGE value="remove unused import" />
     <MESSAGE value="remove unneeded imports" />
@@ -560,6 +579,7 @@
     <MESSAGE value="Pre-compile regex filters when making &quot;form parts&quot;" />
     <MESSAGE value="Remove unneeded &quot;Arc&quot;" />
     <MESSAGE value="update TODOs" />
-    <option name="LAST_COMMIT_MESSAGE" value="update TODOs" />
+    <MESSAGE value="remove unneeded import" />
+    <option name="LAST_COMMIT_MESSAGE" value="remove unneeded import" />
   </component>
 </project>
