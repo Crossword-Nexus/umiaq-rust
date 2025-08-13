@@ -13,12 +13,31 @@ use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 use regex::Regex;
 use std::fmt::Write as _;
+use std::collections::HashSet;
+use std::sync::OnceLock;
 
 // Character-set constants
 const VOWELS: &str = "AEIOUY";
 const CONSONANTS: &str = "BCDFGHJKLMNPQRSTVWXZ";
 const UPPERCASE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LOWERCASE_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
+
+lazy_static::lazy_static! {
+    static ref VOWEL_SET: HashSet<char> = VOWELS.chars().collect();
+    static ref CONSONANT_SET: HashSet<char> = CONSONANTS.chars().collect();
+}
+
+static REGEX_CACHE: OnceLock<std::collections::HashMap<String, Regex>> = OnceLock::new();
+
+fn get_regex(pattern: &str) -> Result<Regex, regex::Error> {
+    let cache = REGEX_CACHE.get_or_init(std::collections::HashMap::new);
+
+    if let Some(regex) = cache.get(pattern) {
+        Ok(regex.clone())
+    } else {
+        Regex::new(pattern)
+    }
+}
 
 /// Custom error type for parsing operations
 #[derive(Debug, thiserror::Error)]
@@ -63,7 +82,7 @@ impl ParsedForm {
         // Build the regex string
         let regex_str = form_to_regex_str(&parts);
         let anchored = format!("^{regex_str}$");
-        let prefilter = Regex::new(&anchored)?;
+        let prefilter = get_regex(&anchored)?;
 
         Ok(ParsedForm { parts, prefilter })
     }
@@ -200,12 +219,12 @@ fn match_equation_internal(
                 }
             }
             FormPart::Vowel => {
-                if matches!(chars.first(), Some(c) if VOWELS.contains(*c)) {
+                if matches!(chars.first(), Some(c) if VOWEL_SET.contains(c)) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Consonant => {
-                if matches!(chars.first(), Some(c) if CONSONANTS.contains(*c)) {
+                if matches!(chars.first(), Some(c) if CONSONANT_SET.contains(c)) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
@@ -219,11 +238,7 @@ fn match_equation_internal(
                 let len = s.len();
                 if chars.len() >= len {
                     let window = &chars[..len];
-                    let mut sorted_window: Vec<char> = window.to_vec();
-                    sorted_window.sort_unstable();
-                    let mut sorted_target: Vec<char> = s.to_uppercase().chars().collect();
-                    sorted_target.sort_unstable();
-                    if sorted_window == sorted_target {
+                    if are_anagrams(window, s) {
                         return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints);
                     }
                 }
@@ -246,8 +261,13 @@ fn match_equation_internal(
                 if min_len > max_len { return false; }
 
                 for l in min_len..=max_len {
-                    let candidate: String = chars[..l].iter().collect();
-                    let bound_val = get_reversed_or_not(first, &candidate);
+                    let candidate_chars = &chars[..l];
+
+                    let bound_val = if matches!(first, FormPart::RevVar(_)) {
+                        candidate_chars.iter().rev().collect::<String>()
+                    } else {
+                        candidate_chars.iter().collect::<String>()
+                    };
 
                     // Apply variable-specific constraints
                     let valid = if let Some(all_c) = constraints {
@@ -285,6 +305,36 @@ fn match_equation_internal(
         } else {
             false
         }
+    }
+
+    // TODO? support beyond 0-127 (i.e., beyond ASCII)?
+    // TODO are we actually guaranteed to have uppercase_word be upperase?
+    fn are_anagrams(uppercase_word: &[char], other_word: &str) -> bool {
+        if uppercase_word.len() != other_word.len() {
+            return false;
+        }
+
+        let mut char_counts = [0u8; 128];
+
+        for &c in uppercase_word {
+            if (c as usize) < 128 {
+                char_counts[c as usize] += 1;
+            }
+            // TODO? handle characters outside of 0-127 differently? (e.g., error vs. ignore, etc.)
+        }
+
+        for c in other_word.chars() {
+            let c_upper = c.to_ascii_uppercase();
+            if (c_upper as usize) < 128 {
+                if char_counts[c_upper as usize] == 0 {
+                    return false;
+                }
+                char_counts[c_upper as usize] -= 1;
+            }
+        }
+
+
+        char_counts.iter().all(|&count| count == 0)
     }
 
     // === PREFILTER STEP ===
