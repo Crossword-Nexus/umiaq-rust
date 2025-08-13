@@ -1,5 +1,5 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
-use crate::parser::{match_equation_all, parse_form, FormPart};
+use crate::parser::{match_equation_all, parse_form, FormPart, ParsedForm};
 use crate::patterns::Patterns;
 use std::collections::{HashMap, HashSet};
 
@@ -182,7 +182,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
 
     // 3. Parse each pattern's string form once into a vector of `FormPart`s.
     //    These are index-aligned with `pattern_obj`.
-    let parsed_patterns: Vec<Vec<FormPart>> = pattern_obj
+    let parsed_patterns: Vec<ParsedForm> = pattern_obj
         .iter()
         .map(|p| parse_form(&p.raw_string).unwrap())
         .collect();

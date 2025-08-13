@@ -13,6 +13,7 @@ use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 use regex::Regex;
 use std::fmt::Write as _;
+use std::sync::Arc;
 
 // Character-set constants
 const VOWELS: &str = "AEIOUY";
@@ -38,6 +39,12 @@ pub enum FormPart {
     Consonant,          // '#' wildcard: any consonant (BCDF...XZ)
     Charset(Vec<char>), // '[abc]': any of the given letters
     Anagram(String),    // '/abc': any permutation of the given letters
+}
+
+/// A Vec of FormParts along with a compiled regex pre-filter
+pub struct ParsedForm {
+    pub parts: Vec<FormPart>,
+    pub prefilter: Option<Arc<Regex>>,
 }
 
 /// Validate whether a candidate binding value is allowed under a `VarConstraint`.
@@ -82,7 +89,7 @@ pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindi
 /// Return the first binding set that satisfies the equation, or `None` if none match.
 pub fn match_equation(
     word: &str,
-    parts: &[FormPart],
+    parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
 ) -> Option<Bindings> {
     let mut results = Vec::new();
@@ -93,7 +100,7 @@ pub fn match_equation(
 /// Return `true` if at least one binding satisfies the equation.
 pub fn match_equation_exists(
     word: &str,
-    parts: &[FormPart],
+    parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
 ) -> bool {
     let mut results: Vec<Bindings> = Vec::new();
@@ -104,7 +111,7 @@ pub fn match_equation_exists(
 /// Return all bindings that satisfy the equation.
 pub fn match_equation_all(
     word: &str,
-    parts: &[FormPart],
+    parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
 ) -> Vec<Bindings> {
     let mut results: Vec<Bindings> = Vec::new();
@@ -119,7 +126,7 @@ pub fn match_equation_all(
 /// - Stops early if `all_matches` is false and a single match is found.
 fn match_equation_internal(
     word: &str,
-    parts: &[FormPart],
+    parsed_form: &ParsedForm,
     all_matches: bool,
     results: &mut Vec<Bindings>,
     constraints: Option<&VarConstraints>,
@@ -269,21 +276,17 @@ fn match_equation_internal(
     }
 
     // === PREFILTER STEP ===
-    // Convert pattern to a regex and check before attempting backtracking.
-    /*
-    let regex_str_with_ends = format!("^{}$", form_to_regex_str(parts));
-    if let Ok(regex) = Regex::new(&regex_str_with_ends) {
-        if !regex.is_match(word) {
-            return; // Fail fast
+    if let Some(re) = &parsed_form.prefilter {
+        if !re.is_match(&word) {
+            return;
         }
     }
-    */
 
     // Normalize word and start recursive matching
     let word = word.to_uppercase();
     let chars: Vec<char> = word.chars().collect();
     let mut bindings = Bindings::default();
-    helper(&chars, parts, &mut bindings, results, all_matches, &word, constraints);
+    helper(&chars, &parsed_form.parts, &mut bindings, results, all_matches, &word, constraints);
 }
 
 /// Convert a parsed `FormPart` sequence into a regex string.
@@ -316,10 +319,10 @@ pub fn form_to_regex_str(parts: &[FormPart]) -> String {
     regex_str
 }
 
-/// Parse a form string into a `Vec<FormPart>` sequence.
+/// Parse a form string into a ParsedForm object
 ///
 /// Walks the input, consuming tokens one at a time with `equation_part`.
-pub fn parse_form(input: &str) -> Result<Vec<FormPart>, String> {
+pub fn parse_form(input: &str) -> Result<ParsedForm, String> {
     let mut rest = input;
     let mut parts = Vec::new();
 
@@ -333,7 +336,12 @@ pub fn parse_form(input: &str) -> Result<Vec<FormPart>, String> {
         }
     }
 
-    Ok(parts)
+    // Build the regex string
+    let regex_str = form_to_regex_str(&parts);
+    let anchored = format!("^{regex_str}$");
+    let prefilter = Regex::new(&anchored).ok().map(Arc::new);
+
+    Ok(ParsedForm { parts, prefilter })
 }
 
 // === Token parsers ===
@@ -534,7 +542,8 @@ mod tests {
     fn test_parse_form_basic() {
         let result = parse_form("abc");
         assert!(result.is_ok());
-        let parts = result.unwrap();
+        let parsed_form = result.unwrap();
+        let parts = parsed_form.parts;
         assert_eq!(parts.len(), 1);
         assert!(matches!(parts[0], FormPart::Lit(ref s) if s == "abc"));
     }
@@ -543,7 +552,8 @@ mod tests {
     fn test_parse_form_variable() {
         let result = parse_form("A");
         assert!(result.is_ok());
-        let parts = result.unwrap();
+        let parsed_form = result.unwrap();
+        let parts = parsed_form.parts;
         assert_eq!(parts.len(), 1);
         assert!(matches!(parts[0], FormPart::Var('A')));
     }
@@ -552,7 +562,8 @@ mod tests {
     fn test_parse_form_reversed_variable() {
         let result = parse_form("~A");
         assert!(result.is_ok());
-        let parts = result.unwrap();
+        let parsed_form = result.unwrap();
+        let parts = parsed_form.parts;
         assert_eq!(parts.len(), 1);
         assert!(matches!(parts[0], FormPart::RevVar('A')));
     }
@@ -561,7 +572,8 @@ mod tests {
     fn test_parse_form_wildcards() {
         let result = parse_form(".*@#");
         assert!(result.is_ok());
-        let parts = result.unwrap();
+        let parsed_form = result.unwrap();
+        let parts = parsed_form.parts;
         assert_eq!(parts.len(), 4);
         assert!(matches!(parts[0], FormPart::Dot));
         assert!(matches!(parts[1], FormPart::Star));
@@ -573,7 +585,8 @@ mod tests {
     fn test_parse_form_charset() {
         let result = parse_form("[abc]");
         assert!(result.is_ok());
-        let parts = result.unwrap();
+        let parsed_form = result.unwrap();
+        let parts = parsed_form.parts;
         assert_eq!(parts.len(), 1);
         assert!(matches!(parts[0], FormPart::Charset(ref chars) if chars == &['a', 'b', 'c']));
     }
@@ -582,7 +595,8 @@ mod tests {
     fn test_parse_form_anagram() {
         let result = parse_form("/abc");
         assert!(result.is_ok());
-        let parts = result.unwrap();
+        let parsed_form = result.unwrap();
+        let parts = parsed_form.parts;
         assert_eq!(parts.len(), 1);
         assert!(matches!(parts[0], FormPart::Anagram(ref s) if s == "abc"));
     }
@@ -591,7 +605,8 @@ mod tests {
     fn test_parse_form_complex() {
         let result = parse_form("A~A[rstlne]/jon@#.*");
         assert!(result.is_ok());
-        let parts = result.unwrap();
+        let parsed_form = result.unwrap();
+        let parts = parsed_form.parts;
         assert_eq!(parts.len(), 8);
         assert!(matches!(parts[0], FormPart::Var('A')));
         assert!(matches!(parts[1], FormPart::RevVar('A')));
@@ -605,21 +620,22 @@ mod tests {
 
     #[test]
     fn test_form_to_regex_str() {
-        let parts = parse_form("l.x").unwrap();
+        let parsed_form = parse_form("l.x").unwrap();
+        let parts = parsed_form.parts;
         let regex_str = form_to_regex_str(&parts);
         assert_eq!(regex_str, "L.X");
     }
 
     #[test]
     fn test_form_to_regex_str_with_variables() {
-        let parts = parse_form("AB").unwrap();
+        let parts = parse_form("AB").unwrap().parts;
         let regex_str = form_to_regex_str(&parts);
         assert_eq!(regex_str, ".+.+");
     }
 
     #[test]
     fn test_form_to_regex_str_with_wildcards() {
-        let parts = parse_form(".*@#").unwrap();
+        let parts = parse_form(".*@#").unwrap().parts;
         let regex_str = form_to_regex_str(&parts);
         assert_eq!(regex_str, "..*[AEIOUY][BCDFGHJKLMNPQRSTVWXZ]");
     }
@@ -713,7 +729,7 @@ mod tests {
     fn test_empty_pattern() {
         let result = parse_form("");
         assert!(result.is_ok());
-        let parts = result.unwrap();
+        let parts = result.unwrap().parts;
         assert_eq!(parts.len(), 0);
     }
 
