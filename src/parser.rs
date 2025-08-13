@@ -79,15 +79,35 @@ pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindi
     true
 }
 
+// TODO!! is this used by anything?
 /// Return the first binding set that satisfies the equation, or `None` if none match.
 pub fn match_equation(
     word: &str,
-    parts: &[FormPart],
+    parts_and_regex: &PartsAndRegex,
     constraints: Option<&VarConstraints>,
 ) -> Option<Bindings> {
     let mut results = Vec::new();
-    match_equation_internal(word, parts, false, &mut results, constraints);
+    match_equation_internal(word, parts_and_regex, false, &mut results, constraints);
     results.into_iter().next()
+}
+
+#[derive(Clone)]
+pub struct PartsAndRegex {
+    parts: Vec<FormPart>,
+    regex: Regex,
+}
+
+impl PartsAndRegex {
+    pub fn of(parts: &[FormPart]) -> PartsAndRegex {
+        // === PREFILTER STEP ===
+        // Convert pattern to a regex so that we can check before attempting backtracking.
+        let regex = Regex::new(&format!("^{}$", form_to_regex_str(parts))).unwrap();
+
+        PartsAndRegex {
+            parts: Vec::from(parts),
+            regex,
+        }
+    }
 }
 
 /// Return `true` if at least one binding satisfies the equation.
@@ -97,18 +117,21 @@ pub fn match_equation_exists(
     constraints: Option<&VarConstraints>,
 ) -> bool {
     let mut results: Vec<Bindings> = Vec::new();
-    match_equation_internal(word, parts, false, &mut results, constraints);
+
+    let parts_and_regex = PartsAndRegex::of(parts);
+
+    match_equation_internal(word, &parts_and_regex, false, &mut results, constraints);
     results.into_iter().next().is_some()
 }
 
 /// Return all bindings that satisfy the equation.
 pub fn match_equation_all(
     word: &str,
-    parts: &[FormPart],
+    parts_and_regex: &PartsAndRegex,
     constraints: Option<&VarConstraints>,
 ) -> Vec<Bindings> {
     let mut results: Vec<Bindings> = Vec::new();
-    match_equation_internal(word, parts, true, &mut results, constraints);
+    match_equation_internal(word, parts_and_regex, true, &mut results, constraints);
     results
 }
 
@@ -119,7 +142,7 @@ pub fn match_equation_all(
 /// - Stops early if `all_matches` is false and a single match is found.
 fn match_equation_internal(
     word: &str,
-    parts: &[FormPart],
+    parts_and_regex: &PartsAndRegex,
     all_matches: bool,
     results: &mut Vec<Bindings>,
     constraints: Option<&VarConstraints>,
@@ -142,7 +165,7 @@ fn match_equation_internal(
     /// `all_matches` – whether to collect all or stop at first
     fn helper(
         chars: &[char],
-        parts: &[FormPart],
+        parts_and_regex: &PartsAndRegex,
         bindings: &mut Bindings,
         results: &mut Vec<Bindings>,
         all_matches: bool,
@@ -150,7 +173,7 @@ fn match_equation_internal(
         constraints: Option<&VarConstraints>,
     ) -> bool {
         // Base case: no parts left
-        if parts.is_empty() {
+        if parts_and_regex.parts.is_empty() {
             if chars.is_empty() {
                 let mut full_result = bindings.clone();
                 full_result.set_word(word);
@@ -160,26 +183,29 @@ fn match_equation_internal(
             return false;
         }
 
-        let (first, rest) = (&parts[0], &parts[1..]);
+        // TODO give PartsAndRegex struct a better name
+        // TODO add a splitting fn to PartsAndRegex to handle this (encapsulated)
+        let (first_parts, rest_parts) = (&parts_and_regex.parts[0], &parts_and_regex.parts[1..]);
+        let rest_parts_and_regex = PartsAndRegex::of(rest_parts);
 
-        match first {
+        match first_parts {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored uppercased)
                 let s = s.to_uppercase();
                 if chars.starts_with(&s.chars().collect::<Vec<_>>()) {
-                    return helper(&chars[s.len()..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[s.len()..], &rest_parts_and_regex, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Dot => {
                 // Single-char wildcard
                 if !chars.is_empty() {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[1..], &rest_parts_and_regex, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Star => {
                 // Zero-or-more wildcard; try all possible splits
                 for i in 0..=chars.len() {
-                    if helper(&chars[i..], rest, bindings, results, all_matches, word, constraints)
+                    if helper(&chars[i..], &rest_parts_and_regex.clone(), bindings, results, all_matches, word, constraints)
                         && !all_matches
                     {
                         return true;
@@ -188,17 +214,17 @@ fn match_equation_internal(
             }
             FormPart::Vowel => {
                 if matches!(chars.first(), Some(c) if VOWELS.contains(*c)) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[1..], &rest_parts_and_regex, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Consonant => {
                 if matches!(chars.first(), Some(c) if CONSONANTS.contains(*c)) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[1..], &rest_parts_and_regex, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Charset(set) => {
                 if matches!(chars.first(), Some(c) if set.contains(&c.to_ascii_lowercase())) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[1..], &rest_parts_and_regex, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Anagram(s) => {
@@ -211,16 +237,16 @@ fn match_equation_internal(
                     let mut sorted_target: Vec<char> = s.to_uppercase().chars().collect();
                     sorted_target.sort_unstable();
                     if sorted_window == sorted_target {
-                        return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints);
+                        return helper(&chars[len..], &rest_parts_and_regex, bindings, results, all_matches, word, constraints);
                     }
                 }
             }
             FormPart::Var(name) | FormPart::RevVar(name) => {
                 if let Some(bound_val) = bindings.get(*name) {
                     // Already bound: must match exactly
-                    let val = get_reversed_or_not(first, bound_val);
+                    let val = get_reversed_or_not(first_parts, bound_val);
                     if chars.starts_with(&val.chars().collect::<Vec<_>>()) {
-                        return helper(&chars[val.len()..], rest, bindings, results, all_matches, word, constraints);
+                        return helper(&chars[val.len()..], &rest_parts_and_regex, bindings, results, all_matches, word, constraints);
                     }
                 } else {
                     // Not bound yet: try binding to all possible lengths
@@ -238,7 +264,7 @@ fn match_equation_internal(
 
                     for l in min_len..=max_len {
                         let candidate: String = chars[..l].iter().collect();
-                        let bound_val = get_reversed_or_not(first, &candidate);
+                        let bound_val = get_reversed_or_not(first_parts, &candidate);
 
                         // Apply variable-specific constraints
                         let valid = if let Some(all_c) = constraints {
@@ -256,7 +282,8 @@ fn match_equation_internal(
                         }
 
                         bindings.set(*name, bound_val);
-                        if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints) && !all_matches {
+                        // TODO? avoid this (and other) clone calls(?)
+                        if helper(&chars[l..], &rest_parts_and_regex.clone(), bindings, results, all_matches, word, constraints) && !all_matches {
                             return true;
                         }
                         bindings.remove(*name);
@@ -268,20 +295,15 @@ fn match_equation_internal(
         false
     }
 
-    // === PREFILTER STEP ===
-    // Convert pattern to a regex and check before attempting backtracking.
-    let regex_str_with_ends = format!("^{}$", form_to_regex_str(parts));
-    if let Ok(regex) = Regex::new(&regex_str_with_ends) {
-        if !regex.is_match(word) {
-            return; // Fail fast
-        }
+    if !parts_and_regex.regex.is_match(word) {
+        return; // Fail fast
     }
 
     // Normalize word and start recursive matching
     let word = word.to_uppercase();
     let chars: Vec<char> = word.chars().collect();
     let mut bindings = Bindings::default();
-    helper(&chars, parts, &mut bindings, results, all_matches, &word, constraints);
+    helper(&chars, parts_and_regex, &mut bindings, results, all_matches, &word, constraints);
 }
 
 /// Convert a parsed `FormPart` sequence into a regex string.
@@ -453,7 +475,7 @@ mod tests {
         let mut vc_b = VarConstraint::default();
         vc_b.not_equal.insert('A');
         var_constraints.insert('B', vc_b);
-        let result = match_equation("INCH", &patt, Some(&var_constraints));
+        let result = match_equation("INCH", &PartsAndRegex::of(&patt), Some(&var_constraints));
         assert!(result.is_some());
         let m = result.unwrap();
         assert_ne!(m.get('A'), m.get('B'));
@@ -473,7 +495,7 @@ mod tests {
         // associate this constraint with variable 'A'
         var_constraints.insert('A', vc);
 
-        let matches = match_equation_all("HOTHOT", &patt, Some(&var_constraints));
+        let matches = match_equation_all("HOTHOT", &PartsAndRegex::of(&patt), Some(&var_constraints));
         println!("{matches:?}");
         for m in matches.iter() {
             let val = m.get('A').unwrap();
@@ -502,7 +524,7 @@ mod tests {
         vc_b.max_length = 2;
         var_constraints.insert('B', vc_b);
 
-        let matches = match_equation_all("INCH", &patt, Some(&var_constraints));
+        let matches = match_equation_all("INCH", &PartsAndRegex::of(&patt), Some(&var_constraints));
         println!("{matches:?}");
         println!("{}", var_constraints);
         assert_eq!(matches.len(), 1);
@@ -640,7 +662,7 @@ mod tests {
     #[test]
     fn test_variable_binding() {
         let patt = parse_form("AB").unwrap();
-        let result = match_equation("INCH", &patt, None);
+        let result = match_equation("INCH", &PartsAndRegex::of(&patt), None);
         assert!(result.is_some());
         let binding = result.unwrap();
         // TODO allow for IN/CH or INC/H
@@ -651,7 +673,7 @@ mod tests {
     #[test]
     fn test_reversed_variable_binding() {
         let patt = parse_form("A~A").unwrap();
-        let result = match_equation("NOON", &patt, None);
+        let result = match_equation("NOON", &PartsAndRegex::of(&patt), None);
         assert!(result.is_some());
         let binding = result.unwrap();
         assert_eq!(binding.get('A'), Some(&"NO".to_string()));

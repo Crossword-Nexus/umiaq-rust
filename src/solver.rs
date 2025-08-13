@@ -1,5 +1,5 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
-use crate::parser::{match_equation_all, parse_form, FormPart};
+use crate::parser::{match_equation_all, parse_form, FormPart, PartsAndRegex};
 use crate::patterns::Patterns;
 use std::collections::{HashMap, HashSet};
 
@@ -202,7 +202,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
             // Try matching the word against the parsed pattern.
             // `match_equation_all` returns a list of `Bindings` (variable→string maps)
             // that satisfy the pattern given the current constraints.
-            let matches = match_equation_all(word, &parsed_patterns[i], Some(var_constraints));
+            let matches = match_equation_all(word, &PartsAndRegex::of(&parsed_patterns[i]), Some(var_constraints));
 
             // 6. For each binding produced for this pattern/word:
             for binding in matches {
