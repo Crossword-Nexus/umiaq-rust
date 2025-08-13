@@ -11,8 +11,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="add pkg directory">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Better WASM">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/TODO.md" beforeDir="false" afterPath="$PROJECT_DIR$/TODO.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -225,7 +226,7 @@
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
       <workItem from="1754994978244" duration="18421000" />
-      <workItem from="1755085031953" duration="4340000" />
+      <workItem from="1755085031953" duration="5297000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -579,14 +580,21 @@
       <option name="project" value="LOCAL" />
       <updated>1755090873926</updated>
     </task>
-    <option name="localTasksCounter" value="45" />
+    <task id="LOCAL-00045" summary="Better WASM">
+      <option name="closed" value="true" />
+      <created>1755091280549</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1755091280549</updated>
+    </task>
+    <option name="localTasksCounter" value="46" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="replace the word &quot;pattern&quot; where it shouldn't be" />
     <MESSAGE value="better comments" />
     <MESSAGE value="testing and display for constraints" />
     <MESSAGE value="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs" />
@@ -611,6 +619,7 @@
     <MESSAGE value="WASM update" />
     <MESSAGE value="add &quot;lang&quot; to HTML" />
     <MESSAGE value="add pkg directory" />
-    <option name="LAST_COMMIT_MESSAGE" value="add pkg directory" />
+    <MESSAGE value="Better WASM" />
+    <option name="LAST_COMMIT_MESSAGE" value="Better WASM" />
   </component>
 </project>
