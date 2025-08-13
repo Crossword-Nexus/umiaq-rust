@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>Umiaq WASM Test</title>
@@ -18,7 +18,7 @@
       const numResults = 10;
 
       const raw = solve_equation_wasm(input, words, numResults);
-      // raw: Array<Array<Object>> where "*" holds the bound word
+      // raw: Array<Array<Map>> where "*" holds the bound word
       const rawObj = raw.map(row => row.map(binding => Object.fromEntries(binding)));
       const onlyWords = rawObj.map(row => row.map(x => x['*']));
       console.log(onlyWords);
