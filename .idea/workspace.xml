@@ -11,7 +11,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="comment out regex (for now)">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Pre-compile regex filters when making &quot;form parts&quot;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
     </list>
@@ -225,7 +225,7 @@
       <workItem from="1754577666024" duration="6493000" />
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
-      <workItem from="1754994978244" duration="17047000" />
+      <workItem from="1754994978244" duration="17769000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -507,14 +507,21 @@
       <option name="project" value="LOCAL" />
       <updated>1755048066931</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="Pre-compile regex filters when making &quot;form parts&quot;">
+      <option name="closed" value="true" />
+      <created>1755049733608</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1755049733608</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="add bindings.rs" />
     <MESSAGE value="Add &quot;get&quot; and &quot;set&quot; for Bindings" />
     <MESSAGE value="empty out solver.rs" />
     <MESSAGE value="Update parser.rs to use constraints and bindings" />
@@ -539,6 +546,7 @@
     <MESSAGE value="small changes" />
     <MESSAGE value="add word lists" />
     <MESSAGE value="comment out regex (for now)" />
-    <option name="LAST_COMMIT_MESSAGE" value="comment out regex (for now)" />
+    <MESSAGE value="Pre-compile regex filters when making &quot;form parts&quot;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Pre-compile regex filters when making &quot;form parts&quot;" />
   </component>
 </project>

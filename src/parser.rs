@@ -13,7 +13,6 @@ use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 use regex::Regex;
 use std::fmt::Write as _;
-use std::sync::Arc;
 
 // Character-set constants
 const VOWELS: &str = "AEIOUY";
@@ -44,7 +43,7 @@ pub enum FormPart {
 /// A Vec of FormParts along with a compiled regex pre-filter
 pub struct ParsedForm {
     pub parts: Vec<FormPart>,
-    pub prefilter: Option<Arc<Regex>>,
+    pub prefilter: Option<Regex>,
 }
 
 /// Validate whether a candidate binding value is allowed under a `VarConstraint`.
@@ -339,7 +338,7 @@ pub fn parse_form(input: &str) -> Result<ParsedForm, String> {
     // Build the regex string
     let regex_str = form_to_regex_str(&parts);
     let anchored = format!("^{regex_str}$");
-    let prefilter = Regex::new(&anchored).ok().map(Arc::new);
+    let prefilter = Regex::new(&anchored).ok();
 
     Ok(ParsedForm { parts, prefilter })
 }
