@@ -20,6 +20,17 @@ const CONSONANTS: &str = "BCDFGHJKLMNPQRSTVWXZ";
 const UPPERCASE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LOWERCASE_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
 
+/// Custom error type for parsing operations
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error("Failed to parse form at position {position}; remaining input: \"{remaining}\"")]
+    ParseFailure { position: usize, remaining: String },
+    #[error("Invalid regex pattern: {0}")]
+    RegexError(#[from] regex::Error),
+    #[error("Empty form string")]
+    EmptyForm,
+}
+
 /// Represents a single parsed token (component) from a "form" string.
 ///
 /// Examples of forms:
@@ -41,19 +52,20 @@ pub enum FormPart {
 }
 
 /// A `Vec` of `FormPart`s along with a compiled regex prefilter
+#[derive(Debug)]
 pub struct ParsedForm {
     pub parts: Vec<FormPart>,
     pub prefilter: Regex,
 }
 
 impl ParsedForm {
-    fn of(parts: Vec<FormPart>) -> ParsedForm {
+    fn of(parts: Vec<FormPart>) -> Result<Self, ParseError> {
         // Build the regex string
         let regex_str = form_to_regex_str(&parts);
         let anchored = format!("^{regex_str}$");
-        let prefilter = Regex::new(&anchored).unwrap();
+        let prefilter = Regex::new(&anchored)?;
 
-        ParsedForm { parts, prefilter }
+        Ok(ParsedForm { parts, prefilter })
     }
 }
 
@@ -133,7 +145,7 @@ fn match_equation_internal(
     /// Helper to reverse a bound value if the part is `RevVar`.
     fn get_reversed_or_not(first: &FormPart, val: &str) -> String {
         if matches!(first, FormPart::RevVar(_)) {
-            val.chars().rev().collect::<String>()
+            val.chars().rev().collect()
         } else {
             val.to_owned()
         }
@@ -211,8 +223,8 @@ fn match_equation_internal(
                 // Match if the next N chars are an anagram of target
                 let len = s.len();
                 if chars.len() >= len {
-                    let window: String = chars[..len].iter().collect();
-                    let mut sorted_window: Vec<char> = window.chars().collect();
+                    let window = &chars[..len];
+                    let mut sorted_window: Vec<char> = window.to_vec();
                     sorted_window.sort_unstable();
                     let mut sorted_target: Vec<char> = s.to_uppercase().chars().collect();
                     sorted_target.sort_unstable();
@@ -319,7 +331,7 @@ pub fn form_to_regex_str(parts: &[FormPart]) -> String {
 /// Parse a form string into a `ParsedForm` object
 ///
 /// Walks the input, consuming tokens one at a time with `equation_part`.
-pub fn parse_form(input: &str) -> Result<ParsedForm, String> {
+pub fn parse_form(input: &str) -> Result<ParsedForm, ParseError> {
     let mut rest = input;
     let mut parts = Vec::new();
 
@@ -329,11 +341,15 @@ pub fn parse_form(input: &str) -> Result<ParsedForm, String> {
                 parts.push(part);
                 rest = next;
             }
-            Err(_) => return Err(format!("Could not parse at: {rest}")),
+            Err(_) => return Err(ParseError::ParseFailure { position: input.len() - rest.len(), remaining: rest.to_string() }),
         }
     }
 
-    Ok(ParsedForm::of(parts))
+    if parts.is_empty() {
+        return Err(ParseError::EmptyForm);
+    }
+
+    ParsedForm::of(parts)
 }
 
 // === Token parsers ===
@@ -391,6 +407,17 @@ fn equation_part(input: &str) -> IResult<&str, FormPart> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_error_types() {
+        // Test empty-form error
+        let result = parse_form("");
+        assert!(matches!(result.unwrap_err(), ParseError::EmptyForm));
+
+        // Test parse failure
+        let result = parse_form("[");
+        assert!(matches!(result.unwrap_err(), ParseError::ParseFailure { .. }));
+    }
 
     #[test]
     fn test_match_equation_exists() {
@@ -720,14 +747,14 @@ mod tests {
     #[test]
     fn test_empty_pattern() {
         let result = parse_form("");
-        assert!(result.is_ok());
-        let parts = result.unwrap().parts;
-        assert_eq!(parts.len(), 0);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ParseError::EmptyForm));
     }
 
     #[test]
     fn test_invalid_pattern() {
         let result = parse_form("[");
         assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ParseError::ParseFailure { position: 0, remaining: _ }));
     }
 }
