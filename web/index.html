@@ -61,6 +61,7 @@
       // load and process the default wordlist
       await getLocalWordList();
 
+      // define the solver globally
       window.solve_equation_wasm = solve_equation_wasm;
 
       // Hide and show
@@ -79,7 +80,7 @@
       const input = document.getElementById("input").value.trim();
 
       const jsResult = window.solve_equation_wasm(input, window.wordlist, 100);
-      console.log(jsResult);
+      //console.log(jsResult);
       let output = '';
       jsResult.forEach(x => {
         output += x.join(" • ");

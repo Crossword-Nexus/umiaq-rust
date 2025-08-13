@@ -11,4 +11,5 @@
 * improve prefilter for, e.g., `AB;|A|=2;|B|=2` (`.{2}.{2}`) and `AA` (`(.+)\1`)
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * return results in original order (e.g., for `C;BC;ABC`)
+* Actually show the "loading" text in web interface
 * misc. TODOs in code
