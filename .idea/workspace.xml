@@ -11,9 +11,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Better WASM">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Mark off a TODO!">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/TODO.md" beforeDir="false" afterPath="$PROJECT_DIR$/TODO.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/web/index.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -226,7 +226,7 @@
       <workItem from="1754612088552" duration="4123000" />
       <workItem from="1754780438043" duration="332000" />
       <workItem from="1754994978244" duration="18421000" />
-      <workItem from="1755085031953" duration="5297000" />
+      <workItem from="1755085031953" duration="6582000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -588,14 +588,21 @@
       <option name="project" value="LOCAL" />
       <updated>1755091280549</updated>
     </task>
-    <option name="localTasksCounter" value="46" />
+    <task id="LOCAL-00046" summary="Mark off a TODO!">
+      <option name="closed" value="true" />
+      <created>1755091981070</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1755091981070</updated>
+    </task>
+    <option name="localTasksCounter" value="47" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="better comments" />
     <MESSAGE value="testing and display for constraints" />
     <MESSAGE value="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs" />
     <MESSAGE value="change return type for solve_equation" />
@@ -620,6 +627,7 @@
     <MESSAGE value="add &quot;lang&quot; to HTML" />
     <MESSAGE value="add pkg directory" />
     <MESSAGE value="Better WASM" />
-    <option name="LAST_COMMIT_MESSAGE" value="Better WASM" />
+    <MESSAGE value="Mark off a TODO!" />
+    <option name="LAST_COMMIT_MESSAGE" value="Mark off a TODO!" />
   </component>
 </project>
