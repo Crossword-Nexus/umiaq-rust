@@ -7,4 +7,5 @@
 * implement parallel processing for large word lists
 * add integration tests with real word lists
 * Remove some unnecessary `to_uppercase()` statements
+* Allow for constraints like `|AB|=5`
 * misc. TODOs in code

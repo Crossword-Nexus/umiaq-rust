@@ -1,5 +1,5 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
-use crate::parser::{match_equation_all, parse_form, FormPart, ParsedForm};
+use crate::parser::{match_equation_all, parse_form, ParsedForm};
 use crate::patterns::Patterns;
 use std::collections::{HashMap, HashSet};
 
