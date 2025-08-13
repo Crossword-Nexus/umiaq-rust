@@ -13,12 +13,42 @@ use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 use regex::Regex;
 use std::fmt::Write as _;
+use std::collections::HashSet;
+use std::sync::OnceLock;
 
 // Character-set constants
 const VOWELS: &str = "AEIOUY";
 const CONSONANTS: &str = "BCDFGHJKLMNPQRSTVWXZ";
 const UPPERCASE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LOWERCASE_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
+
+lazy_static::lazy_static! {
+    static ref VOWEL_SET: HashSet<char> = VOWELS.chars().collect();
+    static ref CONSONANT_SET: HashSet<char> = CONSONANTS.chars().collect();
+}
+
+static REGEX_CACHE: OnceLock<std::collections::HashMap<String, Regex>> = OnceLock::new();
+
+fn get_regex(pattern: &str) -> Result<Regex, regex::Error> {
+    let cache = REGEX_CACHE.get_or_init(std::collections::HashMap::new);
+
+    if let Some(regex) = cache.get(pattern) {
+        Ok(regex.clone())
+    } else {
+        Regex::new(pattern)
+    }
+}
+
+/// Custom error type for parsing operations
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error("Failed to parse form at position {position}; remaining input: \"{remaining}\"")]
+    ParseFailure { position: usize, remaining: String },
+    #[error("Invalid regex pattern: {0}")]
+    RegexError(#[from] regex::Error),
+    #[error("Empty form string")]
+    EmptyForm,
+}
 
 /// Represents a single parsed token (component) from a "form" string.
 ///
@@ -40,10 +70,22 @@ pub enum FormPart {
     Anagram(String),    // '/abc': any permutation of the given letters
 }
 
-/// A Vec of FormParts along with a compiled regex pre-filter
+/// A `Vec` of `FormPart`s along with a compiled regex prefilter
+#[derive(Debug)]
 pub struct ParsedForm {
     pub parts: Vec<FormPart>,
-    pub prefilter: Option<Regex>,
+    pub prefilter: Regex,
+}
+
+impl ParsedForm {
+    fn of(parts: Vec<FormPart>) -> Result<Self, ParseError> {
+        // Build the regex string
+        let regex_str = form_to_regex_str(&parts);
+        let anchored = format!("^{regex_str}$");
+        let prefilter = get_regex(&anchored)?;
+
+        Ok(ParsedForm { parts, prefilter })
+    }
 }
 
 /// Validate whether a candidate binding value is allowed under a `VarConstraint`.
@@ -75,25 +117,12 @@ pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindi
 
     // 2) Check "not equal" constraints
     for &other in &constraints.not_equal {
-        if let Some(existing) = bindings.get(other) {
-            if existing == val {
-                return false;
-            }
+        if let Some(existing) = bindings.get(other) && existing == val {
+            return false;
         }
     }
 
     true
-}
-
-/// Return the first binding set that satisfies the equation, or `None` if none match.
-pub fn match_equation(
-    word: &str,
-    parts: &ParsedForm,
-    constraints: Option<&VarConstraints>,
-) -> Option<Bindings> {
-    let mut results = Vec::new();
-    match_equation_internal(word, parts, false, &mut results, constraints);
-    results.into_iter().next()
 }
 
 /// Return `true` if at least one binding satisfies the equation.
@@ -133,7 +162,7 @@ fn match_equation_internal(
     /// Helper to reverse a bound value if the part is `RevVar`.
     fn get_reversed_or_not(first: &FormPart, val: &str) -> String {
         if matches!(first, FormPart::RevVar(_)) {
-            val.chars().rev().collect::<String>()
+            val.chars().rev().collect()
         } else {
             val.to_owned()
         }
@@ -171,10 +200,7 @@ fn match_equation_internal(
         match first {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored uppercased)
-                let s = s.to_uppercase();
-                if chars.starts_with(&s.chars().collect::<Vec<_>>()) {
-                    return helper(&chars[s.len()..], rest, bindings, results, all_matches, word, constraints);
-                }
+                return compare_with_binding(&chars, bindings, results, all_matches, word, constraints, rest, &s.to_ascii_uppercase())
             }
             FormPart::Dot => {
                 // Single-char wildcard
@@ -193,12 +219,12 @@ fn match_equation_internal(
                 }
             }
             FormPart::Vowel => {
-                if matches!(chars.first(), Some(c) if VOWELS.contains(*c)) {
+                if matches!(chars.first(), Some(c) if VOWEL_SET.contains(c)) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Consonant => {
-                if matches!(chars.first(), Some(c) if CONSONANTS.contains(*c)) {
+                if matches!(chars.first(), Some(c) if CONSONANT_SET.contains(c)) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
@@ -211,12 +237,7 @@ fn match_equation_internal(
                 // Match if the next N chars are an anagram of target
                 let len = s.len();
                 if chars.len() >= len {
-                    let window: String = chars[..len].iter().collect();
-                    let mut sorted_window: Vec<char> = window.chars().collect();
-                    sorted_window.sort_unstable();
-                    let mut sorted_target: Vec<char> = s.to_uppercase().chars().collect();
-                    sorted_target.sort_unstable();
-                    if sorted_window == sorted_target {
+                    if are_anagrams(&chars[..len], s) {
                         return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints);
                     }
                 }
@@ -224,49 +245,49 @@ fn match_equation_internal(
             FormPart::Var(name) | FormPart::RevVar(name) => {
                 if let Some(bound_val) = bindings.get(*name) {
                     // Already bound: must match exactly
-                    let val = get_reversed_or_not(first, bound_val);
-                    if chars.starts_with(&val.chars().collect::<Vec<_>>()) {
-                        return helper(&chars[val.len()..], rest, bindings, results, all_matches, word, constraints);
-                    }
-                } else {
-                    // Not bound yet: try binding to all possible lengths
-                    // To prune the search space, apply length constraints up front
-                    let mut min_len = 1usize;
-                    let mut max_len = chars.len(); // cannot take more than what’s left
+                    return compare_with_binding(&chars, bindings, results, all_matches, word, constraints, rest, &get_reversed_or_not(first, bound_val))
+                }
 
-                    if let Some(all_c) = constraints {
+                // Not bound yet: try binding to all possible lengths
+                // To prune the search space, apply length constraints up front
+                let mut min_len = 1usize;
+                let mut max_len = chars.len(); // cannot take more than what’s left
+
+                if let Some(all_c) = constraints && let Some(c) = all_c.get(*name) {
+                    if c.min_length > 0 { min_len = min_len.max(c.min_length); }
+                    if c.max_length > 0 { max_len = max_len.min(c.max_length); }
+                }
+                if min_len > max_len { return false; }
+
+                for l in min_len..=max_len {
+                    let candidate_chars = &chars[..l];
+
+                    let bound_val = if matches!(first, FormPart::RevVar(_)) {
+                        candidate_chars.iter().rev().collect::<String>()
+                    } else {
+                        candidate_chars.iter().collect::<String>()
+                    };
+
+                    // Apply variable-specific constraints
+                    let valid = if let Some(all_c) = constraints {
                         if let Some(c) = all_c.get(*name) {
-                            if c.min_length > 0 { min_len = min_len.max(c.min_length); }
-                            if c.max_length > 0 { max_len = max_len.min(c.max_length); }
-                        }
-                    }
-                    if min_len > max_len { return false; }
-
-                    for l in min_len..=max_len {
-                        let candidate: String = chars[..l].iter().collect();
-                        let bound_val = get_reversed_or_not(first, &candidate);
-
-                        // Apply variable-specific constraints
-                        let valid = if let Some(all_c) = constraints {
-                            if let Some(c) = all_c.get(*name) {
-                                is_valid_binding(&bound_val, c, bindings)
-                            } else {
-                                true
-                            }
+                            is_valid_binding(&bound_val, c, bindings)
                         } else {
                             true
-                        };
-
-                        if !valid {
-                            continue;
                         }
+                    } else {
+                        true
+                    };
 
-                        bindings.set(*name, bound_val);
-                        if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints) && !all_matches {
-                            return true;
-                        }
-                        bindings.remove(*name);
+                    if !valid {
+                        continue;
                     }
+
+                    bindings.set(*name, bound_val);
+                    if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints) && !all_matches {
+                        return true;
+                    }
+                    bindings.remove(*name);
                 }
             }
         }
@@ -274,11 +295,50 @@ fn match_equation_internal(
         false
     }
 
-    // === PREFILTER STEP ===
-    if let Some(re) = &parsed_form.prefilter {
-        if !re.is_match(&word) {
-            return;
+    // TODO!! name this better!!
+    fn compare_with_binding(chars: &&[char], bindings: &mut Bindings, results: &mut Vec<Bindings>, all_matches: bool, word: &str, constraints: Option<&VarConstraints>, rest: &[FormPart], val: &str) -> bool {
+        let n = val.len();
+
+        if chars.len() >= n && chars[..n].iter().copied().zip(val.chars()).all(|(a, b)| a == b) {
+            helper(&chars[n..], rest, bindings, results, all_matches, word, constraints)
+        } else {
+            false
         }
+    }
+
+    // TODO? support beyond 0-127 (i.e., beyond ASCII)? (at least document behavior (here and in general)!)
+    // TODO are we actually guaranteed to have uppercase_word be upperase?
+    fn are_anagrams(uppercase_word: &[char], other_word: &str) -> bool {
+        if uppercase_word.len() != other_word.len() {
+            return false;
+        }
+
+        let mut char_counts = [0u8; 128];
+
+        for &c in uppercase_word {
+            if (c as usize) < 128 {
+                char_counts[c as usize] += 1;
+            }
+            // TODO? handle characters outside of 0-127 differently? (e.g., error vs. ignore, etc.)
+        }
+
+        for c in other_word.chars() {
+            let c_upper = c.to_ascii_uppercase();
+            if (c_upper as usize) < 128 {
+                if char_counts[c_upper as usize] == 0 {
+                    return false;
+                }
+                char_counts[c_upper as usize] -= 1;
+            }
+        }
+
+
+        char_counts.iter().all(|&count| count == 0)
+    }
+
+    // === PREFILTER STEP ===
+    if !(parsed_form.prefilter).is_match(word) {
+        return;
     }
 
     // Normalize word and start recursive matching
@@ -318,10 +378,10 @@ pub fn form_to_regex_str(parts: &[FormPart]) -> String {
     regex_str
 }
 
-/// Parse a form string into a ParsedForm object
+/// Parse a form string into a `ParsedForm` object
 ///
 /// Walks the input, consuming tokens one at a time with `equation_part`.
-pub fn parse_form(input: &str) -> Result<ParsedForm, String> {
+pub fn parse_form(input: &str) -> Result<ParsedForm, ParseError> {
     let mut rest = input;
     let mut parts = Vec::new();
 
@@ -331,16 +391,15 @@ pub fn parse_form(input: &str) -> Result<ParsedForm, String> {
                 parts.push(part);
                 rest = next;
             }
-            Err(_) => return Err(format!("Could not parse at: {rest}")),
+            Err(_) => return Err(ParseError::ParseFailure { position: input.len() - rest.len(), remaining: rest.to_string() }),
         }
     }
 
-    // Build the regex string
-    let regex_str = form_to_regex_str(&parts);
-    let anchored = format!("^{regex_str}$");
-    let prefilter = Regex::new(&anchored).ok();
+    if parts.is_empty() {
+        return Err(ParseError::EmptyForm);
+    }
 
-    Ok(ParsedForm { parts, prefilter })
+    ParsedForm::of(parts)
 }
 
 // === Token parsers ===
@@ -398,6 +457,18 @@ fn equation_part(input: &str) -> IResult<&str, FormPart> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_empty_form_error() {
+        let actual = parse_form("");
+        assert!(matches!(actual.unwrap_err(), ParseError::EmptyForm));
+    }
+
+    #[test]
+    fn test_parse_failure_error() {
+        let actual = parse_form("[");
+        assert!(matches!(actual.unwrap_err(), ParseError::ParseFailure { .. }));
+    }
 
     #[test]
     fn test_match_equation_exists() {
@@ -462,7 +533,7 @@ mod tests {
         let mut vc_b = VarConstraint::default();
         vc_b.not_equal.insert('A');
         var_constraints.insert('B', vc_b);
-        let result = match_equation("INCH", &patt, Some(&var_constraints));
+        let result = match_equation_all("INCH", &patt, Some(&var_constraints)).into_iter().next();
         assert!(result.is_some());
         let m = result.unwrap();
         assert_ne!(m.get('A'), m.get('B'));
@@ -657,7 +728,7 @@ mod tests {
     #[test]
     fn test_variable_binding() {
         let patt = parse_form("AB").unwrap();
-        let result = match_equation("INCH", &patt, None);
+        let result = match_equation_all("INCH", &patt, None).into_iter().next();
         assert!(result.is_some());
         let binding = result.unwrap();
         // TODO allow for IN/CH or INC/H
@@ -668,7 +739,7 @@ mod tests {
     #[test]
     fn test_reversed_variable_binding() {
         let patt = parse_form("A~A").unwrap();
-        let result = match_equation("NOON", &patt, None);
+        let result = match_equation_all("NOON", &patt, None).into_iter().next();
         assert!(result.is_some());
         let binding = result.unwrap();
         assert_eq!(binding.get('A'), Some(&"NO".to_string()));
@@ -727,14 +798,14 @@ mod tests {
     #[test]
     fn test_empty_pattern() {
         let result = parse_form("");
-        assert!(result.is_ok());
-        let parts = result.unwrap().parts;
-        assert_eq!(parts.len(), 0);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ParseError::EmptyForm));
     }
 
     #[test]
     fn test_invalid_pattern() {
         let result = parse_form("[");
         assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ParseError::ParseFailure { position: 0, remaining: _ }));
     }
 }

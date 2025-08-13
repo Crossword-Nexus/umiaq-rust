@@ -6,6 +6,7 @@
 * add progress indicators for long-running operations
 * implement parallel processing for large word lists
 * add integration tests with real word lists
-* Remove some unnecessary `to_uppercase()` statements
-* Allow for constraints like `|AB|=5`
+* remove some unnecessary `to_uppercase()` statements
+* allow for constraints like `|AB|=5`
+* create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * misc. TODOs in code
