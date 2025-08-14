@@ -105,7 +105,8 @@ function handleWordlistClick() {
   minScore = parseInt(minScore);
 
   // files is a FileList of File objects.
-  for (let i = 0, f; f = files[i]; i++) {
+  for (let i = 0; i < files.length; i++) {
+      let f = files[i];
       if (f) {
           let r = new FileReader();
 
