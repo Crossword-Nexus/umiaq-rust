@@ -11,11 +11,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="remove item from TODO">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
-    </list>
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Eliminate dead code messages (safely!)" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -232,14 +228,6 @@
       <workItem from="1755085031953" duration="7567000" />
       <workItem from="1755102074474" duration="50000" />
       <workItem from="1755102161293" duration="454000" />
-    </task>
-    <task id="LOCAL-00004" summary="Add &quot;word&quot; to helper function">
-      <option name="closed" value="true" />
-      <created>1754578769829</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1754578769829</updated>
     </task>
     <task id="LOCAL-00005" summary="Add patterns.rs">
       <option name="closed" value="true" />
@@ -625,14 +613,21 @@
       <option name="project" value="LOCAL" />
       <updated>1755134139121</updated>
     </task>
-    <option name="localTasksCounter" value="53" />
+    <task id="LOCAL-00053" summary="Eliminate dead code messages (safely!)">
+      <option name="closed" value="true" />
+      <created>1755134693201</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1755134693202</updated>
+    </task>
+    <option name="localTasksCounter" value="54" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="New test case for solver.rs" />
     <MESSAGE value="Several changes&#10;&#10;* default for VarConstraint&#10;* VarConstraint min_length and max_length are no longer options&#10;* use VarConstraints in patterns.rs&#10;* Add some more to solver.rs" />
     <MESSAGE value="more work on solver.rs" />
     <MESSAGE value="Note that one parser test doesn't pass" />
@@ -657,6 +652,7 @@
     <MESSAGE value="update TODOs" />
     <MESSAGE value="load web wordlist as uppercase" />
     <MESSAGE value="remove item from TODO" />
-    <option name="LAST_COMMIT_MESSAGE" value="remove item from TODO" />
+    <MESSAGE value="Eliminate dead code messages (safely!)" />
+    <option name="LAST_COMMIT_MESSAGE" value="Eliminate dead code messages (safely!)" />
   </component>
 </project>

@@ -77,6 +77,9 @@
       event.preventDefault();
       document.getElementById("results").textContent = 'Loading ...';
 
+      // Let the browser paint the "Loading ..." first
+      await new Promise(r => setTimeout(r, 0));
+
       const input = document.getElementById("input").value.trim();
 
       const jsResult = window.solve_equation_wasm(input, window.wordlist, 100);
