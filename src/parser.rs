@@ -12,8 +12,8 @@ use nom::{
 use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 use fancy_regex::Regex;
-use std::fmt::Write as _;
 use std::collections::HashSet;
+use std::fmt::Write as _;
 use std::sync::{LazyLock, OnceLock};
 
 // Character-set constants
@@ -21,6 +21,8 @@ const VOWELS: &str = "AEIOUY";
 const CONSONANTS: &str = "BCDFGHJKLMNPQRSTVWXZ";
 const UPPERCASE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LOWERCASE_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
+
+const NUM_POSSIBLE_VARIABLES: usize = 26; // TODO rename? TODO derive?
 
 static VOWEL_SET: LazyLock<HashSet<char>> = LazyLock::new(|| VOWELS.chars().collect());
 static CONSONANT_SET: LazyLock<HashSet<char>> = LazyLock::new(|| CONSONANTS.chars().collect());
@@ -348,10 +350,16 @@ fn match_equation_internal(
 ///
 /// Used for the initial fast prefilter in `match_equation_internal`.
 pub fn form_to_regex_str(parts: &[FormPart]) -> String {
+    let (var_counts, rev_var_counts) = get_var_and_rev_var_counts(parts);
+    let mut var_to_backreference_num = [0usize; NUM_POSSIBLE_VARIABLES];
+    let mut rev_var_to_backreference_num = [0usize; NUM_POSSIBLE_VARIABLES];
+    let mut backreference_index = 0usize;
+
     let mut regex_str = String::new();
     for part in parts {
         match part {
-            FormPart::Var(_) | FormPart::RevVar(_) => regex_str.push_str(".+"), // Variable: one or more chars
+            FormPart::Var(c) => regex_str.push_str(&get_regex_str_segment(var_counts, &mut var_to_backreference_num, &mut backreference_index, *c)),
+            FormPart::RevVar(c) => regex_str.push_str(&get_regex_str_segment(rev_var_counts, &mut rev_var_to_backreference_num, &mut backreference_index, *c)),
             FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(&s.to_uppercase())),
             FormPart::Dot => regex_str.push('.'),
             FormPart::Star => regex_str.push_str(".*"),
@@ -372,7 +380,44 @@ pub fn form_to_regex_str(parts: &[FormPart]) -> String {
             }
         }
     }
+
     regex_str
+}
+
+fn get_regex_str_segment(var_counts: [usize; 26], var_to_backreference_num: &mut [usize; 26], backreference_index: &mut usize, c: char) -> String {
+    let char_as_num = char_to_num(c);
+    let pushed_str = if var_to_backreference_num[char_as_num] != 0 {
+        &format!("\\{}", var_to_backreference_num[char_as_num])
+    } else if var_counts[char_as_num] > 1 {
+        *backreference_index += 1;
+        var_to_backreference_num[char_as_num] = *backreference_index;
+        "(.+)"
+    } else {
+        ".+"
+    };
+
+    pushed_str.to_string()
+}
+
+// TODO doesn't really need to count--really only need to the return values to distinguish between
+//      one and many (NB: in the zero case callers won't use what's returned here)
+fn get_var_and_rev_var_counts(parts: &[FormPart]) -> ([usize; NUM_POSSIBLE_VARIABLES], [usize; NUM_POSSIBLE_VARIABLES]) {
+    let mut var_counts = [0usize; NUM_POSSIBLE_VARIABLES];
+    let mut rev_var_counts = [0usize; NUM_POSSIBLE_VARIABLES];
+    for part in parts {
+        match part {
+            FormPart::Var(c) => var_counts[char_to_num(*c)] += 1,
+            FormPart::RevVar(c) => rev_var_counts[char_to_num(*c)] += 1,
+            _ => ()
+        }
+    }
+
+    (var_counts, rev_var_counts)
+}
+
+// 'A' -> 0, 'B' -> 1, ..., 'Z' -> 25
+fn char_to_num(c: char) -> usize {
+    c as usize - 'A' as usize
 }
 
 /// Parse a form string into a `ParsedForm` object
@@ -698,6 +743,27 @@ mod tests {
         let parts = parse_form("AB").unwrap().parts;
         let regex_str = form_to_regex_str(&parts);
         assert_eq!(".+.+", regex_str);
+    }
+
+    #[test]
+    fn test_form_to_regex_str_with_variables_with_backref() {
+        let parts = parse_form("AA").unwrap().parts;
+        let regex_str = form_to_regex_str(&parts);
+        assert_eq!("(.+)\\1", regex_str);
+    }
+
+    #[test]
+    fn test_form_to_regex_str_with_variables_with_backref_complex() {
+        let parts = parse_form("ABABBCA").unwrap().parts;
+        let regex_str = form_to_regex_str(&parts);
+        assert_eq!("(.+)(.+)\\1\\2\\2.+\\1", regex_str);
+    }
+
+    #[test]
+    fn test_form_to_regex_str_with_variables_with_rev_and_backref_complex() {
+        let parts = parse_form("AB~AABBDC~AA~C").unwrap().parts;
+        let regex_str = form_to_regex_str(&parts);
+        assert_eq!("(.+)(.+)(.+)\\1\\2\\2.+.+\\3\\1.+", regex_str);
     }
 
     #[test]
