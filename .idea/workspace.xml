@@ -11,7 +11,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Eliminate dead code messages (safely!)" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Show the &quot;loading ...&quot; message">
+      <change beforePath="$PROJECT_DIR$/TODO.md" beforeDir="false" afterPath="$PROJECT_DIR$/TODO.md" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -228,14 +230,6 @@
       <workItem from="1755085031953" duration="7567000" />
       <workItem from="1755102074474" duration="50000" />
       <workItem from="1755102161293" duration="454000" />
-    </task>
-    <task id="LOCAL-00005" summary="Add patterns.rs">
-      <option name="closed" value="true" />
-      <created>1754613692922</created>
-      <option name="number" value="00005" />
-      <option name="presentableId" value="LOCAL-00005" />
-      <option name="project" value="LOCAL" />
-      <updated>1754613692922</updated>
     </task>
     <task id="LOCAL-00006" summary="Small fix to regex">
       <option name="closed" value="true" />
@@ -621,14 +615,21 @@
       <option name="project" value="LOCAL" />
       <updated>1755134693202</updated>
     </task>
-    <option name="localTasksCounter" value="54" />
+    <task id="LOCAL-00054" summary="Show the &quot;loading ...&quot; message">
+      <option name="closed" value="true" />
+      <created>1755135142732</created>
+      <option name="number" value="00054" />
+      <option name="presentableId" value="LOCAL-00054" />
+      <option name="project" value="LOCAL" />
+      <updated>1755135142732</updated>
+    </task>
+    <option name="localTasksCounter" value="55" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Several changes&#10;&#10;* default for VarConstraint&#10;* VarConstraint min_length and max_length are no longer options&#10;* use VarConstraints in patterns.rs&#10;* Add some more to solver.rs" />
     <MESSAGE value="more work on solver.rs" />
     <MESSAGE value="Note that one parser test doesn't pass" />
     <MESSAGE value="Better AA test case" />
@@ -653,6 +654,7 @@
     <MESSAGE value="load web wordlist as uppercase" />
     <MESSAGE value="remove item from TODO" />
     <MESSAGE value="Eliminate dead code messages (safely!)" />
-    <option name="LAST_COMMIT_MESSAGE" value="Eliminate dead code messages (safely!)" />
+    <MESSAGE value="Show the &quot;loading ...&quot; message" />
+    <option name="LAST_COMMIT_MESSAGE" value="Show the &quot;loading ...&quot; message" />
   </component>
 </project>
