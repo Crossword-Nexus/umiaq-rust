@@ -13,5 +13,4 @@
 * return results in original order (e.g., for `C;BC;ABC`)
 * actually show the "loading" text in web interface
 * add support for `<` and `>` like in Qat
-* get single queries (like `l.x`) to work in the web interface
 * misc. TODOs in code
