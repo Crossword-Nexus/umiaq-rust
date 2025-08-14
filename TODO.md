@@ -8,4 +8,5 @@
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * return results in original order (e.g., for `C;BC;ABC`)
 * add support for `<` and `>` like in Qat
+* dark mode for web interface
 * misc. TODOs in code

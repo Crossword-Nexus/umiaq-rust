@@ -11,13 +11,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="slight improvement to word list modal">
-      <change afterPath="$PROJECT_DIR$/src/wasm.rs" afterDir="false" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="remove some TODOs">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pkg/umiaq_rust.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/pkg/umiaq_rust.d.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pkg/umiaq_rust_bg.wasm" beforeDir="false" afterPath="$PROJECT_DIR$/pkg/umiaq_rust_bg.wasm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pkg/umiaq_rust_bg.wasm.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/pkg/umiaq_rust_bg.wasm.d.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/web/index.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -67,42 +63,43 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Cargo.Run.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test constraints::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test parser::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test parser::tests::test_match_equation_all_with_constraints.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test parser::tests::test_match_equation_all_with_constraints2.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test parser::tests::test_match_pattern_all_examples.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test parser::tests::test_match_pattern_exists_with_constraints.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test parser::tests::test_valid_binding_not_equal_pass.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test patterns::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test patterns::tests::test_basic_pattern_and_constraints.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test patterns::tests::test_parse_length_range.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test solver::test_solve_equation (1).executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test solver::test_solve_equation.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test solver::test_solve_equation2 (1).executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test solver::test_solve_equation2.executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Run.executor": "Run",
+    "Cargo.Test constraints::tests.executor": "Run",
+    "Cargo.Test parser::tests.executor": "Run",
+    "Cargo.Test parser::tests::test_match_equation_all_with_constraints.executor": "Run",
+    "Cargo.Test parser::tests::test_match_equation_all_with_constraints2.executor": "Run",
+    "Cargo.Test parser::tests::test_match_pattern_all_examples.executor": "Run",
+    "Cargo.Test parser::tests::test_match_pattern_exists_with_constraints.executor": "Run",
+    "Cargo.Test parser::tests::test_valid_binding_not_equal_pass.executor": "Run",
+    "Cargo.Test patterns::tests.executor": "Run",
+    "Cargo.Test patterns::tests::test_basic_pattern_and_constraints.executor": "Run",
+    "Cargo.Test patterns::tests::test_parse_length_range.executor": "Run",
+    "Cargo.Test solver::test_solve_equation (1).executor": "Run",
+    "Cargo.Test solver::test_solve_equation.executor": "Run",
+    "Cargo.Test solver::test_solve_equation2 (1).executor": "Run",
+    "Cargo.Test solver::test_solve_equation2.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "org.rust.first.attach.projects": "true",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.editor.selected.configurable": "org.jetbrains.plugins.github.ui.GithubSettingsConfigurable",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\boisv\RustroverProjects\umiaq-rust\web" />
@@ -241,22 +238,6 @@
       <workItem from="1755085031953" duration="7567000" />
       <workItem from="1755102074474" duration="50000" />
       <workItem from="1755102161293" duration="454000" />
-    </task>
-    <task id="LOCAL-00011" summary="Update parser.rs to use constraints and bindings">
-      <option name="closed" value="true" />
-      <created>1754764373061</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1754764373061</updated>
-    </task>
-    <task id="LOCAL-00012" summary="Update patterns.rs to use constraints">
-      <option name="closed" value="true" />
-      <created>1754767537243</created>
-      <option name="number" value="00012" />
-      <option name="presentableId" value="LOCAL-00012" />
-      <option name="project" value="LOCAL" />
-      <updated>1754767537243</updated>
     </task>
     <task id="LOCAL-00013" summary="remove unused import">
       <option name="closed" value="true" />
@@ -634,15 +615,29 @@
       <option name="project" value="LOCAL" />
       <updated>1755168039399</updated>
     </task>
-    <option name="localTasksCounter" value="60" />
+    <task id="LOCAL-00060" summary="split out lib.rs and wasm.rs">
+      <option name="closed" value="true" />
+      <created>1755168988839</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1755168988839</updated>
+    </task>
+    <task id="LOCAL-00061" summary="remove some TODOs">
+      <option name="closed" value="true" />
+      <created>1755169128001</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1755169128001</updated>
+    </task>
+    <option name="localTasksCounter" value="62" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="add a few more words to test word list" />
-    <MESSAGE value="* Complete solver.rs&#10;* Add wordlist.rs" />
     <MESSAGE value="small changes" />
     <MESSAGE value="add word lists" />
     <MESSAGE value="comment out regex (for now)" />
@@ -666,6 +661,8 @@
     <MESSAGE value="add web worker script in case we ever decide to go that route" />
     <MESSAGE value="Use web worker to get results" />
     <MESSAGE value="slight improvement to word list modal" />
-    <option name="LAST_COMMIT_MESSAGE" value="slight improvement to word list modal" />
+    <MESSAGE value="split out lib.rs and wasm.rs" />
+    <MESSAGE value="remove some TODOs" />
+    <option name="LAST_COMMIT_MESSAGE" value="remove some TODOs" />
   </component>
 </project>
