@@ -1,5 +1,5 @@
 use crate::constraints::VarConstraints;
-use regex::Regex;
+use fancy_regex::Regex;
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
@@ -113,19 +113,19 @@ impl Patterns {
         let parts: Vec<&str> = input.split(';').collect();
         // Iterate through all parts of the input string, split by `;`
         for part in &parts {
-            if let Some(cap) = LEN_RE.captures(part) {
+            if let Some(cap) = LEN_RE.captures(part).unwrap() {
                 // Extract the variable (e.g., A) and its required length
                 let var = cap[1].chars().next().unwrap();
                 let len = cap[2].parse::<usize>().unwrap();
                 self.var_constraints.ensure(var).set_exact_len(len);
-            } else if let Some(cap) = NEQ_RE.captures(part) {
+            } else if let Some(cap) = NEQ_RE.captures(part).unwrap() {
                 // Extract all variables from inequality constraint (e.g., !=AB means A != B)
                 let vars: Vec<char> = cap[1].chars().collect();
                 for &v in &vars {
                     let entry = self.var_constraints.ensure(v);
                     entry.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
-            } else if let Some(cap) = COMPLEX_RE.captures(part) {
+            } else if let Some(cap) = COMPLEX_RE.captures(part).unwrap() {
                 // Extract variable and complex constraint info
                 let var = cap[1].chars().next().unwrap();
                 let len = &cap[2];
