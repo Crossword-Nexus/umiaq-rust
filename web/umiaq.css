@@ -19,7 +19,6 @@
 /* Modal Content/Box */
 .modal-content {
     position: relative;
-    background-color: #fefefe;
     margin: auto;
     padding: 0;
     border: 1px solid #888;
@@ -32,6 +31,7 @@
     -webkit-animation-duration: 0.4s;
     animation-name: animatetop;
     animation-duration: 0.3s;
+    background-color: #1e1e1e;
 }
 
 /* Modal Header */

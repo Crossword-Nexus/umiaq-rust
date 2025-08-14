@@ -1,0 +1,100 @@
+ /* Base background and text */
+ body {
+   background-color: #1e1e1e;
+   color: #ddd;
+ }
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  color: #fff;
+}
+
+/* Links */
+a {
+  color: #4da3ff;
+}
+a:hover, a:focus {
+  color: #82c0ff;
+}
+
+/* Buttons */
+.button,
+button,
+input[type="submit"],
+input[type="reset"],
+input[type="button"] {
+  background-color: #333;
+  color: #eee;
+  border: 1px solid #555;
+}
+.button:hover,
+button:hover,
+input[type="submit"]:hover,
+input[type="reset"]:hover,
+input[type="button"]:hover {
+  background-color: #444;
+}
+.button-primary,
+button.button-primary,
+input[type="submit"].button-primary {
+  background-color: #4da3ff;
+  color: #000;
+  border: none;
+}
+.button-primary:hover,
+button.button-primary:hover,
+input[type="submit"].button-primary:hover {
+  background-color: #82c0ff;
+}
+
+/* Form fields */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+input[type="tel"],
+input[type="number"],
+input[type="search"],
+textarea,
+select {
+  background-color: #2a2a2a;
+  color: #eee;
+  border: 1px solid #555;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: #4da3ff;
+  background-color: #242424;
+  outline: none;
+}
+
+/* Table */
+table {
+  background-color: #2a2a2a;
+  color: #eee;
+  border-collapse: collapse;
+}
+th, td {
+  border: 1px solid #555;
+  padding: 0.5rem;
+}
+th {
+  background-color: #333;
+  color: #fff;
+}
+
+/* Code/pre */
+code, pre {
+  background-color: #2a2a2a;
+  color: #eee;
+  border: 1px solid #555;
+}
+pre {
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+/* Horizontal rule */
+hr {
+  border: 0;
+  border-top: 1px solid #555;
+}
