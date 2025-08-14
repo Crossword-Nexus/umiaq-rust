@@ -384,7 +384,7 @@ pub fn form_to_regex_str(parts: &[FormPart]) -> String {
     regex_str
 }
 
-fn get_regex_str_segment(var_counts: [usize; 26], var_to_backreference_num: &mut [usize; 26], backreference_index: &mut usize, c: char) -> String {
+fn get_regex_str_segment(var_counts: [usize; NUM_POSSIBLE_VARIABLES], var_to_backreference_num: &mut [usize; NUM_POSSIBLE_VARIABLES], backreference_index: &mut usize, c: char) -> String {
     let char_as_num = char_to_num(c);
     let pushed_str = if var_to_backreference_num[char_as_num] != 0 {
         &format!("\\{}", var_to_backreference_num[char_as_num])
