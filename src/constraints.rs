@@ -138,7 +138,7 @@ mod tests {
             form: None,
             not_equal: HashSet::new(),
         };
-        assert_eq!(vc.bounds(), (2, 5));
+        assert_eq!((2, 5), vc.bounds());
     }
 
     #[test]
@@ -150,8 +150,8 @@ mod tests {
             // default created; tweak it
             a.min_length = 3;
         }
-        assert_eq!(vcs.get('A').unwrap().min_length, 3);
-        assert_eq!(vcs.len(), 1);
+        assert_eq!(3, vcs.get('A').unwrap().min_length);
+        assert_eq!(1, vcs.len());
     }
 
     #[test]
@@ -161,7 +161,7 @@ mod tests {
         vc.form = Some("*z*".into());
         vc.not_equal.extend(['B', 'C']);
         vcs.insert('A', vc.clone());
-        assert_eq!(vcs.get('A'), Some(&vc));
+        assert_eq!(Some(&vc), vcs.get('A'));
     }
 
     #[test]
@@ -194,7 +194,7 @@ mod tests {
 
         let s = vcs.to_string();
         let lines: Vec<&str> = s.lines().collect();
-        assert_eq!(lines.len(), 3);
+        assert_eq!(3, lines.len());
         assert!(lines[0].starts_with("A: "));
         assert!(lines[1].starts_with("B: "));
         assert!(lines[2].starts_with("C: "));

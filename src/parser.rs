@@ -581,7 +581,7 @@ mod tests {
         let matches = match_equation_all("INCH", &patt, Some(&var_constraints));
         println!("{matches:?}");
         println!("{}", var_constraints);
-        assert_eq!(matches.len(), 1);
+        assert_eq!(1, matches.len());
     }
 
     #[test]
@@ -610,7 +610,7 @@ mod tests {
         assert!(result.is_ok());
         let parsed_form = result.unwrap();
         let parts = parsed_form.parts;
-        assert_eq!(parts.len(), 1);
+        assert_eq!(1, parts.len());
         assert!(matches!(parts[0], FormPart::Lit(ref s) if s == "abc"));
     }
 
@@ -620,7 +620,7 @@ mod tests {
         assert!(result.is_ok());
         let parsed_form = result.unwrap();
         let parts = parsed_form.parts;
-        assert_eq!(parts.len(), 1);
+        assert_eq!(1, parts.len());
         assert!(matches!(parts[0], FormPart::Var('A')));
     }
 
@@ -630,7 +630,7 @@ mod tests {
         assert!(result.is_ok());
         let parsed_form = result.unwrap();
         let parts = parsed_form.parts;
-        assert_eq!(parts.len(), 1);
+        assert_eq!(1, parts.len());
         assert!(matches!(parts[0], FormPart::RevVar('A')));
     }
 
@@ -640,7 +640,7 @@ mod tests {
         assert!(result.is_ok());
         let parsed_form = result.unwrap();
         let parts = parsed_form.parts;
-        assert_eq!(parts.len(), 4);
+        assert_eq!(4, parts.len());
         assert!(matches!(parts[0], FormPart::Dot));
         assert!(matches!(parts[1], FormPart::Star));
         assert!(matches!(parts[2], FormPart::Vowel));
@@ -653,7 +653,7 @@ mod tests {
         assert!(result.is_ok());
         let parsed_form = result.unwrap();
         let parts = parsed_form.parts;
-        assert_eq!(parts.len(), 1);
+        assert_eq!(1, parts.len());
         assert!(matches!(parts[0], FormPart::Charset(ref chars) if chars == &['a', 'b', 'c']));
     }
 
@@ -663,7 +663,7 @@ mod tests {
         assert!(result.is_ok());
         let parsed_form = result.unwrap();
         let parts = parsed_form.parts;
-        assert_eq!(parts.len(), 1);
+        assert_eq!(1, parts.len());
         assert!(matches!(parts[0], FormPart::Anagram(ref s) if s == "abc"));
     }
 
@@ -673,7 +673,7 @@ mod tests {
         assert!(result.is_ok());
         let parsed_form = result.unwrap();
         let parts = parsed_form.parts;
-        assert_eq!(parts.len(), 8);
+        assert_eq!(8, parts.len());
         assert!(matches!(parts[0], FormPart::Var('A')));
         assert!(matches!(parts[1], FormPart::RevVar('A')));
         assert!(matches!(parts[2], FormPart::Charset(_))); // TODO check _ value
@@ -689,21 +689,21 @@ mod tests {
         let parsed_form = parse_form("l.x").unwrap();
         let parts = parsed_form.parts;
         let regex_str = form_to_regex_str(&parts);
-        assert_eq!(regex_str, "L.X");
+        assert_eq!("L.X", regex_str);
     }
 
     #[test]
     fn test_form_to_regex_str_with_variables() {
         let parts = parse_form("AB").unwrap().parts;
         let regex_str = form_to_regex_str(&parts);
-        assert_eq!(regex_str, ".+.+");
+        assert_eq!(".+.+", regex_str);
     }
 
     #[test]
     fn test_form_to_regex_str_with_wildcards() {
         let parts = parse_form(".*@#").unwrap().parts;
         let regex_str = form_to_regex_str(&parts);
-        assert_eq!(regex_str, "..*[AEIOUY][BCDFGHJKLMNPQRSTVWXZ]");
+        assert_eq!("..*[AEIOUY][BCDFGHJKLMNPQRSTVWXZ]", regex_str);
     }
 
     #[test]
@@ -728,8 +728,8 @@ mod tests {
         assert!(result.is_some());
         let binding = result.unwrap();
         // TODO allow for IN/CH or INC/H
-        assert_eq!(binding.get('A'), Some(&"I".to_string()));
-        assert_eq!(binding.get('B'), Some(&"NCH".to_string()));
+        assert_eq!(Some(&"I".to_string()), binding.get('A'));
+        assert_eq!(Some(&"NCH".to_string()), binding.get('B'));
     }
 
     #[test]
@@ -738,7 +738,7 @@ mod tests {
         let result = match_equation_all("NOON", &patt, None).into_iter().next();
         assert!(result.is_some());
         let binding = result.unwrap();
-        assert_eq!(binding.get('A'), Some(&"NO".to_string()));
+        assert_eq!(Some(&"NO".to_string()), binding.get('A'));
     }
 
     #[test]
