@@ -293,7 +293,7 @@ fn test_solve_equation() {
     let input = "l.x".to_string();
     let results = solve_equation(&input, &word_list, 5);
     println!("{:?}", results);
-    assert_eq!(results.len(), 2);
+    assert_eq!(2, results.len());
 }
 
 #[test]
@@ -302,5 +302,5 @@ fn test_solve_equation2() {
     let input = "AB;BA;|A|=2;|B|=2;!=AB".to_string();
     let results = solve_equation(&input, &word_list, 5);
     println!("{:?}", results);
-    assert_eq!(results.len(), 2);
+    assert_eq!(2, results.len());
 }

@@ -256,22 +256,22 @@ mod tests {
         println!("{:?}", patterns);
 
         // Test raw pattern list
-        assert_eq!(patterns.list.len(), 1);
-        assert_eq!(patterns.list[0].raw_string, "AB");
+        assert_eq!(1, patterns.list.len());
+        assert_eq!("AB", patterns.list[0].raw_string);
 
         // Test constraints
         let a = patterns.var_constraints.get('A').unwrap();
-        assert_eq!(a.min_length, 3);
-        assert_eq!(a.max_length, 3);
+        assert_eq!(3, a.min_length);
+        assert_eq!(3, a.max_length);
         let set_1: HashSet<char> = ['B'].into_iter().collect();
-        assert_eq!(a.not_equal, set_1);
+        assert_eq!(set_1, a.not_equal);
 
         let b = patterns.var_constraints.get('B').unwrap();
-        assert_eq!(b.min_length, 2);
-        assert_eq!(b.max_length, 2);
-        assert_eq!(b.form.as_deref(), Some("b*"));
+        assert_eq!(2, b.min_length);
+        assert_eq!(2, b.max_length);
+        assert_eq!(Some("b*"), b.form.as_deref());
         let set_2: HashSet<char> = ['A'].into_iter().collect();
-        assert_eq!(b.not_equal, set_2);
+        assert_eq!(set_2, b.not_equal);
     }
 
     #[test]
@@ -289,11 +289,11 @@ mod tests {
 
     #[test]
     fn test_parse_length_range() {
-        assert_eq!(parse_length_range("2-3"), Some((Some(2), Some(3))));
-        assert_eq!(parse_length_range("-3"), Some((None, Some(3))));
-        assert_eq!(parse_length_range("1-"), Some((Some(1), None)));
-        assert_eq!(parse_length_range("7"), Some((Some(7), Some(7))));
-        assert_eq!(parse_length_range(""), None);
-        assert_eq!(parse_length_range("1-2-3"), None);
+        assert_eq!(Some((Some(2), Some(3))), parse_length_range("2-3"));
+        assert_eq!(Some((None, Some(3))), parse_length_range("-3"));
+        assert_eq!(Some((Some(1), None)), parse_length_range("1-"));
+        assert_eq!(Some((Some(7), Some(7))), parse_length_range("7"));
+        assert_eq!(None, parse_length_range(""));
+        assert_eq!(None, parse_length_range("1-2-3"));
     }
 }
