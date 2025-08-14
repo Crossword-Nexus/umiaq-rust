@@ -34,7 +34,7 @@
         <span class="label-text">Pattern:</span>
         <input class="input" id="input" size=40 />
       </label>
-      <button class="button-primary">Search</button>
+      <button class="button-primary" type="submit">Search</button>
     </form>
 
     <button type="submit" id="wordlist-button" value="Upload wordlist">(Optional) Upload wordlist</button>
@@ -54,46 +54,49 @@
   <script type="module">
     import init, { solve_equation_wasm } from "../pkg/umiaq_rust.js";
 
-    (async () => {
-      await init();
+    // load and process the default wordlist
+    await getLocalWordList();
 
-      // load and process the default wordlist
-      await getLocalWordList();
+    // Set up the web worker
+    const worker = new Worker(new URL('./solver.worker.js', import.meta.url), { type: 'module' });
 
-      // define the solver globally
-      window.solve_equation_wasm = solve_equation_wasm;
+    // Define elements
+    const resultsEl = document.getElementById("results");
+    const inputEl = document.getElementById("input");
 
-      // Hide and show
-      document.getElementById("loading").style.display = "none";
-      document.getElementById("mainUI").style.display = "block";
-    })();
+    worker.postMessage({ type: 'init' });
+    worker.onmessage = (e) => {
+      if (e.data.type === 'ready') {
+        // Hide and show
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("mainUI").style.display = "block";
+      } else if (e.data.type === 'ok') {
+        const rows = e.data.results;
+        resultsEl.textContent = rows.map(r => r.join(' • ')).join('\n') || 'No matches found.';
+      } else if (e.data.type === 'err') {
+        resultsEl.textContent = 'Error: ' + e.data.error;
+      }
+    };
 
-  </script>
-
-  <script>
-    // Define what happens when the "solve" button is clicked
-    async function solve(event) {
-      event.preventDefault();
-      document.getElementById("results").textContent = 'Loading ...';
-
-      // Let the browser paint the "Loading ..." first
-      await new Promise(r => setTimeout(r, 0));
-
-      const input = document.getElementById("input").value.trim();
-
-      const jsResult = window.solve_equation_wasm(input, window.wordlist, 100);
-      let output = '';
-      jsResult.forEach(x => {
-        output += x.join(" • ");
-        output += "\n";
+    async function solve(e) {
+      e.preventDefault();
+      resultsEl.textContent = 'Loading …';
+      worker.postMessage({
+        type: 'solve',
+        input: inputEl.value.trim(),
+        wordlist: window.wordlist,
+        numResults: 100,
       });
-      if (!output) output = 'No matches found.';
-      document.getElementById("results").textContent = output;
     }
+
+    // Add listener to "submit" button
     document.querySelector("form").addEventListener("submit", solve);
+
   </script>
 
   <script>
+
+
     // Load the examples
     fetch("examples.html")
       .then(response => response.text())

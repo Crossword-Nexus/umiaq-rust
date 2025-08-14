@@ -1,25 +1,21 @@
-// solver.worker.js
-importScripts("../pkg/umiaq_rust.js");
+import init, { solve_equation_wasm } from '../pkg/umiaq_rust.js';
 
-let ready;
-onmessage = async (e) => {
+let ready = (async () => { await init(); })();
+
+self.onmessage = async (e) => {
     const { type, input, wordlist, numResults } = e.data;
-    if (type === "init") {
-        // init wasm once
-        if (!ready) {
-            ready = self.init ? self.init() : (await import("./pkg/umiaq_rust.js")).default();
-            await ready;
-        }
-        postMessage({ type: "ready" });
+    if (type === 'init') {
+        await ready;
+        self.postMessage({ type: 'ready' });
         return;
     }
-    if (type === "solve") {
+    if (type === 'solve') {
         await ready;
         try {
-            const out = self.solve_equation_wasm(input, wordlist, numResults);
-            postMessage({ type: "ok", results: out });
+            const out = solve_equation_wasm(input, wordlist, numResults);
+            self.postMessage({ type: 'ok', results: out });
         } catch (err) {
-            postMessage({ type: "err", error: String(err) });
+            self.postMessage({ type: 'err', error: String(err) });
         }
     }
 };
