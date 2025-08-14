@@ -11,7 +11,7 @@ use nom::{
 
 use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
-use regex::Regex;
+use fancy_regex::Regex;
 use std::fmt::Write as _;
 use std::collections::HashSet;
 use std::sync::{LazyLock, OnceLock};
@@ -27,7 +27,7 @@ static CONSONANT_SET: LazyLock<HashSet<char>> = LazyLock::new(|| CONSONANTS.char
 
 static REGEX_CACHE: OnceLock<std::collections::HashMap<String, Regex>> = OnceLock::new();
 
-fn get_regex(pattern: &str) -> Result<Regex, regex::Error> {
+fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
     let cache = REGEX_CACHE.get_or_init(std::collections::HashMap::new);
 
     if let Some(regex) = cache.get(pattern) {
@@ -43,7 +43,7 @@ pub enum ParseError {
     #[error("Failed to parse form at position {position}; remaining input: \"{remaining}\"")]
     ParseFailure { position: usize, remaining: String },
     #[error("Invalid regex pattern: {0}")]
-    RegexError(#[from] regex::Error),
+    RegexError(#[from] fancy_regex::Error),
     #[error("Empty form string")]
     EmptyForm,
 }
@@ -333,7 +333,7 @@ fn match_equation_internal(
     }
 
     // === PREFILTER STEP ===
-    if !(parsed_form.prefilter).is_match(word) {
+    if !parsed_form.prefilter.is_match(word).unwrap() {
         return;
     }
 
@@ -352,7 +352,7 @@ pub fn form_to_regex_str(parts: &[FormPart]) -> String {
     for part in parts {
         match part {
             FormPart::Var(_) | FormPart::RevVar(_) => regex_str.push_str(".+"), // Variable: one or more chars
-            FormPart::Lit(s) => regex_str.push_str(&regex::escape(&s.to_uppercase())),
+            FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(&s.to_uppercase())),
             FormPart::Dot => regex_str.push('.'),
             FormPart::Star => regex_str.push_str(".*"),
             FormPart::Vowel => regex_str.push_str(&format!("[{VOWELS}]")),
@@ -366,7 +366,8 @@ pub fn form_to_regex_str(parts: &[FormPart]) -> String {
             }
             FormPart::Anagram(s) => {
                 let len = s.len();
-                let class = regex::escape(&s.to_uppercase());
+                let s_upper = s.to_uppercase();
+                let class = fancy_regex::escape(&s_upper);
                 let _ = write!(regex_str, "[{class}]{{{len}}}");
             }
         }
