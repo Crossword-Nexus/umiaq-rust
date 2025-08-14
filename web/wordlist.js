@@ -3,7 +3,7 @@
 **/
 
 function processWordList(fileContents, minScore) {
-  let lines = fileContents.trim().replace(/\r/g, "").split("\n");
+  let lines = fileContents.toUpperCase().trim().replace(/\r/g, "").split("\n");
 
   // Only keep lines with a semicolon and a score >= minScore
   lines = lines.filter(line => {
