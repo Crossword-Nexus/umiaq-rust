@@ -11,11 +11,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="add web worker script in case we ever decide to go that route">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/web/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/solver.worker.js" beforeDir="false" afterPath="$PROJECT_DIR$/web/solver.worker.js" afterDir="false" />
-    </list>
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Use web worker to get results" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -238,14 +234,6 @@
       <workItem from="1755085031953" duration="7567000" />
       <workItem from="1755102074474" duration="50000" />
       <workItem from="1755102161293" duration="454000" />
-    </task>
-    <task id="LOCAL-00009" summary="Add &quot;get&quot; and &quot;set&quot; for Bindings">
-      <option name="closed" value="true" />
-      <created>1754760973386</created>
-      <option name="number" value="00009" />
-      <option name="presentableId" value="LOCAL-00009" />
-      <option name="project" value="LOCAL" />
-      <updated>1754760973386</updated>
     </task>
     <task id="LOCAL-00010" summary="empty out solver.rs">
       <option name="closed" value="true" />
@@ -631,14 +619,21 @@
       <option name="project" value="LOCAL" />
       <updated>1755136912838</updated>
     </task>
-    <option name="localTasksCounter" value="58" />
+    <task id="LOCAL-00058" summary="Use web worker to get results">
+      <option name="closed" value="true" />
+      <created>1755167802485</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1755167802485</updated>
+    </task>
+    <option name="localTasksCounter" value="59" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="add failing test" />
     <MESSAGE value="fix is_valid_binding" />
     <MESSAGE value="add a few more words to test word list" />
     <MESSAGE value="* Complete solver.rs&#10;* Add wordlist.rs" />
@@ -663,6 +658,7 @@
     <MESSAGE value="remove a TODO" />
     <MESSAGE value="Miscellaneous web fixes" />
     <MESSAGE value="add web worker script in case we ever decide to go that route" />
-    <option name="LAST_COMMIT_MESSAGE" value="add web worker script in case we ever decide to go that route" />
+    <MESSAGE value="Use web worker to get results" />
+    <option name="LAST_COMMIT_MESSAGE" value="Use web worker to get results" />
   </component>
 </project>

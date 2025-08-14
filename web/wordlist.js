@@ -62,9 +62,11 @@ function createModalBox(title, content, button_text = 'Close') {
     <div class="modal-body">
       ${content}
     </div>
+    <!-- No footer
     <div class="modal-footer">
       <button class="cw-button" id="modal-button">${button_text}</button>
     </div>
+    -->
   </div>`;
   // Set this to be the contents of the container modal div
   const modal = document.getElementById('cw-modal');
@@ -88,10 +90,12 @@ function createModalBox(title, content, button_text = 'Close') {
   };
 
   // Clicking the button should close the modal
+    /* ... but we've removed that button
   const modalButton = document.getElementById('modal-button');
   modalButton.onclick = function () {
     closeModalBox();
   };
+     */
 }
 
 /** Assign a click action to the word list button **/
@@ -126,7 +130,7 @@ function createWordlistModal() {
   <label for="min-score">Min score:</label>
   <input type="number" id="min-score" name="min-score" value="50">
   <br /><br />
-  <button value="Submit" id="submit-wordlist">Submit</button>
+  <button value="Submit" id="submit-wordlist">Upload</button>
   `;
   createModalBox(title, html);
 
