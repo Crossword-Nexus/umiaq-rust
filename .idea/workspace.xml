@@ -11,8 +11,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="remove a TODO">
-      <change beforePath="$PROJECT_DIR$/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/web/index.html" afterDir="false" />
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="Miscellaneous web fixes">
+      <change afterPath="$PROJECT_DIR$/web/solver.worker.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -24,6 +25,7 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Rust File" />
+        <option value="JavaScript File" />
       </list>
     </option>
   </component>
@@ -97,6 +99,11 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\boisv\RustroverProjects\umiaq-rust\web" />
+    </key>
+  </component>
   <component name="RunManager" selected="Cargo.Test solver::test_solve_equation2 (1)">
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
@@ -230,14 +237,6 @@
       <workItem from="1755085031953" duration="7567000" />
       <workItem from="1755102074474" duration="50000" />
       <workItem from="1755102161293" duration="454000" />
-    </task>
-    <task id="LOCAL-00007" summary="Add a pre-regex filter in match_pattern_internal">
-      <option name="closed" value="true" />
-      <created>1754623115712</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1754623115712</updated>
     </task>
     <task id="LOCAL-00008" summary="add bindings.rs">
       <option name="closed" value="true" />
@@ -623,14 +622,21 @@
       <option name="project" value="LOCAL" />
       <updated>1755135170828</updated>
     </task>
-    <option name="localTasksCounter" value="56" />
+    <task id="LOCAL-00056" summary="Miscellaneous web fixes">
+      <option name="closed" value="true" />
+      <created>1755135623210</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1755135623210</updated>
+    </task>
+    <option name="localTasksCounter" value="57" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Note that one parser test doesn't pass" />
     <MESSAGE value="Better AA test case" />
     <MESSAGE value="add failing test" />
     <MESSAGE value="fix is_valid_binding" />
@@ -655,6 +661,7 @@
     <MESSAGE value="Eliminate dead code messages (safely!)" />
     <MESSAGE value="Show the &quot;loading ...&quot; message" />
     <MESSAGE value="remove a TODO" />
-    <option name="LAST_COMMIT_MESSAGE" value="remove a TODO" />
+    <MESSAGE value="Miscellaneous web fixes" />
+    <option name="LAST_COMMIT_MESSAGE" value="Miscellaneous web fixes" />
   </component>
 </project>
