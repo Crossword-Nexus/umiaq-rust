@@ -130,7 +130,7 @@ function createWordlistModal() {
   <label for="min-score">Min score:</label>
   <input type="number" id="min-score" name="min-score" value="50">
   <br /><br />
-  <button value="Submit" id="submit-wordlist">Upload</button>
+  <button value="Submit" class="button-primary" id="submit-wordlist">Upload</button>
   `;
   createModalBox(title, html);
 

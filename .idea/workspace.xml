@@ -11,10 +11,12 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="update web files with regex change">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="dark mode marked as complete">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/web/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/skeleton-dark.css" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/web/umiaq.css" beforeDir="false" afterPath="$PROJECT_DIR$/web/umiaq.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/wordlist.js" beforeDir="false" afterPath="$PROJECT_DIR$/web/wordlist.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -239,22 +241,6 @@
       <workItem from="1755085031953" duration="7567000" />
       <workItem from="1755102074474" duration="50000" />
       <workItem from="1755102161293" duration="454000" />
-    </task>
-    <task id="LOCAL-00014" summary="small changes">
-      <option name="closed" value="true" />
-      <created>1754769925067</created>
-      <option name="number" value="00014" />
-      <option name="presentableId" value="LOCAL-00014" />
-      <option name="project" value="LOCAL" />
-      <updated>1754769925067</updated>
-    </task>
-    <task id="LOCAL-00015" summary="remove unneeded imports">
-      <option name="closed" value="true" />
-      <created>1754770568282</created>
-      <option name="number" value="00015" />
-      <option name="presentableId" value="LOCAL-00015" />
-      <option name="project" value="LOCAL" />
-      <updated>1754770568282</updated>
     </task>
     <task id="LOCAL-00016" summary="turn off &quot;unused&quot; warnings">
       <option name="closed" value="true" />
@@ -632,15 +618,29 @@
       <option name="project" value="LOCAL" />
       <updated>1755171589650</updated>
     </task>
-    <option name="localTasksCounter" value="63" />
+    <task id="LOCAL-00063" summary="dark mode">
+      <option name="closed" value="true" />
+      <created>1755172328562</created>
+      <option name="number" value="00063" />
+      <option name="presentableId" value="LOCAL-00063" />
+      <option name="project" value="LOCAL" />
+      <updated>1755172328562</updated>
+    </task>
+    <task id="LOCAL-00064" summary="dark mode marked as complete">
+      <option name="closed" value="true" />
+      <created>1755172551079</created>
+      <option name="number" value="00064" />
+      <option name="presentableId" value="LOCAL-00064" />
+      <option name="project" value="LOCAL" />
+      <updated>1755172551080</updated>
+    </task>
+    <option name="localTasksCounter" value="65" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="comment out regex (for now)" />
-    <MESSAGE value="Pre-compile regex filters when making &quot;form parts&quot;" />
     <MESSAGE value="Remove unneeded &quot;Arc&quot;" />
     <MESSAGE value="remove unneeded import" />
     <MESSAGE value="More TODOs" />
@@ -664,6 +664,8 @@
     <MESSAGE value="remove some TODOs" />
     <MESSAGE value="web files for regex change" />
     <MESSAGE value="update web files with regex change" />
-    <option name="LAST_COMMIT_MESSAGE" value="update web files with regex change" />
+    <MESSAGE value="dark mode" />
+    <MESSAGE value="dark mode marked as complete" />
+    <option name="LAST_COMMIT_MESSAGE" value="dark mode marked as complete" />
   </component>
 </project>
