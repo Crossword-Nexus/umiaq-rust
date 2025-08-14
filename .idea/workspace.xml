@@ -11,9 +11,10 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="update TODOs">
+    <list default="true" id="a920f734-9a9b-4c6e-baff-7fb76b582e70" name="Changes" comment="remove item from TODO">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/TODO.md" beforeDir="false" afterPath="$PROJECT_DIR$/TODO.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -231,22 +232,6 @@
       <workItem from="1755085031953" duration="7567000" />
       <workItem from="1755102074474" duration="50000" />
       <workItem from="1755102161293" duration="454000" />
-    </task>
-    <task id="LOCAL-00002" summary="Initial commit">
-      <option name="closed" value="true" />
-      <created>1754577857822</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1754577857822</updated>
-    </task>
-    <task id="LOCAL-00003" summary="Test commit">
-      <option name="closed" value="true" />
-      <created>1754578047212</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1754578047212</updated>
     </task>
     <task id="LOCAL-00004" summary="Add &quot;word&quot; to helper function">
       <option name="closed" value="true" />
@@ -624,15 +609,29 @@
       <option name="project" value="LOCAL" />
       <updated>1755102090453</updated>
     </task>
-    <option name="localTasksCounter" value="51" />
+    <task id="LOCAL-00051" summary="load web wordlist as uppercase">
+      <option name="closed" value="true" />
+      <created>1755134103240</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1755134103240</updated>
+    </task>
+    <task id="LOCAL-00052" summary="remove item from TODO">
+      <option name="closed" value="true" />
+      <created>1755134139121</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1755134139121</updated>
+    </task>
+    <option name="localTasksCounter" value="53" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="* change parse_equation to parse_form&#10;* add a few methods to Patterns&#10;* initial build of solver.rs" />
-    <MESSAGE value="change return type for solve_equation" />
     <MESSAGE value="New test case for solver.rs" />
     <MESSAGE value="Several changes&#10;&#10;* default for VarConstraint&#10;* VarConstraint min_length and max_length are no longer options&#10;* use VarConstraints in patterns.rs&#10;* Add some more to solver.rs" />
     <MESSAGE value="more work on solver.rs" />
@@ -656,6 +655,8 @@
     <MESSAGE value="Mark off a TODO!" />
     <MESSAGE value="More web stuff" />
     <MESSAGE value="update TODOs" />
-    <option name="LAST_COMMIT_MESSAGE" value="update TODOs" />
+    <MESSAGE value="load web wordlist as uppercase" />
+    <MESSAGE value="remove item from TODO" />
+    <option name="LAST_COMMIT_MESSAGE" value="remove item from TODO" />
   </component>
 </project>

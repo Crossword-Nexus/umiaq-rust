@@ -1,10 +1,10 @@
 // src/lib.rs
-mod wordlist;
-mod solver;
-mod bindings;
-mod parser;
-mod patterns;
-mod constraints;
+pub mod wordlist;
+pub mod solver;
+pub mod bindings;
+pub mod parser;
+pub mod patterns;
+pub mod constraints;
 
 // ── WASM glue only when compiling for wasm32 ───────────────────────────────────
 #[cfg(target_arch = "wasm32")]
