@@ -45,7 +45,7 @@ async function getLocalWordList() {
 
 // Close the modal box
 function closeModalBox() {
-  var modal = document.getElementById('cw-modal');
+  const modal = document.getElementById('cw-modal');
   modal.style.display = 'none';
 }
 
@@ -67,28 +67,28 @@ function createModalBox(title, content, button_text = 'Close') {
     </div>
   </div>`;
   // Set this to be the contents of the container modal div
-  var modal = document.getElementById('cw-modal');
+  const modal = document.getElementById('cw-modal');
   modal.innerHTML = modalContent;
 
   // Show the div
   modal.style.display = 'block';
 
   // Allow user to close the div
-  var modalClose = document.getElementById('modal-close');
+  const modalClose = document.getElementById('modal-close');
 
   // When the user clicks on <span> (x), close the modal
   modalClose.onclick = function () {
     closeModalBox();
   };
-  // When the user clicks anywhere outside of the modal, close it
+  // When the user clicks anywhere outside the modal, close it
   window.onclick = function (event) {
-    if (event.target == modal) {
+    if (event.target === modal) {
       closeModalBox();
     }
   };
 
   // Clicking the button should close the modal
-  var modalButton = document.getElementById('modal-button');
+  const modalButton = document.getElementById('modal-button');
   modalButton.onclick = function () {
     closeModalBox();
   };
@@ -96,17 +96,16 @@ function createModalBox(title, content, button_text = 'Close') {
 
 /** Assign a click action to the word list button **/
 function handleWordlistClick() {
-  var files = document.getElementById('wordlist-file').files; // FileList object
-  var minScore = document.getElementById('min-score').value;
+  let files = document.getElementById('wordlist-file').files; // FileList object
+  let minScore = document.getElementById('min-score').value;
   minScore = parseInt(minScore);
 
   // files is a FileList of File objects.
-  var output = [];
-  for (var i = 0, f; f = files[i]; i++) {
+  for (let i = 0, f; f = files[i]; i++) {
       if (f) {
-          var r = new FileReader();
+          let r = new FileReader();
 
-          r.onload = (function (theFile) {
+          r.onload = (function () {
               return function (e) {
                   let contents = e.target.result;
                   processWordList(contents, minScore);

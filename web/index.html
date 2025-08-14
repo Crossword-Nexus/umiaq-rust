@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,7 +15,6 @@
     #spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid #ccc; border-top: 2px solid #333; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 0.5em; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
     #mainUI { display: none; }
-    #wordlistStatus { margin-top: 0.5em; font-style: italic; color: green; }
     details.examples { margin-top: 2em;}
   </style>
   <!-- Word list processing -->
@@ -33,7 +32,7 @@
     <form>
       <label class="label">
         <span class="label-text">Pattern:</span>
-        <input class="input" id="input" size=40></input>
+        <input class="input" id="input" size=40 />
       </label>
       <button class="button-primary">Search</button>
     </form>
@@ -83,7 +82,6 @@
       const input = document.getElementById("input").value.trim();
 
       const jsResult = window.solve_equation_wasm(input, window.wordlist, 100);
-      console.log(jsResult);
       let output = '';
       jsResult.forEach(x => {
         output += x.join(" • ");
