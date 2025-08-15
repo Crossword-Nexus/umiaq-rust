@@ -10,13 +10,41 @@ static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+
 /// Matches inequality constraints like `!=AB`
 static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
-// TODO? disallow accepting one paren and the other; only allow, e.g., 3-5 or 3 (not 3-5-7)
-// TODO require colon if both types, require no colon if just one (but support both or just one)
+static VAR_RE_STR: &str = "([A-Z])";
+static LENGTH_RE_STR: &str = "(\\d+(-\\d+)?)";
 // TODO constrain re to only allow lc letters, '.', '*', '/', '@', '#', etc. instead of "^)" in "[^)]"
-/// Matches complex constraints like `A=(3-5:a*)` with optional length and pattern
-static COMPLEX_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^([A-Z])=\(?([\d\-]*):?([^)]*)\)?$").unwrap());
+static LIT_PATTERN_RE_STR: &str = "([^)]+)";
 
+// TODO? disallow accepting one paren and not the other
+// TODO require colon if both types, require no colon if just one (but support both or just one)
+/// Matches complex constraints like `A=(3-5:a*)` with optional length and pattern
+// syntax:
+//
+// complex constraint expression = {variable name}={constraint}
+// variable name = A | B | C | D | E | F | G | H | I | J | K | L | M | N | O | P | Q | R | S | T | U | V | W | X | Y | Z
+// constraint = ({inner constraint})
+//            | inner_constraint
+// inner_constraint = {length range}:{literal string}
+//                  | {length range}
+//                  | {literal string}
+// length range = {number}
+//              | {number}-{number}
+// literal string = {literal string char}
+//                | {literal string char}{literal string}
+// literal string char = {lowercase letter}
+//                     | .
+//                     | *
+// number = {digit}
+//        | {digit}{number}
+// digit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+// lowercase letter = a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s | t | u | v | w | x | y | z
+// group 1: var
+// group 2: length constraint
+// group 3 (ignored): hyphen plus end of length range (when present)
+// group 4: literal pattern
+static COMPLEX_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!("^{VAR_RE_STR}=\\(?{LENGTH_RE_STR}:?{LIT_PATTERN_RE_STR}\\)?$")).unwrap());
+// "^([A-Z])=(\\d+(-\\d+)?):?[^)]+$"
 #[derive(Debug, Clone)]
 /// A single raw form string plus *solver metadata*; **not tokenized**.
 /// Use `parse_equation(&pattern.raw_string)` to get `Vec<FormPart>`.
@@ -133,7 +161,7 @@ impl Patterns {
                 // Extract variable and complex constraint info
                 let var = cap[1].chars().next().unwrap();
                 let len = &cap[2];
-                let patt = cap[3].to_string();
+                let patt = cap[4].to_string();
                 let var_constraint = self.var_constraints.ensure(var);
 
                 if let Ok(Some((min, max))) = parse_length_range(len) {
@@ -257,28 +285,32 @@ mod tests {
 
     #[test]
     fn test_basic_pattern_and_constraints() {
-        let input = "AB;|A|=3;!=AB;B=(2:b*)";
-        let patterns = Patterns::of(input);
-
-        println!("{:?}", patterns);
+        let patterns = Patterns::of("AB;|A|=3;!=AB;B=(2:b*)");
 
         // Test raw pattern list
-        assert_eq!(1, patterns.list.len());
-        assert_eq!("AB", patterns.list[0].raw_string);
+        assert_eq!(vec!["AB".to_string()], patterns.list.iter().map(|p| p.raw_string.clone()).collect::<Vec<_>>());
 
         // Test constraints
         let a = patterns.var_constraints.get('A').unwrap();
         assert_eq!(3, a.min_length);
         assert_eq!(3, a.max_length);
-        let set_1: HashSet<char> = ['B'].into_iter().collect();
-        assert_eq!(set_1, a.not_equal);
+        assert_eq!(['B'].into_iter().collect::<HashSet<_>>(), a.not_equal);
 
         let b = patterns.var_constraints.get('B').unwrap();
         assert_eq!(2, b.min_length);
         assert_eq!(2, b.max_length);
         assert_eq!(Some("b*"), b.form.as_deref());
-        let set_2: HashSet<char> = ['A'].into_iter().collect();
-        assert_eq!(set_2, b.not_equal);
+        assert_eq!(['A'].into_iter().collect::<HashSet<_>>(), b.not_equal);
+    }
+
+    #[test]
+    fn test_complex_re() {
+        let patterns = Patterns::of("A;A=(3-4:x*)");
+
+        let var_constraint = patterns.var_constraints.get('A').unwrap();
+        assert_eq!(3, var_constraint.min_length);
+        assert_eq!(4, var_constraint.max_length);
+        assert_eq!(Some("x*"), var_constraint.form.as_deref());
     }
 
     #[test]

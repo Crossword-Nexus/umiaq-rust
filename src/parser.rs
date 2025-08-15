@@ -82,6 +82,18 @@ pub enum FormPart {
     Anagram(String),    // '/abc': any permutation of the given letters
 }
 
+impl FormPart {
+    fn get_tag_string(&self) -> Option<&str> {
+        match self {
+            FormPart::Dot => Some("."),
+            FormPart::Star => Some("*"),
+            FormPart::Vowel => Some("@"),
+            FormPart::Consonant => Some("#"),
+            _ => None // TODO handle these cases differently? (i.e., at all...)
+        }
+    }
+}
+
 /// A `Vec` of `FormPart`s along with a compiled regex prefilter
 #[derive(Debug)]
 pub struct ParsedForm {
@@ -480,19 +492,24 @@ fn literal(input: &str) -> IResult<&str, FormPart> {
 }
 
 fn dot(input: &str) -> IResult<&str, FormPart> {
-    map(tag("."), |_| FormPart::Dot).parse(input)
+    parser_one_char_inner(input, &FormPart::Dot)
 }
 
 fn star(input: &str) -> IResult<&str, FormPart> {
-    map(tag("*"), |_| FormPart::Star).parse(input)
+    parser_one_char_inner(input, &FormPart::Star)
 }
 
 fn vowel(input: &str) -> IResult<&str, FormPart> {
-    map(tag("@"), |_| FormPart::Vowel).parse(input)
+    parser_one_char_inner(input, &FormPart::Vowel)
 }
 
 fn consonant(input: &str) -> IResult<&str, FormPart> {
-    map(tag("#"), |_| FormPart::Consonant).parse(input)
+    parser_one_char_inner(input, &FormPart::Consonant)
+}
+
+// TODO? avoid clone
+fn parser_one_char_inner<'a>(input: &'a str, form_part: &FormPart) -> IResult<&'a str, FormPart> {
+    map(tag(form_part.get_tag_string().unwrap()), |_| form_part.clone()).parse(input)
 }
 
 fn charset(input: &str) -> IResult<&str, FormPart> {
