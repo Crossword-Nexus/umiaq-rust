@@ -1,6 +1,6 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
 use crate::joint_constraints::parse_joint_constraints;
-use crate::parser::{match_equation_all, parse_form, ParsedForm};
+use crate::parser::{match_equation_all, parse_form, ParseError, ParsedForm};
 use crate::patterns::Patterns;
 
 use std::collections::{HashMap, HashSet};
@@ -176,8 +176,6 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let patterns = Patterns::of(input);
-
-    println!("{:?}", pattern_obj);
 
     // 2. Prepare storage for candidate buckets, one per pattern.
     //    `CandidateBuckets` tracks (a) the bindings bucketed by shared variable values, and

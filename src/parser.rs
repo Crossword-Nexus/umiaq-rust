@@ -218,10 +218,13 @@ fn match_equation_internal(
         // Base case: no parts left
         if parts.is_empty() {
             if chars.is_empty() {
-                let mut full_result = bindings.clone();
-                full_result.set_word(word);
-                results.push(full_result);
-                return !all_matches; // Stop early if only one match needed
+                // Check the joint constraints (if any)
+                if joint_constraints.map_or(true, |jc| jc.all_satisfied(bindings)) {
+                    let mut full_result = bindings.clone();
+                    full_result.set_word(word);
+                    results.push(full_result);
+                    return !all_matches; // Stop early if only one match needed
+                }
             }
             return false;
         }
@@ -231,7 +234,7 @@ fn match_equation_internal(
         match first {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored uppercased)
-                return is_prefix(&s.to_ascii_uppercase(), &chars, bindings, results, all_matches, word, constraints, rest)
+                return is_prefix(&s.to_ascii_uppercase(), &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
             }
             FormPart::Dot => {
                 // Single-char wildcard
@@ -251,17 +254,17 @@ fn match_equation_internal(
             }
             FormPart::Vowel => {
                 if VOWEL_SET.contains(chars.first().unwrap()) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
             FormPart::Consonant => {
                 if CONSONANT_SET.contains(chars.first().unwrap()) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
             FormPart::Charset(set) => {
                 if set.contains(&chars.first().unwrap().to_ascii_lowercase()) { // TODO? avoid to_ascii_lowercase here (and elsewhere) by uppercasing things early
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
             FormPart::Anagram(s) => {
@@ -274,7 +277,7 @@ fn match_equation_internal(
             FormPart::Var(var_name) | FormPart::RevVar(var_name) => {
                 if let Some(bound_val) = bindings.get(*var_name) {
                     // Already bound: must match exactly
-                    return is_prefix(&get_reversed_or_not(first, bound_val), &chars, bindings, results, all_matches, word, constraints, rest)
+                    return is_prefix(&get_reversed_or_not(first, bound_val), &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
                 }
 
                 // Not bound yet: try binding to all possible lengths
@@ -325,11 +328,20 @@ fn match_equation_internal(
     }
 
     /// Returns true if `prefix` is a prefix of `chars`
-    fn is_prefix(prefix: &str, chars: &&[char], bindings: &mut Bindings, results: &mut Vec<Bindings>, all_matches: bool, word: &str, constraints: Option<&VarConstraints>, rest: &[FormPart]) -> bool {
+    fn is_prefix(prefix: &str,
+                 chars: &&[char],
+                 bindings: &mut Bindings,
+                 results: &mut Vec<Bindings>,
+                 all_matches: bool,
+                 word: &str,
+                 constraints: Option<&VarConstraints>,
+                 rest: &[FormPart],
+                 joint_constraints: Option<&JointConstraints>,
+    ) -> bool {
         let n = prefix.len();
 
         if chars.len() >= n && chars[..n].iter().copied().zip(prefix.chars()).all(|(a, b)| a == b) {
-            helper(&chars[n..], rest, bindings, results, all_matches, word, constraints)
+            helper(&chars[n..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
         } else {
             false
         }

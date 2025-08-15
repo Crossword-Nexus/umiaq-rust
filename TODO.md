@@ -12,4 +12,6 @@
 * add support for `<` and `>` like in Qat
 * "binding" vs. "bindings" in variable names, comments, etc.
 * use `Range`s for length ranges?
+* add length constraints to individual variables when there is a join constraint
+* optimize joint constraints
 * misc. TODOs in code
