@@ -61,7 +61,7 @@ impl WordList {
     /// 5. Converts `word` to uppercase.
     /// 6. Deduplicates the list (case-insensitive because we uppercase early).
     /// 7. Sorts by length, then alphabetically.
-    pub fn parse_from_str(
+    fn parse_from_str(
         contents: &str,
         min_score: i32,
         max_len: usize,
@@ -149,8 +149,12 @@ impl WordList {
     /// cannot read files from arbitrary paths.
     ///
     /// # Example:
-    /// let wl = WordList::load_from_path("xwordlist.txt", 50, 21)?;
-    /// println!("Loaded {} words", wl.entries.len());
+    /// `let wl = WordList::load_from_path("xwordlist.txt", 50, 21)?;`
+    /// `println!("Loaded {} words", wl.entries.len());`
+    ///
+    /// # Errors
+    ///
+    /// Will return an `Error` if unable to read a file at `path`.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn load_from_path<P: AsRef<std::path::Path>>(
         path: P,

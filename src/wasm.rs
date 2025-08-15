@@ -1,9 +1,15 @@
 use wasm_bindgen::prelude::*;
 use crate::bindings::Bindings;
+use crate::parser::ParseError;
 use crate::solver::solve_equation;
-
+/// Implement ParseError for `JsValue`s
+impl From<ParseError> for JsValue {
+    fn from(e: ParseError) -> JsValue {
+        JsValue::from_str(&format!("parse error: {e}"))
+    }
+}
 #[wasm_bindgen(start)]
-pub fn init_panic_hook() {
+fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
@@ -26,7 +32,7 @@ pub fn solve_equation_wasm(
     // Borrow as &[&str] for the solver
     let refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
 
-    let raw = solve_equation(input, &refs, num_results); // Vec<Vec<Bindings>>
+    let raw = solve_equation(input, &refs, num_results)?; // Vec<Vec<Bindings>>
 
     // Keep only the "*" word from each Bindings
     let js_ready: Vec<Vec<String>> = raw
