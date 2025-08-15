@@ -1,4 +1,5 @@
 use crate::constraints::VarConstraints;
+use crate::parser::ParseError;
 use fancy_regex::Regex;
 use std::collections::HashSet;
 use std::sync::LazyLock;
@@ -9,10 +10,54 @@ static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+
 /// Matches inequality constraints like `!=AB`
 static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
-/// Matches complex constraints like `A=(3-5:a*)` with optional length and pattern
-static COMPLEX_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^([A-Z])=\(?([\d\-]*):?([^)]*)\)?$").unwrap());
+static VAR_RE_STR: &str = "([A-Z])";
+static LENGTH_RE_STR: &str = "(\\d+(-\\d+)?)";
+// TODO constrain re to only allow lc letters, '.', '*', '/', '@', '#', etc. instead of "^)" in "[^)]"
+static LIT_PATTERN_RE_STR: &str = "([^)]+)";
 
+// TODO? disallow accepting one paren and not the other
+// TODO require colon if both types, require no colon if just one (but support both or just one)
+/// Matches complex constraints like `A=(3-5:a*)` with optional length and pattern
+// syntax:
+//
+// complex constraint expression = {variable name}={constraint}
+// variable name = A | B | C | D | E | F | G | H | I | J | K | L | M | N | O | P | Q | R | S | T | U | V | W | X | Y | Z
+// constraint = ({inner constraint})
+//            | inner_constraint
+// inner_constraint = {length range}:{literal string}
+//                  | {length range}
+//                  | {literal string}
+// length range = {number}
+//              | {number}-{number}
+// number = {digit}
+//        | {digit}{number}
+// digit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+// literal string = {literal string component}
+//                | {literal string component}{literal string}
+// literal string component = {literal string character}
+//                          | {dot char}
+//                          | {star char}
+//                          | {vowel char}
+//                          | {consonant char}
+//                          | {charset string}
+//                          | {anagram string}
+// literal string char = a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s | t | u | v | w | x | y | z
+// dot char = .
+// star char = *
+// vowel char = @
+// consonant char = #
+// charset string = [{one or more literal string chars}]
+// one or more literal string chars = {literal string char}
+//               | {literal string char}{charset chars}
+// anagram string = /{one or more literal string chars}
+//
+// group 1: var
+// group 2: length constraint
+// group 3 (ignored): hyphen plus end of length range (when present)
+// group 4: literal pattern
+static COMPLEX_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!("^{VAR_RE_STR}=\\(?{LENGTH_RE_STR}:?{LIT_PATTERN_RE_STR}\\)?$")).unwrap());
+// "^([A-Z])=(\\d+(-\\d+)?):?[^)]+$"
 #[derive(Debug, Clone)]
 /// A single raw form string plus *solver metadata*; **not tokenized**.
 /// Use `parse_equation(&pattern.raw_string)` to get `Vec<FormPart>`.
@@ -55,7 +100,7 @@ pub struct Pattern {
 impl Pattern {
     /// Constructs a new `Pattern` from any type that can be converted into a `String`.
     /// The resulting `lookup_keys` is initialized to `None`.
-    pub fn new(string: impl Into<String>) -> Self {
+    fn of(string: impl Into<String>) -> Self {
         Self {
             raw_string: string.into(),
             lookup_keys: None,
@@ -65,7 +110,7 @@ impl Pattern {
     // TODO? just do this once (lazily) rather than recomputing it each time?
     /// Extracts all uppercase ASCII letters from the pattern string.
     /// These are treated as variable names (e.g., A, B, C).
-    pub fn variables(&self) -> HashSet<char> {
+    fn variables(&self) -> HashSet<char> {
         self.raw_string
             .chars()
             .filter(char::is_ascii_uppercase)
@@ -95,7 +140,7 @@ pub struct Patterns {
 }
 
 impl Patterns {
-    pub fn new(input: &str) -> Self {
+    pub(crate) fn of(input: &str) -> Self {
         let mut patterns = Patterns::default();
         patterns.make_list(input);
         patterns.ordered_list = patterns.ordered_partitions();
@@ -110,42 +155,45 @@ impl Patterns {
     ///
     /// Non-constraint entries are added to `self.list` as actual patterns.
     fn make_list(&mut self, input: &str) {
-        let parts: Vec<&str> = input.split(';').collect();
+        let forms: Vec<&str> = input.split(';').collect(); // TODO make ';' not magic constant
         // Iterate through all parts of the input string, split by `;`
-        for part in &parts {
-            if let Some(cap) = LEN_RE.captures(part).unwrap() {
+        for form in &forms {
+            if let Some(cap) = LEN_RE.captures(form).unwrap() {
                 // Extract the variable (e.g., A) and its required length
                 let var = cap[1].chars().next().unwrap();
                 let len = cap[2].parse::<usize>().unwrap();
-                self.var_constraints.ensure(var).set_exact_len(len);
-            } else if let Some(cap) = NEQ_RE.captures(part).unwrap() {
-                // Extract all variables from inequality constraint (e.g., !=AB means A != B)
+                self.var_constraints.ensure(var).set_exact_len(len); // TODO avoid mutability?
+            } else if let Some(cap) = NEQ_RE.captures(form).unwrap() {
+                // Extract all variables from inequality constraint (e.g., !=AB means A != B) // TODO document !=ABC (etc.) case
                 let vars: Vec<char> = cap[1].chars().collect();
                 for &v in &vars {
-                    let entry = self.var_constraints.ensure(v);
-                    entry.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
+                    let var_constraint = self.var_constraints.ensure(v);
+                    var_constraint.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
-            } else if let Some(cap) = COMPLEX_RE.captures(part).unwrap() {
+            } else if let Some(cap) = COMPLEX_RE.captures(form).unwrap() {
                 // Extract variable and complex constraint info
                 let var = cap[1].chars().next().unwrap();
                 let len = &cap[2];
-                let patt = cap[3].to_string();
-                let entry = self.var_constraints.ensure(var);
+                let patt = cap[4].to_string();
+                let var_constraint = self.var_constraints.ensure(var);
 
-                if let Some((min, max)) = parse_length_range(len) {
-                    entry.min_length = min.unwrap();
-                    entry.max_length = max.unwrap();
+                if let Ok(Some((min, max))) = parse_length_range(len) {
+                    var_constraint.min_length = min.unwrap();
+                    var_constraint.max_length = max.unwrap();
+                } else {
+                    // TODO error here... though also handle the no-length-specified case correctly
                 }
 
                 if !patt.is_empty() && patt != "*" {
-                    entry.form = Some(patt);
+                    var_constraint.form = Some(patt);
                 }
             } else {
-                self.list.push(Pattern::new(*part));
+                self.list.push(Pattern::of(*form));
             }
         }
     }
 
+    // TODO is this the right way to order things?
     /// Reorders the list of patterns to improve solving efficiency.
     /// First selects the pattern with the most variables,
     /// then repeatedly selects the next pattern with the most overlap with those already chosen.
@@ -196,17 +244,17 @@ impl Patterns {
     }
 
     /// Number of forms (from `ordered_list`)
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.ordered_list.len()
     }
 
     /// Convenience (often handy with `len`)
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.ordered_list.is_empty()
     }
 
     /// Iterate over forms in solver-friendly order
-    pub fn iter(&self) -> std::slice::Iter<'_, Pattern> {
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, Pattern> {
         self.ordered_list.iter()
     }
 }
@@ -231,17 +279,17 @@ impl<'a> IntoIterator for &'a Patterns {
 /// Parses a string like "3-5", "-5", "3-", or "3" into min and max length values.
 /// Returns `Some((min, max))` where each is an `Option<usize>` unless the input is empty, in which
 /// case it returns `None`.
-fn parse_length_range(input: &str) -> Option<(Option<usize>, Option<usize>)> {
+fn parse_length_range(input: &str) -> Result<Option<(Option<usize>, Option<usize>)>, ParseError> {
     if input.is_empty() {
-        return None;
+        return Ok(None);
     }
     let parts: Vec<&str> = input.split('-').collect();
-    if parts.len() > 2 { // TODO? return error instead?
-        return None;
+    if parts.len() > 2 {
+        return Err(ParseError::InvalidLengthRange { input: input.parse().unwrap() })
     }
     let min = parts.first().and_then(|s| s.parse::<usize>().ok());
     let max = parts.last().and_then(|s| s.parse::<usize>().ok());
-    Some((min, max))
+    Ok(Some((min, max)))
 }
 
 #[cfg(test)]
@@ -250,34 +298,38 @@ mod tests {
 
     #[test]
     fn test_basic_pattern_and_constraints() {
-        let input = "AB;|A|=3;!=AB;B=(2:b*)";
-        let patterns = Patterns::new(input);
-
-        println!("{:?}", patterns);
+        let patterns = Patterns::of("AB;|A|=3;!=AB;B=(2:b*)");
 
         // Test raw pattern list
-        assert_eq!(1, patterns.list.len());
-        assert_eq!("AB", patterns.list[0].raw_string);
+        assert_eq!(vec!["AB".to_string()], patterns.list.iter().map(|p| p.raw_string.clone()).collect::<Vec<_>>());
 
         // Test constraints
         let a = patterns.var_constraints.get('A').unwrap();
         assert_eq!(3, a.min_length);
         assert_eq!(3, a.max_length);
-        let set_1: HashSet<char> = ['B'].into_iter().collect();
-        assert_eq!(set_1, a.not_equal);
+        assert_eq!(['B'].into_iter().collect::<HashSet<_>>(), a.not_equal);
 
         let b = patterns.var_constraints.get('B').unwrap();
         assert_eq!(2, b.min_length);
         assert_eq!(2, b.max_length);
         assert_eq!(Some("b*"), b.form.as_deref());
-        let set_2: HashSet<char> = ['A'].into_iter().collect();
-        assert_eq!(set_2, b.not_equal);
+        assert_eq!(['A'].into_iter().collect::<HashSet<_>>(), b.not_equal);
+    }
+
+    #[test]
+    fn test_complex_re() {
+        let patterns = Patterns::of("A;A=(3-4:x*)");
+
+        let var_constraint = patterns.var_constraints.get('A').unwrap();
+        assert_eq!(3, var_constraint.min_length);
+        assert_eq!(4, var_constraint.max_length);
+        assert_eq!(Some("x*"), var_constraint.form.as_deref());
     }
 
     #[test]
     fn test_ordered_partitioning() {
         let input = "ABC;BC;C";
-        let patterns = Patterns::new(input);
+        let patterns = Patterns::of(input);
 
         let vars0 = patterns.ordered_list[0].variables();
         let vars1 = patterns.ordered_list[1].variables();
@@ -289,11 +341,12 @@ mod tests {
 
     #[test]
     fn test_parse_length_range() {
-        assert_eq!(Some((Some(2), Some(3))), parse_length_range("2-3"));
-        assert_eq!(Some((None, Some(3))), parse_length_range("-3"));
-        assert_eq!(Some((Some(1), None)), parse_length_range("1-"));
-        assert_eq!(Some((Some(7), Some(7))), parse_length_range("7"));
-        assert_eq!(None, parse_length_range(""));
-        assert_eq!(None, parse_length_range("1-2-3"));
+        assert_eq!(Some((Some(2), Some(3))), parse_length_range("2-3").unwrap());
+        assert_eq!(Some((None, Some(3))), parse_length_range("-3").unwrap());
+        assert_eq!(Some((Some(1), None)), parse_length_range("1-").unwrap());
+        assert_eq!(Some((Some(7), Some(7))), parse_length_range("7").unwrap());
+        assert_eq!(None, parse_length_range("").unwrap());
+        // TODO replace "_" with a more specific check (here and elsewhere... as appropriate)
+        assert!(matches!(parse_length_range("1-2-3").unwrap_err(), ParseError::InvalidLengthRange { input: _ }));
     }
 }
