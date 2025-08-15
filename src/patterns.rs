@@ -58,7 +58,7 @@ pub struct Pattern {
 impl Pattern {
     /// Constructs a new `Pattern` from any type that can be converted into a `String`.
     /// The resulting `lookup_keys` is initialized to `None`.
-    pub fn of(string: impl Into<String>) -> Self {
+    fn of(string: impl Into<String>) -> Self {
         Self {
             raw_string: string.into(),
             lookup_keys: None,
@@ -68,7 +68,7 @@ impl Pattern {
     // TODO? just do this once (lazily) rather than recomputing it each time?
     /// Extracts all uppercase ASCII letters from the pattern string.
     /// These are treated as variable names (e.g., A, B, C).
-    pub fn variables(&self) -> HashSet<char> {
+    fn variables(&self) -> HashSet<char> {
         self.raw_string
             .chars()
             .filter(char::is_ascii_uppercase)
@@ -98,7 +98,7 @@ pub struct Patterns {
 }
 
 impl Patterns {
-    pub fn of(input: &str) -> Self {
+    pub(crate) fn of(input: &str) -> Self {
         let mut patterns = Patterns::default();
         patterns.make_list(input);
         patterns.ordered_list = patterns.ordered_partitions();
@@ -202,17 +202,17 @@ impl Patterns {
     }
 
     /// Number of forms (from `ordered_list`)
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.ordered_list.len()
     }
 
     /// Convenience (often handy with `len`)
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.ordered_list.is_empty()
     }
 
     /// Iterate over forms in solver-friendly order
-    pub fn iter(&self) -> std::slice::Iter<'_, Pattern> {
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, Pattern> {
         self.ordered_list.iter()
     }
 }

@@ -3,7 +3,7 @@ use crate::bindings::Bindings;
 use crate::solver::solve_equation;
 
 #[wasm_bindgen(start)]
-pub fn init_panic_hook() {
+fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
@@ -15,7 +15,7 @@ fn binding_to_word(b: &Bindings) -> Option<String> {
 /// JS entry: (input: string, word_list: string[], num_results: number)
 /// returns Array<Array<string>> — only the bound words
 #[wasm_bindgen]
-pub fn solve_equation_wasm(
+fn solve_equation_wasm(
     input: &str,
     word_list: JsValue,
     num_results: usize,

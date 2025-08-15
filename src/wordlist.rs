@@ -61,7 +61,7 @@ impl WordList {
     /// 5. Converts `word` to uppercase.
     /// 6. Deduplicates the list (case-insensitive because we uppercase early).
     /// 7. Sorts by length, then alphabetically.
-    pub fn parse_from_str(
+    fn parse_from_str(
         contents: &str,
         min_score: i32,
         max_len: usize,

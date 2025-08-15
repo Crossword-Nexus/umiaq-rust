@@ -94,7 +94,7 @@ impl ParsedForm {
 /// 0. If "length" constraints are present, enforce them
 /// 1. If `form` is present, the value must itself match that form.
 /// 2. The value must not equal any variable listed in `not_equal` that is already bound.
-pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings) -> bool {
+fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings) -> bool {
     // 0) Length checks (if configured)
     if constraints.min_length > 0 && val.len() < constraints.min_length {
         return false;
@@ -126,7 +126,7 @@ pub fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindi
 }
 
 /// Return `true` if at least one binding satisfies the equation.
-pub fn match_equation_exists(
+fn match_equation_exists(
     word: &str,
     parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
@@ -137,7 +137,7 @@ pub fn match_equation_exists(
 }
 
 /// Return all bindings that satisfy the equation.
-pub fn match_equation_all(
+pub(crate) fn match_equation_all(
     word: &str,
     parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
@@ -351,7 +351,7 @@ fn match_equation_internal(
 /// Convert a parsed `FormPart` sequence into a regex string.
 ///
 /// Used for the initial fast prefilter in `match_equation_internal`.
-pub fn form_to_regex_str(parts: &[FormPart]) -> String {
+fn form_to_regex_str(parts: &[FormPart]) -> String {
     let (var_counts, rev_var_counts) = get_var_and_rev_var_counts(parts);
     let mut var_to_backreference_num = [0usize; NUM_POSSIBLE_VARIABLES];
     let mut rev_var_to_backreference_num = [0usize; NUM_POSSIBLE_VARIABLES];
@@ -425,7 +425,7 @@ fn char_to_num(c: char) -> usize {
 /// Parse a form string into a `ParsedForm` object
 ///
 /// Walks the input, consuming tokens one at a time with `equation_part`.
-pub fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
+pub(crate) fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
     let mut rest = raw_form;
     let mut parts = Vec::new(); // TODO? avoid mutability
 

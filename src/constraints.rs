@@ -14,38 +14,38 @@ pub struct VarConstraints {
 
 impl VarConstraints {
     /// Create a `VarConstraints` map whose internal map is `map`.
-    pub fn of(map: HashMap<char, VarConstraint>) -> Self {
+    fn of(map: HashMap<char, VarConstraint>) -> Self {
         Self { inner: map }
     }
 
     /// Insert a complete `VarConstraint` for a variable.
-    pub fn insert(&mut self, var: char, constraint: VarConstraint) {
+    pub(crate) fn insert(&mut self, var: char, constraint: VarConstraint) {
         self.inner.insert(var, constraint);
     }
 
     /// Ensure a variable has an entry; create a default constraint if missing.
     /// Returns a mutable reference so the caller can update it in place.
-    pub fn ensure(&mut self, var: char) -> &mut VarConstraint {
+    pub(crate) fn ensure(&mut self, var: char) -> &mut VarConstraint {
         self.inner.entry(var).or_default()
     }
 
     /// Retrieve a read-only reference to the constraints for a variable, if any.
-    pub fn get(&self, var: char) -> Option<&VarConstraint> {
+    pub(crate) fn get(&self, var: char) -> Option<&VarConstraint> {
         self.inner.get(&var)
     }
 
     /// Iterate over `(variable, constraint)` pairs.
-    pub fn iter(&self) -> impl Iterator<Item = (&char, &VarConstraint)> {
+    fn iter(&self) -> impl Iterator<Item = (&char, &VarConstraint)> {
         self.inner.iter()
     }
 
     /// Convenience: number of variables with constraints.
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.inner.len()
     }
 
     /// Convenience: true if no constraints are stored.
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 }
@@ -96,14 +96,14 @@ impl VarConstraint {
     ///
     /// - If a bound is missing, falls back to the provided defaults.
     /// - This is often used when generating regex prefilters or substring loops.
-    pub fn bounds(&self) -> (usize, usize) {
+    fn bounds(&self) -> (usize, usize) {
         let min = self.min_length;
         let max = self.max_length;
         (min, max)
     }
 
     /// Set both min and max to the same exact length.
-    pub fn set_exact_len(&mut self, len: usize) {
+    pub(crate) fn set_exact_len(&mut self, len: usize) {
         self.min_length = len;
         self.max_length = len;
     }
