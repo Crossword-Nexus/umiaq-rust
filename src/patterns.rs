@@ -3,6 +3,9 @@ use fancy_regex::Regex;
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
+/// The character that separates forms, in an equation
+pub const FORM_SEPARATOR: char = ';';
+
 /// Matches exact length constraints like `|A|=5`
 static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
 
@@ -110,7 +113,7 @@ impl Patterns {
     ///
     /// Non-constraint entries are added to `self.list` as actual patterns.
     fn make_list(&mut self, input: &str) {
-        let parts: Vec<&str> = input.split(';').collect();
+        let parts: Vec<&str> = input.split(FORM_SEPARATOR).collect();
         // Iterate through all parts of the input string, split by `;`
         for part in &parts {
             if let Some(cap) = LEN_RE.captures(part).unwrap() {

@@ -1,6 +1,8 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
+use crate::joint_constraints::parse_joint_constraints;
 use crate::parser::{match_equation_all, parse_form, ParsedForm};
 use crate::patterns::Patterns;
+
 use std::collections::{HashMap, HashSet};
 
 /// The max number of matches to grab during our initial pass through the word list
@@ -188,6 +190,9 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
     // 4. Pull out the per-variable constraints collected from the equation.
     let var_constraints = &pattern_obj.var_constraints;
 
+    // 4a. Get the joint constraints
+    let joint_constraints = parse_joint_constraints(input);
+
     // 5. Iterate through every candidate word.
     'words_loop: for &word in word_list {
         // Check each pattern against this word
@@ -200,7 +205,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
             // Try matching the word against the parsed pattern.
             // `match_equation_all` returns a list of `Bindings` (variable→string maps)
             // that satisfy the pattern given the current constraints.
-            let matches = match_equation_all(word, &parsed_patterns[i], Some(var_constraints));
+            let matches = match_equation_all(word, &parsed_patterns[i], Some(var_constraints), joint_constraints);
 
             // 6. For each binding produced for this pattern/word:
             for binding in matches {
