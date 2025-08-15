@@ -9,6 +9,9 @@ static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+
 /// Matches inequality constraints like `!=AB`
 static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
+// TODO? disallow accepting one paren and the other; only allow, e.g., 3-5 or 3 (not 3-5-7)
+// TODO require colon if both types, require no colon if just one (but support both or just one)
+// TODO constrain re to only allow lc letters, '.', '*', '/', '@', '#', etc. instead of "^)" in "[^)]"
 /// Matches complex constraints like `A=(3-5:a*)` with optional length and pattern
 static COMPLEX_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^([A-Z])=\(?([\d\-]*):?([^)]*)\)?$").unwrap());
@@ -55,7 +58,7 @@ pub struct Pattern {
 impl Pattern {
     /// Constructs a new `Pattern` from any type that can be converted into a `String`.
     /// The resulting `lookup_keys` is initialized to `None`.
-    pub fn new(string: impl Into<String>) -> Self {
+    pub fn of(string: impl Into<String>) -> Self {
         Self {
             raw_string: string.into(),
             lookup_keys: None,
@@ -95,7 +98,7 @@ pub struct Patterns {
 }
 
 impl Patterns {
-    pub fn new(input: &str) -> Self {
+    pub fn of(input: &str) -> Self {
         let mut patterns = Patterns::default();
         patterns.make_list(input);
         patterns.ordered_list = patterns.ordered_partitions();
@@ -110,42 +113,45 @@ impl Patterns {
     ///
     /// Non-constraint entries are added to `self.list` as actual patterns.
     fn make_list(&mut self, input: &str) {
-        let parts: Vec<&str> = input.split(';').collect();
+        let forms: Vec<&str> = input.split(';').collect(); // TODO make ';' not magic constant
         // Iterate through all parts of the input string, split by `;`
-        for part in &parts {
-            if let Some(cap) = LEN_RE.captures(part).unwrap() {
+        for form in &forms {
+            if let Some(cap) = LEN_RE.captures(form).unwrap() {
                 // Extract the variable (e.g., A) and its required length
                 let var = cap[1].chars().next().unwrap();
                 let len = cap[2].parse::<usize>().unwrap();
-                self.var_constraints.ensure(var).set_exact_len(len);
-            } else if let Some(cap) = NEQ_RE.captures(part).unwrap() {
-                // Extract all variables from inequality constraint (e.g., !=AB means A != B)
+                self.var_constraints.ensure(var).set_exact_len(len); // TODO avoid mutability?
+            } else if let Some(cap) = NEQ_RE.captures(form).unwrap() {
+                // Extract all variables from inequality constraint (e.g., !=AB means A != B) // TODO document !=ABC (etc.) case
                 let vars: Vec<char> = cap[1].chars().collect();
                 for &v in &vars {
-                    let entry = self.var_constraints.ensure(v);
-                    entry.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
+                    let var_constraint = self.var_constraints.ensure(v);
+                    var_constraint.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
-            } else if let Some(cap) = COMPLEX_RE.captures(part).unwrap() {
+            } else if let Some(cap) = COMPLEX_RE.captures(form).unwrap() {
                 // Extract variable and complex constraint info
                 let var = cap[1].chars().next().unwrap();
                 let len = &cap[2];
                 let patt = cap[3].to_string();
-                let entry = self.var_constraints.ensure(var);
+                let var_constraint = self.var_constraints.ensure(var);
 
                 if let Some((min, max)) = parse_length_range(len) {
-                    entry.min_length = min.unwrap();
-                    entry.max_length = max.unwrap();
+                    var_constraint.min_length = min.unwrap();
+                    var_constraint.max_length = max.unwrap();
+                } else {
+                    // TODO error here... though also handle the no-length-specified case correctly
                 }
 
                 if !patt.is_empty() && patt != "*" {
-                    entry.form = Some(patt);
+                    var_constraint.form = Some(patt);
                 }
             } else {
-                self.list.push(Pattern::new(*part));
+                self.list.push(Pattern::of(*form));
             }
         }
     }
 
+    // TODO is this the right way to order things?
     /// Reorders the list of patterns to improve solving efficiency.
     /// First selects the pattern with the most variables,
     /// then repeatedly selects the next pattern with the most overlap with those already chosen.
@@ -251,7 +257,7 @@ mod tests {
     #[test]
     fn test_basic_pattern_and_constraints() {
         let input = "AB;|A|=3;!=AB;B=(2:b*)";
-        let patterns = Patterns::new(input);
+        let patterns = Patterns::of(input);
 
         println!("{:?}", patterns);
 
@@ -277,7 +283,7 @@ mod tests {
     #[test]
     fn test_ordered_partitioning() {
         let input = "ABC;BC;C";
-        let patterns = Patterns::new(input);
+        let patterns = Patterns::of(input);
 
         let vars0 = patterns.ordered_list[0].variables();
         let vars1 = patterns.ordered_list[1].variables();

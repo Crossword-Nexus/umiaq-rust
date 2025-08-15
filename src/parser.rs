@@ -142,7 +142,7 @@ pub fn match_equation_all(
     parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
 ) -> Vec<Bindings> {
-    let mut results: Vec<Bindings> = Vec::new();
+    let mut results: Vec<Bindings> = Vec::new(); // TODO avoid mutability? sim. elsewhere
     match_equation_internal(word, parts, true, &mut results, constraints);
     results
 }
@@ -168,6 +168,8 @@ fn match_equation_internal(
         }
     }
 
+    // TODO WTF does return value do (also: perhaps it should (always) be used)...
+    // TODO maybe instead use a 3-way enum (e.g., can't continue, continue, done)
     /// Recursive matching helper.
     ///
     /// `chars`       – remaining characters of the word
@@ -200,7 +202,7 @@ fn match_equation_internal(
         match first {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored uppercased)
-                return compare_with_binding(&chars, bindings, results, all_matches, word, constraints, rest, &s.to_ascii_uppercase())
+                return is_prefix(&s.to_ascii_uppercase(), &chars, bindings, results, all_matches, word, constraints, rest)
             }
             FormPart::Dot => {
                 // Single-char wildcard
@@ -219,31 +221,31 @@ fn match_equation_internal(
                 }
             }
             FormPart::Vowel => {
-                if matches!(chars.first(), Some(c) if VOWEL_SET.contains(c)) {
+                if VOWEL_SET.contains(chars.first().unwrap()) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Consonant => {
-                if matches!(chars.first(), Some(c) if CONSONANT_SET.contains(c)) {
+                if CONSONANT_SET.contains(chars.first().unwrap()) {
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Charset(set) => {
-                if matches!(chars.first(), Some(c) if set.contains(&c.to_ascii_lowercase())) {
+                if set.contains(&chars.first().unwrap().to_ascii_lowercase()) { // TODO? avoid to_ascii_lowercase here (and elsewhere) by uppercasing things early
                     return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
             FormPart::Anagram(s) => {
-                // Match if the next N chars are an anagram of target
+                // Match if the next len chars are an anagram of target
                 let len = s.len();
                 if chars.len() >= len && are_anagrams(&chars[..len], s) {
                     return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints);
                 }
             }
-            FormPart::Var(name) | FormPart::RevVar(name) => {
-                if let Some(bound_val) = bindings.get(*name) {
+            FormPart::Var(var_name) | FormPart::RevVar(var_name) => {
+                if let Some(bound_val) = bindings.get(*var_name) {
                     // Already bound: must match exactly
-                    return compare_with_binding(&chars, bindings, results, all_matches, word, constraints, rest, &get_reversed_or_not(first, bound_val))
+                    return is_prefix(&get_reversed_or_not(first, bound_val), &chars, bindings, results, all_matches, word, constraints, rest)
                 }
 
                 // Not bound yet: try binding to all possible lengths
@@ -251,7 +253,7 @@ fn match_equation_internal(
                 let mut min_len = 1usize;
                 let mut max_len = chars.len(); // cannot take more than what’s left
 
-                if let Some(all_c) = constraints && let Some(c) = all_c.get(*name) {
+                if let Some(all_c) = constraints && let Some(c) = all_c.get(*var_name) {
                     if c.min_length > 0 { min_len = min_len.max(c.min_length); }
                     if c.max_length > 0 { max_len = max_len.min(c.max_length); }
                 }
@@ -268,7 +270,7 @@ fn match_equation_internal(
 
                     // Apply variable-specific constraints
                     let valid = if let Some(all_c) = constraints {
-                        if let Some(c) = all_c.get(*name) {
+                        if let Some(c) = all_c.get(*var_name) {
                             is_valid_binding(&bound_val, c, bindings)
                         } else {
                             true
@@ -281,11 +283,11 @@ fn match_equation_internal(
                         continue;
                     }
 
-                    bindings.set(*name, bound_val);
+                    bindings.set(*var_name, bound_val);
                     if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints) && !all_matches {
                         return true;
                     }
-                    bindings.remove(*name);
+                    bindings.remove(*var_name);
                 }
             }
         }
@@ -293,11 +295,11 @@ fn match_equation_internal(
         false
     }
 
-    // TODO!! name this better!!
-    fn compare_with_binding(chars: &&[char], bindings: &mut Bindings, results: &mut Vec<Bindings>, all_matches: bool, word: &str, constraints: Option<&VarConstraints>, rest: &[FormPart], val: &str) -> bool {
-        let n = val.len();
+    /// Returns true if `prefix` is a prefix of `chars`
+    fn is_prefix(prefix: &str, chars: &&[char], bindings: &mut Bindings, results: &mut Vec<Bindings>, all_matches: bool, word: &str, constraints: Option<&VarConstraints>, rest: &[FormPart]) -> bool {
+        let n = prefix.len();
 
-        if chars.len() >= n && chars[..n].iter().copied().zip(val.chars()).all(|(a, b)| a == b) {
+        if chars.len() >= n && chars[..n].iter().copied().zip(prefix.chars()).all(|(a, b)| a == b) {
             helper(&chars[n..], rest, bindings, results, all_matches, word, constraints)
         } else {
             false
@@ -340,7 +342,7 @@ fn match_equation_internal(
     }
 
     // Normalize word and start recursive matching
-    let word = word.to_uppercase();
+    let word = word.to_uppercase(); // TODO perform uppercasing as early as possible
     let chars: Vec<char> = word.chars().collect();
     let mut bindings = Bindings::default();
     helper(&chars, &parsed_form.parts, &mut bindings, results, all_matches, &word, constraints);
@@ -423,17 +425,17 @@ fn char_to_num(c: char) -> usize {
 /// Parse a form string into a `ParsedForm` object
 ///
 /// Walks the input, consuming tokens one at a time with `equation_part`.
-pub fn parse_form(input: &str) -> Result<ParsedForm, ParseError> {
-    let mut rest = input;
-    let mut parts = Vec::new();
+pub fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
+    let mut rest = raw_form;
+    let mut parts = Vec::new(); // TODO? avoid mutability
 
     while !rest.is_empty() {
         match equation_part(rest) {
-            Ok((next, part)) => {
+            Ok((next, part)) => { // TODO why not just replace "next" with "rest"
                 parts.push(part);
                 rest = next;
             }
-            Err(_) => return Err(ParseError::ParseFailure { position: input.len() - rest.len(), remaining: rest.to_string() }),
+            Err(_) => return Err(ParseError::ParseFailure { position: raw_form.len() - rest.len(), remaining: rest.to_string() }),
         }
     }
 

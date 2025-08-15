@@ -168,39 +168,39 @@ fn recursive_join(
 pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Vec<Vec<Bindings>> {
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
-    let pattern_obj = Patterns::new(input);
+    let patterns = Patterns::of(input);
 
     // 2. Prepare storage for candidate buckets, one per pattern.
     //    `CandidateBuckets` tracks (a) the bindings bucketed by shared variable values, and
     //    (b) a count so we can stop early if a pattern gets too many matches.
-    let mut words: Vec<CandidateBuckets> = Vec::with_capacity(pattern_obj.len());
-    for _ in &pattern_obj {
+    let mut words: Vec<CandidateBuckets> = Vec::with_capacity(patterns.len()); // TODO why mutable?
+    for _ in &patterns {
         words.push(CandidateBuckets::default());
     }
 
     // 3. Parse each pattern's string form once into a vector of `FormPart`s.
-    //    These are index-aligned with `pattern_obj`.
-    let parsed_patterns: Vec<ParsedForm> = pattern_obj
+    //    These are index-aligned with `patterns`.
+    let parsed_forms: Vec<ParsedForm> = patterns
         .iter()
         .map(|p| parse_form(&p.raw_string).unwrap())
         .collect();
 
     // 4. Pull out the per-variable constraints collected from the equation.
-    let var_constraints = &pattern_obj.var_constraints;
+    let var_constraints = &patterns.var_constraints;
 
     // 5. Iterate through every candidate word.
     'words_loop: for &word in word_list {
         // Check each pattern against this word
-        for (i, patt) in pattern_obj.iter().enumerate() {
+        for (i, patt) in patterns.iter().enumerate() {
             // Skip this pattern if we already have too many matches for it
-            if words[i].count >= MAX_INITIAL_MATCHES {
+            if words[i].count >= MAX_INITIAL_MATCHES { // TODO is there a better way to handle this? could lead to 0 final outputs when there are some...
                 continue;
             }
 
             // Try matching the word against the parsed pattern.
             // `match_equation_all` returns a list of `Bindings` (variable→string maps)
             // that satisfy the pattern given the current constraints.
-            let matches = match_equation_all(word, &parsed_patterns[i], Some(var_constraints));
+            let matches = match_equation_all(word, &parsed_forms[i], Some(var_constraints));
 
             // 6. For each binding produced for this pattern/word:
             for binding in matches {
@@ -258,7 +258,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
     //
     // NOTE: We clone since `p.lookup_keys` is an Option<Vec<char>>. If you’d rather
     // borrow, you can restructure `recursive_join` to accept slices instead.
-    let lookup_keys: Vec<Option<HashSet<char>>> = pattern_obj
+    let lookup_keys: Vec<Option<HashSet<char>>> = patterns
         .iter()
         .map(|p| p.lookup_keys.clone())
         .collect();
