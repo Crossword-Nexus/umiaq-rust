@@ -172,6 +172,8 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let pattern_obj = Patterns::new(input);
 
+    println!("{:?}", pattern_obj);
+
     // 2. Prepare storage for candidate buckets, one per pattern.
     //    `CandidateBuckets` tracks (a) the bindings bucketed by shared variable values, and
     //    (b) a count so we can stop early if a pattern gets too many matches.
@@ -205,7 +207,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
             // Try matching the word against the parsed pattern.
             // `match_equation_all` returns a list of `Bindings` (variable→string maps)
             // that satisfy the pattern given the current constraints.
-            let matches = match_equation_all(word, &parsed_patterns[i], Some(var_constraints), joint_constraints);
+            let matches = match_equation_all(word, &parsed_patterns[i], Some(var_constraints), joint_constraints.as_ref());
 
             // 6. For each binding produced for this pattern/word:
             for binding in matches {
