@@ -37,9 +37,9 @@ pub struct CandidateBuckets {
 /// - `idx`: which pattern we’re placing now (0-based).
 /// - `words`: per-pattern candidate buckets (what you built during scanning).
 /// - `lookup_keys`: for each pattern, which variables must agree with previously
-///                  chosen patterns. `None` means “no lookup constraint”
-///                  (use the `None` bucket). `Some(vec)` means we must look up
-///                  a concrete `Some(sorted_pairs)` key—even if `vec` is empty.
+///   chosen patterns. `None` means “no lookup constraint” (use the `None` bucket).
+///   `Some(vec)` means we must look up a concrete `Some(sorted_pairs)` key—even if
+///   `vec` is empty.
 /// - `selected`: the partial solution (one chosen Binding per pattern so far).
 /// - `env`: the accumulated variable → value environment from earlier choices.
 /// - `results`: completed solutions (each is a Vec<Binding>, one per pattern).
@@ -165,6 +165,7 @@ fn recursive_join(
 /// Returns:
 /// - A `Vec` of solutions, each solution being a `Vec<Binding>` where each `Binding`
 ///   maps variable names (chars) to concrete substrings they were bound to in that solution.
+#[must_use]
 pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Vec<Vec<Bindings>> {
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).

@@ -51,7 +51,7 @@ impl VarConstraints {
 }
 
 /// Pretty, deterministic display (sorted by variable) like:
-/// A: len=[Some(2), Some(4)], form=Some("a*"), not_equal={B,C}
+/// `A: len=[2, 4], form=Some("a*"), not_equal={B,C}`
 impl fmt::Display for VarConstraints {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut keys: Vec<char> = self.inner.keys().copied().collect();
@@ -117,7 +117,7 @@ impl fmt::Display for VarConstraint {
         ne.sort_unstable();
         write!(
             f,
-            "len=[{:?}, {:?}], form={:?}, not_equal={{{}}}",
+            "len=[{:?}, {:?}]; form={:?}; not_equal={{{}}}",
             self.min_length,
             self.max_length,
             self.form.as_deref(),
@@ -165,7 +165,7 @@ mod tests {
     }
 
     #[test]
-    fn display_varconstraint_is_stable() {
+    fn display_var_constraint_is_stable() {
         let mut vc = VarConstraint::default();
         vc.min_length = 2;
         vc.max_length = 4;
@@ -173,13 +173,11 @@ mod tests {
         vc.not_equal.extend(['C', 'B']); // out of order on purpose
         let shown = vc.to_string();
         // not_equal should be sorted -> {BC}
-        assert!(shown.contains("len=[2, 4]"));
-        assert!(shown.contains("form=Some(\"a*\")"));
-        assert!(shown.contains("not_equal={BC}"));
+        assert_eq!("len=[2, 4]; form=Some(\"a*\"); not_equal={BC}", shown);
     }
 
     #[test]
-    fn display_varconstraints_multiline_sorted() {
+    fn display_var_constraints_multiline_sorted() {
         let mut vcs = VarConstraints::default();
         let mut a = VarConstraint::default();
         a.min_length = 1;
@@ -194,9 +192,13 @@ mod tests {
 
         let s = vcs.to_string();
         let lines: Vec<&str> = s.lines().collect();
-        assert_eq!(3, lines.len());
-        assert!(lines[0].starts_with("A: "));
-        assert!(lines[1].starts_with("B: "));
-        assert!(lines[2].starts_with("C: "));
+
+        let expected = vec!(
+            "A: len=[1, 18446744073709551615]; form=None; not_equal={}",
+            "B: len=[1, 18446744073709551615]; form=Some(\"*x*\"); not_equal={}",
+            "C: len=[1, 2]; form=None; not_equal={}"
+        );
+
+        assert_eq!(expected, lines);
     }
 }

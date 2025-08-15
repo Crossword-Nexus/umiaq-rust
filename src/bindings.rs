@@ -31,6 +31,7 @@ impl Bindings {
     }
 
     /// Retrieve the bound word, if any
+    #[must_use]
     pub fn get_word(&self) -> Option<&String> {
         self.map.get(&WORD_SENTINEL)
     }

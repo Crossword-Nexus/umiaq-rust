@@ -149,8 +149,8 @@ impl WordList {
     /// cannot read files from arbitrary paths.
     ///
     /// # Example:
-    /// let wl = WordList::load_from_path("xwordlist.txt", 50, 21)?;
-    /// println!("Loaded {} words", wl.entries.len());
+    /// `let wl = WordList::load_from_path("xwordlist.txt", 50, 21)?;`
+    /// `println!("Loaded {} words", wl.entries.len());`
     #[cfg(not(target_arch = "wasm32"))]
     pub fn load_from_path<P: AsRef<std::path::Path>>(
         path: P,

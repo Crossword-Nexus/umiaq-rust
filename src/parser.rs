@@ -42,7 +42,7 @@ fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
 /// Custom error type for parsing operations
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
-    #[error("Failed to parse form at position {position}; remaining input: \"{remaining}\"")]
+    #[error("Form parsing failed @ pos. {position}; remaining input: \"{remaining}\"")]
     ParseFailure { position: usize, remaining: String },
     #[error("Invalid regex pattern: {0}")]
     RegexError(#[from] fancy_regex::Error),
