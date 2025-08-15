@@ -50,6 +50,15 @@ pub enum ParseError {
     EmptyForm,
 }
 
+// TODO test this
+// TODO is this the right way to handle things? (i.e., eventually convert `ParserError`s into `Error`s)
+impl From<ParseError> for std::io::Error {
+    fn from(pe: ParseError) -> Self {
+        // TODO is this right??
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, pe.to_string())
+    }
+}
+
 /// Represents a single parsed token (component) from a "form" string.
 ///
 /// Examples of forms:

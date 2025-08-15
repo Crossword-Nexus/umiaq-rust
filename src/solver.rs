@@ -1,5 +1,5 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
-use crate::parser::{match_equation_all, parse_form, ParsedForm};
+use crate::parser::{match_equation_all, parse_form, ParseError};
 use crate::patterns::Patterns;
 use std::collections::{HashMap, HashSet};
 
@@ -165,8 +165,12 @@ fn recursive_join(
 /// Returns:
 /// - A `Vec` of solutions, each solution being a `Vec<Binding>` where each `Binding`
 ///   maps variable names (chars) to concrete substrings they were bound to in that solution.
-#[must_use]
-pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Vec<Vec<Bindings>> {
+///
+/// # Errors
+///
+/// Will return a `ParseError` if a form cannot be parsed.
+// TODO? more detail in Errors section
+pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Result<Vec<Vec<Bindings>>, ParseError> {
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let patterns = Patterns::of(input);
@@ -181,10 +185,13 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
 
     // 3. Parse each pattern's string form once into a vector of `FormPart`s.
     //    These are index-aligned with `patterns`.
-    let parsed_forms: Vec<ParsedForm> = patterns
+    // TODO inline parsed_forms_result
+    let parsed_forms_result: Result<Vec<_>, _> = patterns
         .iter()
-        .map(|p| parse_form(&p.raw_string).unwrap())
+        .map(|p| parse_form(&p.raw_string))
         .collect();
+    let parsed_forms = parsed_forms_result?;
+
 
     // 4. Pull out the per-variable constraints collected from the equation.
     let var_constraints = &patterns.var_constraints;
@@ -284,15 +291,14 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Ve
     );
 
     // Return up to `num_results` combined solutions.
-    results
-
+    Ok(results)
 }
 
 #[test]
 fn test_solve_equation() {
     let word_list: Vec<&str> = vec!["LAX", "TAX", "LOX"];
     let input = "l.x".to_string();
-    let results = solve_equation(&input, &word_list, 5);
+    let results = solve_equation(&input, &word_list, 5).unwrap();
     println!("{:?}", results);
     assert_eq!(2, results.len());
 }
@@ -301,7 +307,7 @@ fn test_solve_equation() {
 fn test_solve_equation2() {
     let word_list: Vec<&str> = vec!["INCH", "CHIN", "DADA", "TEST", "AB"];
     let input = "AB;BA;|A|=2;|B|=2;!=AB".to_string();
-    let results = solve_equation(&input, &word_list, 5);
+    let results = solve_equation(&input, &word_list, 5).unwrap();
     println!("{:?}", results);
     assert_eq!(2, results.len());
 }
