@@ -14,44 +14,44 @@ pub struct VarConstraints {
 
 impl VarConstraints {
     /// Create a `VarConstraints` map whose internal map is `map`.
-    pub fn of(map: HashMap<char, VarConstraint>) -> Self {
+    fn of(map: HashMap<char, VarConstraint>) -> Self {
         Self { inner: map }
     }
 
     /// Insert a complete `VarConstraint` for a variable.
-    pub fn insert(&mut self, var: char, constraint: VarConstraint) {
+    pub(crate) fn insert(&mut self, var: char, constraint: VarConstraint) {
         self.inner.insert(var, constraint);
     }
 
     /// Ensure a variable has an entry; create a default constraint if missing.
     /// Returns a mutable reference so the caller can update it in place.
-    pub fn ensure(&mut self, var: char) -> &mut VarConstraint {
+    pub(crate) fn ensure(&mut self, var: char) -> &mut VarConstraint {
         self.inner.entry(var).or_default()
     }
 
     /// Retrieve a read-only reference to the constraints for a variable, if any.
-    pub fn get(&self, var: char) -> Option<&VarConstraint> {
+    pub(crate) fn get(&self, var: char) -> Option<&VarConstraint> {
         self.inner.get(&var)
     }
 
     /// Iterate over `(variable, constraint)` pairs.
-    pub fn iter(&self) -> impl Iterator<Item = (&char, &VarConstraint)> {
+    fn iter(&self) -> impl Iterator<Item = (&char, &VarConstraint)> {
         self.inner.iter()
     }
 
     /// Convenience: number of variables with constraints.
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.inner.len()
     }
 
     /// Convenience: true if no constraints are stored.
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 }
 
 /// Pretty, deterministic display (sorted by variable) like:
-/// A: len=[Some(2), Some(4)], form=Some("a*"), not_equal={B,C}
+/// `A: len=[2, 4], form=Some("a*"), not_equal={B,C}`
 impl fmt::Display for VarConstraints {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut keys: Vec<char> = self.inner.keys().copied().collect();
@@ -96,14 +96,14 @@ impl VarConstraint {
     ///
     /// - If a bound is missing, falls back to the provided defaults.
     /// - This is often used when generating regex prefilters or substring loops.
-    pub fn bounds(&self) -> (usize, usize) {
+    fn bounds(&self) -> (usize, usize) {
         let min = self.min_length;
         let max = self.max_length;
         (min, max)
     }
 
     /// Set both min and max to the same exact length.
-    pub fn set_exact_len(&mut self, len: usize) {
+    pub(crate) fn set_exact_len(&mut self, len: usize) {
         self.min_length = len;
         self.max_length = len;
     }
@@ -117,7 +117,7 @@ impl fmt::Display for VarConstraint {
         ne.sort_unstable();
         write!(
             f,
-            "len=[{:?}, {:?}], form={:?}, not_equal={{{}}}",
+            "len=[{:?}, {:?}]; form={:?}; not_equal={{{}}}",
             self.min_length,
             self.max_length,
             self.form.as_deref(),
@@ -165,7 +165,7 @@ mod tests {
     }
 
     #[test]
-    fn display_varconstraint_is_stable() {
+    fn display_var_constraint_is_stable() {
         let mut vc = VarConstraint::default();
         vc.min_length = 2;
         vc.max_length = 4;
@@ -173,13 +173,11 @@ mod tests {
         vc.not_equal.extend(['C', 'B']); // out of order on purpose
         let shown = vc.to_string();
         // not_equal should be sorted -> {BC}
-        assert!(shown.contains("len=[2, 4]"));
-        assert!(shown.contains("form=Some(\"a*\")"));
-        assert!(shown.contains("not_equal={BC}"));
+        assert_eq!("len=[2, 4]; form=Some(\"a*\"); not_equal={BC}", shown);
     }
 
     #[test]
-    fn display_varconstraints_multiline_sorted() {
+    fn display_var_constraints_multiline_sorted() {
         let mut vcs = VarConstraints::default();
         let mut a = VarConstraint::default();
         a.min_length = 1;
@@ -194,9 +192,13 @@ mod tests {
 
         let s = vcs.to_string();
         let lines: Vec<&str> = s.lines().collect();
-        assert_eq!(3, lines.len());
-        assert!(lines[0].starts_with("A: "));
-        assert!(lines[1].starts_with("B: "));
-        assert!(lines[2].starts_with("C: "));
+
+        let expected = vec![
+            "A: len=[1, 18446744073709551615]; form=None; not_equal={}",
+            "B: len=[1, 18446744073709551615]; form=Some(\"*x*\"); not_equal={}",
+            "C: len=[1, 2]; form=None; not_equal={}"
+        ];
+
+        assert_eq!(expected, lines);
     }
 }
