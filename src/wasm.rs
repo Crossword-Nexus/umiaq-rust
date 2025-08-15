@@ -2,7 +2,12 @@ use wasm_bindgen::prelude::*;
 use crate::bindings::Bindings;
 use crate::parser::ParseError;
 use crate::solver::solve_equation;
-
+/// Implement ParseError for `JsValue`s
+impl From<ParseError> for JsValue {
+    fn from(e: ParseError) -> JsValue {
+        JsValue::from_str(&format!("parse error: {e}"))
+    }
+}
 #[wasm_bindgen(start)]
 fn init_panic_hook() {
     console_error_panic_hook::set_once();
