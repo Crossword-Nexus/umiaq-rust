@@ -1,5 +1,6 @@
 use wasm_bindgen::prelude::*;
 use crate::bindings::Bindings;
+use crate::parser::ParseError;
 use crate::solver::solve_equation;
 
 #[wasm_bindgen(start)]
