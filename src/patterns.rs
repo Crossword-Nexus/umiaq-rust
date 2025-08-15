@@ -1,8 +1,8 @@
 use crate::constraints::VarConstraints;
+use crate::parser::ParseError;
 use fancy_regex::Regex;
 use std::collections::HashSet;
 use std::sync::LazyLock;
-use crate::parser::ParseError;
 
 /// Matches exact length constraints like `|A|=5`
 static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
@@ -29,15 +29,28 @@ static LIT_PATTERN_RE_STR: &str = "([^)]+)";
 //                  | {literal string}
 // length range = {number}
 //              | {number}-{number}
-// literal string = {literal string char}
-//                | {literal string char}{literal string}
-// literal string char = {lowercase letter}
-//                     | .
-//                     | *
 // number = {digit}
 //        | {digit}{number}
 // digit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-// lowercase letter = a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s | t | u | v | w | x | y | z
+// literal string = {literal string component}
+//                | {literal string component}{literal string}
+// literal string component = {literal string character}
+//                          | {dot char}
+//                          | {star char}
+//                          | {vowel char}
+//                          | {consonant char}
+//                          | {charset string}
+//                          | {anagram string}
+// literal string char = a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s | t | u | v | w | x | y | z
+// dot char = .
+// star char = *
+// vowel char = @
+// consonant char = #
+// charset string = [{one or more literal string chars}]
+// one or more literal string chars = {literal string char}
+//               | {literal string char}{charset chars}
+// anagram string = /{one or more literal string chars}
+//
 // group 1: var
 // group 2: length constraint
 // group 3 (ignored): hyphen plus end of length range (when present)
