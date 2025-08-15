@@ -1,3 +1,5 @@
+* populate this file (`TODO.md`) with TODOs found in code comments
+* organize this file (at least sort... somehow)
 * add detailed error messages
 * add progress indicators for long-running operations
 * implement parallel processing for large word lists
