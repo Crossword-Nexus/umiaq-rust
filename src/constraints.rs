@@ -193,11 +193,11 @@ mod tests {
         let s = vcs.to_string();
         let lines: Vec<&str> = s.lines().collect();
 
-        let expected = vec!(
+        let expected = vec![
             "A: len=[1, 18446744073709551615]; form=None; not_equal={}",
             "B: len=[1, 18446744073709551615]; form=Some(\"*x*\"); not_equal={}",
             "C: len=[1, 2]; form=None; not_equal={}"
-        );
+        ];
 
         assert_eq!(expected, lines);
     }

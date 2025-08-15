@@ -19,10 +19,11 @@ use std::sync::{LazyLock, OnceLock};
 // Character-set constants
 const VOWELS: &str = "AEIOUY";
 const CONSONANTS: &str = "BCDFGHJKLMNPQRSTVWXZ";
-const UPPERCASE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const LOWERCASE_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
+const VARIABLE_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+// TODO is this only every used to represent the possible values of literal chars?
+const LITERAL_CHARS: &str = "abcdefghijklmnopqrstuvwxyz";
 
-const NUM_POSSIBLE_VARIABLES: usize = 26; // TODO rename? TODO derive?
+const NUM_POSSIBLE_VARIABLES: usize = VARIABLE_CHARS.len();
 
 static VOWEL_SET: LazyLock<HashSet<char>> = LazyLock::new(|| VOWELS.chars().collect());
 static CONSONANT_SET: LazyLock<HashSet<char>> = LazyLock::new(|| CONSONANTS.chars().collect());
@@ -463,15 +464,15 @@ pub(crate) fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
 // These small functions use `nom` combinators to recognize individual token types.
 
 fn varref(input: &str) -> IResult<&str, FormPart> {
-    map(one_of(UPPERCASE_ALPHABET), FormPart::Var).parse(input)
+    map(one_of(VARIABLE_CHARS), FormPart::Var).parse(input)
 }
 
 fn revref(input: &str) -> IResult<&str, FormPart> {
-    map(preceded(tag("~"), one_of(UPPERCASE_ALPHABET)), FormPart::RevVar).parse(input)
+    map(preceded(tag("~"), one_of(VARIABLE_CHARS)), FormPart::RevVar).parse(input)
 }
 
 fn literal(input: &str) -> IResult<&str, FormPart> {
-    map(many1(one_of(LOWERCASE_ALPHABET)), |chars| {
+    map(many1(one_of(LITERAL_CHARS)), |chars| {
         FormPart::Lit(chars.into_iter().collect())
     }).parse(input)
 }
@@ -494,14 +495,14 @@ fn consonant(input: &str) -> IResult<&str, FormPart> {
 
 fn charset(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("[")(input)?;
-    let (input, chars) = many1(one_of(LOWERCASE_ALPHABET)).parse(input)?;
+    let (input, chars) = many1(one_of(LITERAL_CHARS)).parse(input)?;
     let (input, _) = tag("]")(input)?;
     Ok((input, FormPart::Charset(chars)))
 }
 
 fn anagram(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("/")(input)?;
-    let (input, chars) = many1(one_of(LOWERCASE_ALPHABET)).parse(input)?;
+    let (input, chars) = many1(one_of(LITERAL_CHARS)).parse(input)?;
     Ok((input, FormPart::Anagram(chars.into_iter().collect())))
 }
 
@@ -517,22 +518,20 @@ mod tests {
 
     #[test]
     fn test_empty_form_error() {
-        let actual = parse_form("");
-        assert!(matches!(actual.unwrap_err(), ParseError::EmptyForm));
+        assert!(matches!(parse_form("").unwrap_err(), ParseError::EmptyForm));
     }
 
     #[test]
     fn test_parse_failure_error() {
-        let actual = parse_form("[");
-        assert!(matches!(actual.unwrap_err(), ParseError::ParseFailure { .. }));
+        assert!(matches!(parse_form("[").unwrap_err(), ParseError::ParseFailure { .. }));
     }
 
     #[test]
     fn test_match_equation_exists() {
-        let patt1 = parse_form("A~A[rstlne]/jon@#.*").unwrap();
-        assert!(match_equation_exists("AARONJUDGE", &patt1, None));
-        assert!(!match_equation_exists("NOON", &patt1, None));
-        assert!(!match_equation_exists("TOON", &patt1, None));
+        let patt = parse_form("A~A[rstlne]/jon@#.*").unwrap();
+        assert!(match_equation_exists("AARONJUDGE", &patt, None));
+        assert!(!match_equation_exists("NOON", &patt, None));
+        assert!(!match_equation_exists("TOON", &patt, None));
     }
 
     #[test]
@@ -544,7 +543,7 @@ mod tests {
         let mut b = Bindings::default();
         b.set('B', "TEST".to_string());
 
-        // "OTHER" != "TEST" so this should pass
+        // "OTHER" != "TEST", so this should pass
         assert!(is_valid_binding("OTHER", &vc, &b));
     }
 
@@ -590,9 +589,7 @@ mod tests {
         let mut vc_b = VarConstraint::default();
         vc_b.not_equal.insert('A');
         var_constraints.insert('B', vc_b);
-        let result = match_equation_all("INCH", &patt, Some(&var_constraints)).into_iter().next();
-        assert!(result.is_some());
-        let m = result.unwrap();
+        let m = match_equation_all("INCH", &patt, Some(&var_constraints)).into_iter().next().unwrap();
         assert_ne!(m.get('A'), m.get('B'));
     }
 
@@ -613,8 +610,7 @@ mod tests {
         let matches = match_equation_all("HOTHOT", &patt, Some(&var_constraints));
         println!("{matches:?}");
         for m in matches.iter() {
-            let val = m.get('A').unwrap();
-            assert!(val.len() >= MIN_LENGTH && val.len() <= MAX_LENGTH);
+            assert!((MIN_LENGTH..=MAX_LENGTH).contains(&m.get('A').unwrap().len()));
         }
     }
 
@@ -671,28 +667,17 @@ mod tests {
         assert!(result.is_ok());
         let parsed_form = result.unwrap();
         let parts = parsed_form.parts;
-        assert_eq!(1, parts.len());
-        assert!(matches!(parts[0], FormPart::Lit(ref s) if s == "abc"));
+        assert_eq!(vec![FormPart::Lit("abc".parse().unwrap())], parts);
     }
 
     #[test]
     fn test_parse_form_variable() {
-        let result = parse_form("A");
-        assert!(result.is_ok());
-        let parsed_form = result.unwrap();
-        let parts = parsed_form.parts;
-        assert_eq!(1, parts.len());
-        assert!(matches!(parts[0], FormPart::Var('A')));
+        assert_eq!(vec![FormPart::Var('A')], parse_form("A").unwrap().parts);
     }
 
     #[test]
     fn test_parse_form_reversed_variable() {
-        let result = parse_form("~A");
-        assert!(result.is_ok());
-        let parsed_form = result.unwrap();
-        let parts = parsed_form.parts;
-        assert_eq!(1, parts.len());
-        assert!(matches!(parts[0], FormPart::RevVar('A')));
+        assert_eq!(vec![FormPart::RevVar('A')], parse_form("~A").unwrap().parts);
     }
 
     #[test]
@@ -701,91 +686,62 @@ mod tests {
         assert!(result.is_ok());
         let parsed_form = result.unwrap();
         let parts = parsed_form.parts;
-        assert_eq!(4, parts.len());
-        assert!(matches!(parts[0], FormPart::Dot));
-        assert!(matches!(parts[1], FormPart::Star));
-        assert!(matches!(parts[2], FormPart::Vowel));
-        assert!(matches!(parts[3], FormPart::Consonant));
+        assert_eq!(vec![FormPart::Dot, FormPart::Star, FormPart::Vowel, FormPart::Consonant], parts);
     }
 
     #[test]
     fn test_parse_form_charset() {
-        let result = parse_form("[abc]");
-        assert!(result.is_ok());
-        let parsed_form = result.unwrap();
-        let parts = parsed_form.parts;
-        assert_eq!(1, parts.len());
-        assert!(matches!(parts[0], FormPart::Charset(ref chars) if chars == &['a', 'b', 'c']));
+        assert_eq!(vec![FormPart::Charset(vec!['a','b','c'])], parse_form("[abc]").unwrap().parts);
     }
 
     #[test]
     fn test_parse_form_anagram() {
-        let result = parse_form("/abc");
-        assert!(result.is_ok());
-        let parsed_form = result.unwrap();
-        let parts = parsed_form.parts;
-        assert_eq!(1, parts.len());
-        assert!(matches!(parts[0], FormPart::Anagram(ref s) if s == "abc"));
+        assert_eq!(vec![FormPart::Anagram("abc".parse().unwrap())], parse_form("/abc").unwrap().parts);
     }
 
     #[test]
     fn test_parse_form_complex() {
-        let result = parse_form("A~A[rstlne]/jon@#.*");
-        assert!(result.is_ok());
-        let parsed_form = result.unwrap();
-        let parts = parsed_form.parts;
-        assert_eq!(8, parts.len());
-        assert!(matches!(parts[0], FormPart::Var('A')));
-        assert!(matches!(parts[1], FormPart::RevVar('A')));
-        assert!(matches!(parts[2], FormPart::Charset(_))); // TODO check _ value
-        assert!(matches!(parts[3], FormPart::Anagram(_))); // TODO check _ value
-        assert!(matches!(parts[4], FormPart::Vowel));
-        assert!(matches!(parts[5], FormPart::Consonant));
-        assert!(matches!(parts[6], FormPart::Dot));
-        assert!(matches!(parts[7], FormPart::Star));
+        let expected = vec![
+            FormPart::Var('A'),
+            FormPart::RevVar('A'),
+            FormPart::Charset(vec!['r', 's', 't', 'l', 'n', 'e']),
+            FormPart::Anagram("jon".parse().unwrap()),
+            FormPart::Vowel,
+            FormPart::Consonant,
+            FormPart::Dot,
+            FormPart::Star
+        ];
+        assert_eq!(expected, parse_form("A~A[rstlne]/jon@#.*").unwrap().parts);
     }
 
     #[test]
     fn test_form_to_regex_str() {
-        let parsed_form = parse_form("l.x").unwrap();
-        let parts = parsed_form.parts;
-        let regex_str = form_to_regex_str(&parts);
-        assert_eq!("L.X", regex_str);
+        assert_eq!("L.X", form_to_regex_str(&parse_form("l.x").unwrap().parts));
     }
 
     #[test]
     fn test_form_to_regex_str_with_variables() {
-        let parts = parse_form("AB").unwrap().parts;
-        let regex_str = form_to_regex_str(&parts);
-        assert_eq!(".+.+", regex_str);
+        assert_eq!(".+.+", form_to_regex_str(&parse_form("AB").unwrap().parts));
     }
 
     #[test]
     fn test_form_to_regex_str_with_variables_with_backref() {
-        let parts = parse_form("AA").unwrap().parts;
-        let regex_str = form_to_regex_str(&parts);
-        assert_eq!("(.+)\\1", regex_str);
+        assert_eq!("(.+)\\1", form_to_regex_str(&parse_form("AA").unwrap().parts));
     }
 
     #[test]
     fn test_form_to_regex_str_with_variables_with_backref_complex() {
-        let parts = parse_form("ABABBCA").unwrap().parts;
-        let regex_str = form_to_regex_str(&parts);
-        assert_eq!("(.+)(.+)\\1\\2\\2.+\\1", regex_str);
+        assert_eq!("(.+)(.+)\\1\\2\\2.+\\1", form_to_regex_str(&parse_form("ABABBCA").unwrap().parts));
     }
 
     #[test]
     fn test_form_to_regex_str_with_variables_with_rev_and_backref_complex() {
-        let parts = parse_form("AB~AABBDC~AA~C").unwrap().parts;
-        let regex_str = form_to_regex_str(&parts);
-        assert_eq!("(.+)(.+)(.+)\\1\\2\\2.+.+\\3\\1.+", regex_str);
+        assert_eq!("(.+)(.+)(.+)\\1\\2\\2.+.+\\3\\1.+", form_to_regex_str(&parse_form("AB~AABBDC~AA~C").unwrap().parts));
     }
 
     #[test]
     fn test_form_to_regex_str_with_wildcards() {
-        let parts = parse_form(".*@#").unwrap().parts;
-        let regex_str = form_to_regex_str(&parts);
-        assert_eq!("..*[AEIOUY][BCDFGHJKLMNPQRSTVWXZ]", regex_str);
+        assert_eq!("..*[AEIOUY][BCDFGHJKLMNPQRSTVWXZ]", form_to_regex_str(&parse_form(".*@#").unwrap().parts));
     }
 
     #[test]
@@ -806,9 +762,7 @@ mod tests {
     #[test]
     fn test_variable_binding() {
         let patt = parse_form("AB").unwrap();
-        let result = match_equation_all("INCH", &patt, None).into_iter().next();
-        assert!(result.is_some());
-        let binding = result.unwrap();
+        let binding = match_equation_all("INCH", &patt, None).into_iter().next().unwrap();
         // TODO allow for IN/CH or INC/H
         assert_eq!(Some(&"I".to_string()), binding.get('A'));
         assert_eq!(Some(&"NCH".to_string()), binding.get('B'));
@@ -817,10 +771,8 @@ mod tests {
     #[test]
     fn test_reversed_variable_binding() {
         let patt = parse_form("A~A").unwrap();
-        let result = match_equation_all("NOON", &patt, None).into_iter().next();
-        assert!(result.is_some());
-        let binding = result.unwrap();
-        assert_eq!(Some(&"NO".to_string()), binding.get('A'));
+        let bindings = match_equation_all("NOON", &patt, None).into_iter().next().unwrap();
+        assert_eq!(Some(&"NO".to_string()), bindings.get('A'));
     }
 
     #[test]

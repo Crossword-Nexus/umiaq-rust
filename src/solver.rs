@@ -169,7 +169,7 @@ fn recursive_join(
 /// # Errors
 ///
 /// Will return a `ParseError` if a form cannot be parsed.
-// TODO? more detail in Errors section
+// TODO? add more detail in Errors section
 pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Result<Vec<Vec<Bindings>>, ParseError> {
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
