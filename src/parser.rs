@@ -365,8 +365,12 @@ fn form_to_regex_str(parts: &[FormPart]) -> String {
             FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(&s.to_uppercase())),
             FormPart::Dot => regex_str.push('.'),
             FormPart::Star => regex_str.push_str(".*"),
-            FormPart::Vowel => regex_str.push_str(&format!("[{VOWELS}]")),
-            FormPart::Consonant => regex_str.push_str(&format!("[{CONSONANTS}]")),
+            FormPart::Vowel => {
+                let _ = write!(regex_str, "[{VOWELS}]");
+            },
+            FormPart::Consonant => {
+                let _ = write!(regex_str, "[{CONSONANTS}]");
+            },
             FormPart::Charset(chars) => {
                 regex_str.push('[');
                 for c in chars {
