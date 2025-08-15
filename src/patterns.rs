@@ -2,6 +2,7 @@ use crate::constraints::VarConstraints;
 use fancy_regex::Regex;
 use std::collections::HashSet;
 use std::sync::LazyLock;
+use crate::parser::ParseError;
 
 /// Matches exact length constraints like `|A|=5`
 static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
@@ -135,7 +136,7 @@ impl Patterns {
                 let patt = cap[3].to_string();
                 let var_constraint = self.var_constraints.ensure(var);
 
-                if let Some((min, max)) = parse_length_range(len) {
+                if let Ok(Some((min, max))) = parse_length_range(len) {
                     var_constraint.min_length = min.unwrap();
                     var_constraint.max_length = max.unwrap();
                 } else {
@@ -237,17 +238,17 @@ impl<'a> IntoIterator for &'a Patterns {
 /// Parses a string like "3-5", "-5", "3-", or "3" into min and max length values.
 /// Returns `Some((min, max))` where each is an `Option<usize>` unless the input is empty, in which
 /// case it returns `None`.
-fn parse_length_range(input: &str) -> Option<(Option<usize>, Option<usize>)> {
+fn parse_length_range(input: &str) -> Result<Option<(Option<usize>, Option<usize>)>, ParseError> {
     if input.is_empty() {
-        return None;
+        return Ok(None);
     }
     let parts: Vec<&str> = input.split('-').collect();
-    if parts.len() > 2 { // TODO? return error instead?
-        return None;
+    if parts.len() > 2 {
+        return Err(ParseError::InvalidLengthRange { input: input.parse().unwrap() })
     }
     let min = parts.first().and_then(|s| s.parse::<usize>().ok());
     let max = parts.last().and_then(|s| s.parse::<usize>().ok());
-    Some((min, max))
+    Ok(Some((min, max)))
 }
 
 #[cfg(test)]
@@ -295,11 +296,12 @@ mod tests {
 
     #[test]
     fn test_parse_length_range() {
-        assert_eq!(Some((Some(2), Some(3))), parse_length_range("2-3"));
-        assert_eq!(Some((None, Some(3))), parse_length_range("-3"));
-        assert_eq!(Some((Some(1), None)), parse_length_range("1-"));
-        assert_eq!(Some((Some(7), Some(7))), parse_length_range("7"));
-        assert_eq!(None, parse_length_range(""));
-        assert_eq!(None, parse_length_range("1-2-3"));
+        assert_eq!(Some((Some(2), Some(3))), parse_length_range("2-3").unwrap());
+        assert_eq!(Some((None, Some(3))), parse_length_range("-3").unwrap());
+        assert_eq!(Some((Some(1), None)), parse_length_range("1-").unwrap());
+        assert_eq!(Some((Some(7), Some(7))), parse_length_range("7").unwrap());
+        assert_eq!(None, parse_length_range("").unwrap());
+        // TODO replace "_" with a more specific check (here and elsewhere... as appropriate)
+        assert!(matches!(parse_length_range("1-2-3").unwrap_err(), ParseError::InvalidLengthRange { input: _ }));
     }
 }

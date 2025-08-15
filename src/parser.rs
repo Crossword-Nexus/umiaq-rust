@@ -49,6 +49,8 @@ pub enum ParseError {
     RegexError(#[from] fancy_regex::Error),
     #[error("Empty form string")]
     EmptyForm,
+    #[error("Invalid length range \"{input}\"")]
+    InvalidLengthRange { input: String },
 }
 
 // TODO test this
@@ -317,7 +319,7 @@ fn match_equation_internal(
     }
 
     // TODO? support beyond 0-127 (i.e., beyond ASCII)? (at least document behavior (here and in general)!)
-    // TODO are we actually guaranteed to have uppercase_word be upperase?
+    // TODO are we actually guaranteed to have uppercase_word be uppercase?
     fn are_anagrams(uppercase_word: &[char], other_word: &str) -> bool {
         if uppercase_word.len() != other_word.len() {
             return false;
