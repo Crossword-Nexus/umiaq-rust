@@ -15,4 +15,7 @@
 * add length constraints to individual variables when there is a joint constraint
 * optimize joint constraints
 * allow constraints like |A|<4, |B|>=5, etc.
+* add TODOs from PR16, PR17 
+* fix "2-", "-4", etc. in literal constraints
+* allow for "complex" constraints like `A=(g*)`
 * misc. TODOs in code
