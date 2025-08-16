@@ -1,8 +1,11 @@
 use crate::constraints::VarConstraints;
-use crate::parser::ParseError;
+use crate::parser::{parse_form, ParseError};
 use fancy_regex::Regex;
 use std::collections::HashSet;
 use std::sync::LazyLock;
+
+/// The character that separates forms, in an equation
+pub const FORM_SEPARATOR: char = ';';
 
 /// Matches exact length constraints like `|A|=5`
 static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
@@ -155,7 +158,7 @@ impl Patterns {
     ///
     /// Non-constraint entries are added to `self.list` as actual patterns.
     fn make_list(&mut self, input: &str) {
-        let forms: Vec<&str> = input.split(';').collect(); // TODO make ';' not magic constant
+        let forms: Vec<&str> = input.split(FORM_SEPARATOR).collect();
         // Iterate through all parts of the input string, split by `;`
         for form in &forms {
             if let Some(cap) = LEN_RE.captures(form).unwrap() {
@@ -188,7 +191,16 @@ impl Patterns {
                     var_constraint.form = Some(patt);
                 }
             } else {
-                self.list.push(Pattern::of(*form));
+                // We only want to add a form if it is parseable
+                // Specifically, things like |AB|=7 should not be picked up here
+                // TODO: do we check for those separately?
+                if let Ok(parsed) = parse_form(form) {
+                    self.list.push(Pattern::of(*form));
+                    // you can also use `parsed` here if needed
+                } else {
+                    // parse_form() failed — skip or log it
+                    // TODO: log it?
+                }
             }
         }
     }
