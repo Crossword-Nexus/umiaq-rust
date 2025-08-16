@@ -14,4 +14,5 @@
 * use `Range`s for length ranges?
 * add length constraints to individual variables when there is a joint constraint
 * optimize joint constraints
+* allow constraints like |A|<4, |B|>=5, etc.
 * misc. TODOs in code
