@@ -295,8 +295,20 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
         num_results,    // stop once we have this many solutions
     );
 
-    // Return up to `num_results` combined solutions.
-    Ok(results)
+    // ---- Reorder solutions back to original form order ----
+    let mut reordered: Vec<Vec<Bindings>> = Vec::with_capacity(results.len());
+    for sol in results {
+        // Make space for each original form
+        let mut sol_reordered = vec![Bindings::default(); patterns.list.len()];
+        for (ordered_ix, binding) in sol.into_iter().enumerate() {
+            let orig_ix = patterns.ordered_to_original[ordered_ix];
+            sol_reordered[orig_ix] = binding;
+        }
+        reordered.push(sol_reordered);
+    }
+
+    // Return up to `num_results` reordered solutions
+    Ok(reordered)
 }
 
 #[test]

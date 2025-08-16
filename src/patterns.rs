@@ -96,6 +96,9 @@ pub struct Pattern {
     /// Set of variable names that this pattern shares with previously processed ones,
     /// used for optimizing lookups in recursive solving
     pub lookup_keys: Option<HashSet<char>>,
+    /// Position of this form among *forms only* in the original (display) order.
+    /// This is stable and survives reordering/cloning.
+    pub original_index: usize,
 }
 
 /// Implementation for the `Pattern` struct, representing a single pattern string
@@ -107,6 +110,15 @@ impl Pattern {
         Self {
             raw_string: string.into(),
             lookup_keys: None,
+            original_index: 0,
+        }
+    }
+
+    fn create_with_index(string: impl Into<String>, original_index: usize) -> Self {
+        Self {
+            raw_string: string.into(),
+            lookup_keys: None,
+            original_index,
         }
     }
 
@@ -139,7 +151,11 @@ pub struct Patterns {
     /// Map of variable names (A-Z) to their associated constraints
     pub var_constraints: VarConstraints,
     /// Reordered list of patterns, optimized for solving (most-constrained first)
-    pub ordered_list: Vec<Pattern>,
+    pub ordered_list: Vec<Pattern>,        // solver order
+    /// ordered index -> original index
+    pub ordered_to_original: Vec<usize>,
+    /// original index -> ordered index
+    pub original_to_ordered: Vec<usize>,
 }
 
 impl Patterns {
@@ -147,7 +163,23 @@ impl Patterns {
         let mut patterns = Patterns::default();
         patterns.make_list(input);
         patterns.ordered_list = patterns.ordered_partitions();
+        // populate original_to_ordered and ordered_to_original
+        patterns.build_order_maps();
         patterns
+    }
+
+    fn build_order_maps(&mut self) {
+        let n = self.list.len();
+        self.ordered_to_original = self
+            .ordered_list
+            .iter()
+            .map(|p| p.original_index)
+            .collect();
+
+        self.original_to_ordered = vec![usize::MAX; n];
+        for (ordered_ix, &orig_ix) in self.ordered_to_original.iter().enumerate() {
+            self.original_to_ordered[orig_ix] = ordered_ix;
+        }
     }
 
     /// Parses the input string into constraint entries and pattern entries.
@@ -160,6 +192,9 @@ impl Patterns {
     fn make_list(&mut self, input: &str) {
         let forms: Vec<&str> = input.split(FORM_SEPARATOR).collect();
         // Iterate through all parts of the input string, split by `;`
+
+        let mut next_form_ix = 0; // counts only *forms* we accept
+
         for form in &forms {
             if let Some(cap) = LEN_RE.captures(form).unwrap() {
                 // Extract the variable (e.g., A) and its required length
@@ -194,9 +229,9 @@ impl Patterns {
                 // We only want to add a form if it is parseable
                 // Specifically, things like |AB|=7 should not be picked up here
                 // TODO: do we check for those separately?
-                if let Ok(parsed) = parse_form(form) {
-                    self.list.push(Pattern::of(*form));
-                    // you can also use `parsed` here if needed
+                if let Ok(_parsed) = parse_form(form) {
+                    self.list.push(Pattern::create_with_index(*form, next_form_ix));
+                    next_form_ix += 1;
                 } else {
                     // parse_form() failed — skip or log it
                     // TODO: log it?
@@ -260,15 +295,33 @@ impl Patterns {
         self.ordered_list.len()
     }
 
+    /// Iterate over forms in solver-friendly order
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, Pattern> {
+        self.ordered_list.iter()
+    }
+
+    /* -- Several unused functions but maybe some day?
     /// Convenience (often handy with `len`)
     fn is_empty(&self) -> bool {
         self.ordered_list.is_empty()
     }
 
-    /// Iterate over forms in solver-friendly order
-    pub(crate) fn iter(&self) -> std::slice::Iter<'_, Pattern> {
-        self.ordered_list.iter()
+    /// Iterate in original (display) order
+    pub(crate) fn iter_original(&self) -> std::slice::Iter<'_, Pattern> {
+        self.list.iter()
     }
+
+    /// Map a solver index to the original index
+    pub(crate) fn original_ix(&self, ordered_ix: usize) -> usize {
+        self.ordered_to_original[ordered_ix]
+    }
+
+    /// Map an original index to the solver index (if it was placed)
+    pub(crate) fn ordered_ix(&self, original_ix: usize) -> Option<usize> {
+        let ix = self.original_to_ordered.get(original_ix).copied()?;
+        (ix != usize::MAX).then_some(ix)
+    }
+    */
 }
 
 /// Enable `for p in &patterns { ... }`.
