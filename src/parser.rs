@@ -116,6 +116,24 @@ impl ParsedForm {
     pub fn iter(&self) -> std::slice::Iter<'_, FormPart> {
         self.parts.iter()
     }
+
+    /// If this form is deterministic, build the concrete word using the given bindings.
+    /// Returns `None` if any required var is unbound or the form isn't deterministic.
+    pub fn materialize_deterministic(&self, bindings: &Bindings) -> Option<String> {
+        let mut out = String::new();
+        for part in &self.parts {
+            match part {
+                FormPart::Lit(s) => out.push_str(s),
+                FormPart::Var(v)     => out.push_str(bindings.get(*v)?),
+                FormPart::RevVar(v)  => {
+                    let val = bindings.get(*v)?;
+                    out.extend(val.chars().rev());
+                }
+                _ => return None, // anything else means not deterministic
+            }
+        }
+        Some(out)
+    }
 }
 
 // Enable `for part in &parsed_form { ... }`
