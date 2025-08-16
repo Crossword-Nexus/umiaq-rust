@@ -41,8 +41,7 @@ impl Bindings {
         self.map.iter()
     }
 
-    // Get the map
-    pub fn get_map(&self) -> &HashMap<char, String> {
-        &self.map
+    pub(crate) fn contains_all_vars(&self, vars: &[char]) -> bool {
+        vars.iter().all(|var| self.map.contains_key(var))
     }
 }

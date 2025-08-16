@@ -72,16 +72,15 @@ impl JointConstraint {
     #[inline]
     pub fn is_satisfied_by(&self, bindings: &Bindings) -> bool {
         // If not all vars are bound, skip this check for now.
-        if !self.vars.iter().all(|v| bindings.get_map().contains_key(v)) {
-            return true;
+        if bindings.contains_all_vars(&self.vars) {
+            // Sum the lengths of the bound strings for the referenced vars.
+            let total: usize = self.vars.iter().map(|v| bindings.get(*v).unwrap().len()).sum();
+
+            // Compare once via Ordering -> mask test.
+            self.rel.allows(total.cmp(&self.target))
+        } else {
+            true
         }
-
-        // Sum the lengths of the bound strings for the referenced vars.
-        let m = bindings.get_map();
-        let total: usize = self.vars.iter().map(|v| m.get(v).unwrap().len()).sum();
-
-        // Compare once via Ordering -> mask test.
-        self.rel.allows(total.cmp(&self.target))
     }
 
     // --- Test-only convenience for asserting behavior without needing real `Bindings`.
@@ -128,7 +127,7 @@ fn parse_joint_len(expr: &str) -> Option<JointConstraint> {
         .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start())))?;
 
     // Parse integer (digits only).
-    let digits_len = rest.chars().take_while(|c| c.is_ascii_digit()).count();
+    let digits_len = rest.chars().take_while(char::is_ascii_digit).count();
     if digits_len == 0 { return None; }
     let target: usize = rest[..digits_len].parse().ok()?;
 

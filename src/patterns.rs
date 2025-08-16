@@ -106,15 +106,8 @@ pub struct Pattern {
 impl Pattern {
     /// Constructs a new `Pattern` from any type that can be converted into a `String`.
     /// The resulting `lookup_keys` is initialized to `None`.
-    fn of(string: impl Into<String>) -> Self {
-        Self {
-            raw_string: string.into(),
-            lookup_keys: None,
-            original_index: 0,
-        }
-    }
-
-    fn create_with_index(string: impl Into<String>, original_index: usize) -> Self {
+    /// `original_index` is the index for this `Pattern`'s position in the original equation.
+    fn create(string: impl Into<String>, original_index: usize) -> Self {
         Self {
             raw_string: string.into(),
             lookup_keys: None,
@@ -147,6 +140,8 @@ impl Pattern {
 ///   with the variables seen so far (its *join key*).
 pub struct Patterns {
     /// List of patterns directly extracted from the input string (not constraints)
+    // TODO should we keep Vec<Pattern> for each order or just one (likely ordered_list) and use map
+    //      (original_to_ordered) when other is needed?
     pub list: Vec<Pattern>,
     /// Map of variable names (A-Z) to their associated constraints
     pub var_constraints: VarConstraints,
@@ -215,7 +210,7 @@ impl Patterns {
                 let patt = cap[4].to_string();
                 let var_constraint = self.var_constraints.ensure(var);
 
-                if let Ok(Some((min, max))) = parse_length_range(len) {
+                if let Ok((min, max)) = parse_length_range(len) {
                     var_constraint.min_length = min.unwrap();
                     var_constraint.max_length = max.unwrap();
                 } else {
@@ -228,13 +223,13 @@ impl Patterns {
             } else {
                 // We only want to add a form if it is parseable
                 // Specifically, things like |AB|=7 should not be picked up here
-                // TODO: do we check for those separately?
+                // TODO do we check for those separately?
+                // TODO avoid calling parse_form twice on the same form? (here and in solve_equation)
                 if let Ok(_parsed) = parse_form(form) {
-                    self.list.push(Pattern::create_with_index(*form, next_form_ix));
+                    self.list.push(Pattern::create(*form, next_form_ix));
                     next_form_ix += 1;
                 } else {
-                    // parse_form() failed — skip or log it
-                    // TODO: log it?
+                    // TODO throw exception
                 }
             }
         }
@@ -342,19 +337,15 @@ impl<'a> IntoIterator for &'a Patterns {
 }
 
 /// Parses a string like "3-5", "-5", "3-", or "3" into min and max length values.
-/// Returns `Some((min, max))` where each is an `Option<usize>` unless the input is empty, in which
-/// case it returns `None`.
-fn parse_length_range(input: &str) -> Result<Option<(Option<usize>, Option<usize>)>, ParseError> {
-    if input.is_empty() {
-        return Ok(None);
-    }
+/// Returns `((min, max))` where each is an `Option<usize>`.
+fn parse_length_range(input: &str) -> Result<(Option<usize>, Option<usize>), ParseError> {
     let parts: Vec<&str> = input.split('-').collect();
-    if parts.len() > 2 {
+    if (parts.len() == 1 && parts[0].is_empty()) || parts.len() > 2 {
         return Err(ParseError::InvalidLengthRange { input: input.parse().unwrap() })
     }
     let min = parts.first().and_then(|s| s.parse::<usize>().ok());
     let max = parts.last().and_then(|s| s.parse::<usize>().ok());
-    Ok(Some((min, max)))
+    Ok((min, max))
 }
 
 #[cfg(test)]
@@ -406,12 +397,12 @@ mod tests {
 
     #[test]
     fn test_parse_length_range() {
-        assert_eq!(Some((Some(2), Some(3))), parse_length_range("2-3").unwrap());
-        assert_eq!(Some((None, Some(3))), parse_length_range("-3").unwrap());
-        assert_eq!(Some((Some(1), None)), parse_length_range("1-").unwrap());
-        assert_eq!(Some((Some(7), Some(7))), parse_length_range("7").unwrap());
-        assert_eq!(None, parse_length_range("").unwrap());
-        // TODO replace "_" with a more specific check (here and elsewhere... as appropriate)
+        assert_eq!((Some(2), Some(3)), parse_length_range("2-3").unwrap());
+        assert_eq!((None, Some(3)), parse_length_range("-3").unwrap());
+        assert_eq!((Some(1), None), parse_length_range("1-").unwrap());
+        assert_eq!((Some(7), Some(7)), parse_length_range("7").unwrap());
+        // TODO replace "_" with a more specific check (next two lines--and elsewhere... as appropriate)
+        assert!(matches!(parse_length_range("").unwrap_err(), ParseError::InvalidLengthRange { input: _ }));
         assert!(matches!(parse_length_range("1-2-3").unwrap_err(), ParseError::InvalidLengthRange { input: _ }));
     }
 }
