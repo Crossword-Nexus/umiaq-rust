@@ -2,6 +2,7 @@
 * organize this file (at least sort... somehow)
 * fix "2-", "-4", etc. in literal constraints
 * allow for "complex" constraints like `A=(g*)`
+* avoid duplicating work (e.g., `parse_form` call in `make_list`)
 * add detailed error messages
 * add progress indicators for long-running operations
 * implement parallel processing for large word lists
