@@ -12,4 +12,5 @@
 * add support for `<` and `>` like in Qat
 * "binding" vs. "bindings" in variable names, comments, etc.
 * use `Range`s for length ranges?
+* allow constraints like |A|<4, |B|>=5, etc.
 * misc. TODOs in code
