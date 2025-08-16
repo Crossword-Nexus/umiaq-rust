@@ -15,6 +15,7 @@ use fancy_regex::Regex;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::sync::{LazyLock, OnceLock};
+use crate::joint_constraints::JointConstraints;
 
 // Character-set constants
 const VOWELS: &str = "AEIOUY";
@@ -131,7 +132,7 @@ fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings)
     if let Some(form_str) = &constraints.form {
         match parse_form(form_str) {
             Ok(p) => {
-                if !match_equation_exists(val, &p, None) {
+                if !match_equation_exists(val, &p, None, None) {
                     return false;
                 }
             }
@@ -154,9 +155,10 @@ fn match_equation_exists(
     word: &str,
     parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
+    joint_constraints: Option<&JointConstraints>,
 ) -> bool {
     let mut results: Vec<Bindings> = Vec::new();
-    match_equation_internal(word, parts, false, &mut results, constraints);
+    match_equation_internal(word, parts, false, &mut results, constraints, joint_constraints);
     results.into_iter().next().is_some()
 }
 
@@ -165,9 +167,10 @@ pub(crate) fn match_equation_all(
     word: &str,
     parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
+    joint_constraints: Option<&JointConstraints>,
 ) -> Vec<Bindings> {
     let mut results: Vec<Bindings> = Vec::new(); // TODO avoid mutability? sim. elsewhere
-    match_equation_internal(word, parts, true, &mut results, constraints);
+    match_equation_internal(word, parts, true, &mut results, constraints, joint_constraints);
     results
 }
 
@@ -182,6 +185,7 @@ fn match_equation_internal(
     all_matches: bool,
     results: &mut Vec<Bindings>,
     constraints: Option<&VarConstraints>,
+    joint_constraints: Option<&JointConstraints>,
 ) {
     /// Helper to reverse a bound value if the part is `RevVar`.
     fn get_reversed_or_not(first: &FormPart, val: &str) -> String {
@@ -209,14 +213,18 @@ fn match_equation_internal(
         all_matches: bool,
         word: &str,
         constraints: Option<&VarConstraints>,
+        joint_constraints: Option<&JointConstraints>,
     ) -> bool {
         // Base case: no parts left
         if parts.is_empty() {
             if chars.is_empty() {
-                let mut full_result = bindings.clone();
-                full_result.set_word(word);
-                results.push(full_result);
-                return !all_matches; // Stop early if only one match needed
+                // Check the joint constraints (if any)
+                if joint_constraints.map_or(true, |jc| jc.all_satisfied(bindings)) {
+                    let mut full_result = bindings.clone();
+                    full_result.set_word(word);
+                    results.push(full_result);
+                    return !all_matches; // Stop early if only one match needed
+                }
             }
             return false;
         }
@@ -226,18 +234,18 @@ fn match_equation_internal(
         match first {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored uppercased)
-                return is_prefix(&s.to_ascii_uppercase(), &chars, bindings, results, all_matches, word, constraints, rest)
+                return is_prefix(&s.to_ascii_uppercase(), &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
             }
             FormPart::Dot => {
                 // Single-char wildcard
                 if !chars.is_empty() {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
             FormPart::Star => {
                 // Zero-or-more wildcard; try all possible splits
                 for i in 0..=chars.len() {
-                    if helper(&chars[i..], rest, bindings, results, all_matches, word, constraints)
+                    if helper(&chars[i..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
                         && !all_matches
                     {
                         return true;
@@ -271,13 +279,13 @@ fn match_equation_internal(
                 // Match if the next len chars are an anagram of target
                 let len = s.len();
                 if chars.len() >= len && are_anagrams(&chars[..len], s) {
-                    return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints);
+                    return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
             FormPart::Var(var_name) | FormPart::RevVar(var_name) => {
                 if let Some(bound_val) = bindings.get(*var_name) {
                     // Already bound: must match exactly
-                    return is_prefix(&get_reversed_or_not(first, bound_val), &chars, bindings, results, all_matches, word, constraints, rest)
+                    return is_prefix(&get_reversed_or_not(first, bound_val), &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
                 }
 
                 // Not bound yet: try binding to all possible lengths
@@ -316,7 +324,7 @@ fn match_equation_internal(
                     }
 
                     bindings.set(*var_name, bound_val);
-                    if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints) && !all_matches {
+                    if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints, joint_constraints) && !all_matches {
                         return true;
                     }
                     bindings.remove(*var_name);
@@ -328,11 +336,20 @@ fn match_equation_internal(
     }
 
     /// Returns true if `prefix` is a prefix of `chars`
-    fn is_prefix(prefix: &str, chars: &&[char], bindings: &mut Bindings, results: &mut Vec<Bindings>, all_matches: bool, word: &str, constraints: Option<&VarConstraints>, rest: &[FormPart]) -> bool {
+    fn is_prefix(prefix: &str,
+                 chars: &&[char],
+                 bindings: &mut Bindings,
+                 results: &mut Vec<Bindings>,
+                 all_matches: bool,
+                 word: &str,
+                 constraints: Option<&VarConstraints>,
+                 rest: &[FormPart],
+                 joint_constraints: Option<&JointConstraints>,
+    ) -> bool {
         let n = prefix.len();
 
         if chars.len() >= n && chars[..n].iter().copied().zip(prefix.chars()).all(|(a, b)| a == b) {
-            helper(&chars[n..], rest, bindings, results, all_matches, word, constraints)
+            helper(&chars[n..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
         } else {
             false
         }
@@ -377,7 +394,7 @@ fn match_equation_internal(
     let word = word.to_uppercase(); // TODO perform uppercasing as early as possible
     let chars: Vec<char> = word.chars().collect();
     let mut bindings = Bindings::default();
-    helper(&chars, &parsed_form.parts, &mut bindings, results, all_matches, &word, constraints);
+    helper(&chars, &parsed_form.parts, &mut bindings, results, all_matches, &word, constraints, joint_constraints);
 }
 
 /// Convert a parsed `FormPart` sequence into a regex string.
@@ -556,9 +573,9 @@ mod tests {
     #[test]
     fn test_match_equation_exists() {
         let patt = parse_form("A~A[rstlne]/jon@#.*").unwrap();
-        assert!(match_equation_exists("AARONJUDGE", &patt, None));
-        assert!(!match_equation_exists("NOON", &patt, None));
-        assert!(!match_equation_exists("TOON", &patt, None));
+        assert!(match_equation_exists("AARONJUDGE", &patt, None, None));
+        assert!(!match_equation_exists("NOON", &patt, None, None));
+        assert!(!match_equation_exists("TOON", &patt, None, None));
     }
 
     #[test]
@@ -616,7 +633,7 @@ mod tests {
         let mut vc_b = VarConstraint::default();
         vc_b.not_equal.insert('A');
         var_constraints.insert('B', vc_b);
-        let m = match_equation_all("INCH", &patt, Some(&var_constraints)).into_iter().next().unwrap();
+        let m = match_equation_all("INCH", &patt, Some(&var_constraints), None).into_iter().next().unwrap();
         assert_ne!(m.get('A'), m.get('B'));
     }
 
@@ -634,7 +651,7 @@ mod tests {
         // associate this constraint with variable 'A'
         var_constraints.insert('A', vc);
 
-        let matches = match_equation_all("HOTHOT", &patt, Some(&var_constraints));
+        let matches = match_equation_all("HOTHOT", &patt, Some(&var_constraints), None);
         println!("{matches:?}");
         for m in matches.iter() {
             assert!((MIN_LENGTH..=MAX_LENGTH).contains(&m.get('A').unwrap().len()));
@@ -662,7 +679,7 @@ mod tests {
         vc_b.max_length = 2;
         var_constraints.insert('B', vc_b);
 
-        let matches = match_equation_all("INCH", &patt, Some(&var_constraints));
+        let matches = match_equation_all("INCH", &patt, Some(&var_constraints), None);
         println!("{matches:?}");
         println!("{}", var_constraints);
         assert_eq!(1, matches.len());
@@ -677,7 +694,7 @@ mod tests {
         vc.form = Option::from("*i.*".to_string());
         var_constraints1.insert('A', vc.clone());
 
-        assert!(match_equation_exists("INCH", &patt, Some(&var_constraints1)));
+        assert!(match_equation_exists("INCH", &patt, Some(&var_constraints1), None));
 
         // Second constraint: A=(*z*)
         let mut var_constraints2 = VarConstraints::default();
@@ -685,7 +702,7 @@ mod tests {
         vc2.form = Option::from("*z*".to_string());
         var_constraints2.insert('A', vc2.clone());
 
-        assert!(!match_equation_exists("INCH", &patt, Some(&var_constraints2)));
+        assert!(!match_equation_exists("INCH", &patt, Some(&var_constraints2), None));
     }
 
     #[test]
@@ -774,22 +791,22 @@ mod tests {
     #[test]
     fn test_palindrome_matching() {
         let patt = parse_form("A~A").unwrap();
-        assert!(match_equation_exists("NOON", &patt, None));
-        assert!(!match_equation_exists("RADAR", &patt, None));
-        assert!(!match_equation_exists("TEST", &patt, None));
+        assert!(match_equation_exists("NOON", &patt, None, None));
+        assert!(!match_equation_exists("RADAR", &patt, None, None));
+        assert!(!match_equation_exists("TEST", &patt, None, None));
     }
 
     #[test]
     fn test_anagram_matching() {
         let patt = parse_form("/triangle").unwrap();
-        assert!(match_equation_exists("INTEGRAL", &patt, None));
-        assert!(!match_equation_exists("SQUARE", &patt, None));
+        assert!(match_equation_exists("INTEGRAL", &patt, None, None));
+        assert!(!match_equation_exists("SQUARE", &patt, None, None));
     }
 
     #[test]
     fn test_variable_binding() {
         let patt = parse_form("AB").unwrap();
-        let binding = match_equation_all("INCH", &patt, None).into_iter().next().unwrap();
+        let binding = match_equation_all("INCH", &patt, None, None).into_iter().next().unwrap();
         // TODO allow for IN/CH or INC/H
         assert_eq!(Some(&"I".to_string()), binding.get('A'));
         assert_eq!(Some(&"NCH".to_string()), binding.get('B'));
@@ -798,58 +815,58 @@ mod tests {
     #[test]
     fn test_reversed_variable_binding() {
         let patt = parse_form("A~A").unwrap();
-        let bindings = match_equation_all("NOON", &patt, None).into_iter().next().unwrap();
+        let bindings = match_equation_all("NOON", &patt, None, None).into_iter().next().unwrap();
         assert_eq!(Some(&"NO".to_string()), bindings.get('A'));
     }
 
     #[test]
     fn test_literal_matching() {
         let patt = parse_form("abc").unwrap();
-        assert!(match_equation_exists("ABC", &patt, None));
-        assert!(!match_equation_exists("XYZ", &patt, None));
+        assert!(match_equation_exists("ABC", &patt, None, None));
+        assert!(!match_equation_exists("XYZ", &patt, None, None));
     }
 
     #[test]
     fn test_dot_wildcard() {
         let patt = parse_form("a.z").unwrap();
-        assert!(match_equation_exists("ABZ", &patt, None));
-        assert!(match_equation_exists("AZZ", &patt, None));
-        assert!(!match_equation_exists("AZ", &patt, None));
-        assert!(!match_equation_exists("ABBZ", &patt, None));
+        assert!(match_equation_exists("ABZ", &patt, None, None));
+        assert!(match_equation_exists("AZZ", &patt, None, None));
+        assert!(!match_equation_exists("AZ", &patt, None, None));
+        assert!(!match_equation_exists("ABBZ", &patt, None, None));
     }
 
     #[test]
     fn test_star_wildcard() {
         let patt = parse_form("a*z").unwrap();
-        assert!(match_equation_exists("AZ", &patt, None));
-        assert!(match_equation_exists("ABZ", &patt, None));
-        assert!(match_equation_exists("ABBBZ", &patt, None));
-        assert!(!match_equation_exists("AY", &patt, None));
+        assert!(match_equation_exists("AZ", &patt, None, None));
+        assert!(match_equation_exists("ABZ", &patt, None, None));
+        assert!(match_equation_exists("ABBBZ", &patt, None, None));
+        assert!(!match_equation_exists("AY", &patt, None, None));
     }
 
     #[test]
     fn test_vowel_wildcard() {
         let patt = parse_form("A@Z").unwrap();
-        assert!(match_equation_exists("AAZ", &patt, None));
-        assert!(match_equation_exists("AEZ", &patt, None));
-        assert!(!match_equation_exists("ABZ", &patt, None));
+        assert!(match_equation_exists("AAZ", &patt, None, None));
+        assert!(match_equation_exists("AEZ", &patt, None, None));
+        assert!(!match_equation_exists("ABZ", &patt, None, None));
     }
 
     #[test]
     fn test_consonant_wildcard() {
         let patt = parse_form("A#Z").unwrap();
-        assert!(match_equation_exists("ABZ", &patt, None));
-        assert!(match_equation_exists("ACZ", &patt, None));
-        assert!(!match_equation_exists("AAZ", &patt, None));
+        assert!(match_equation_exists("ABZ", &patt, None, None));
+        assert!(match_equation_exists("ACZ", &patt, None, None));
+        assert!(!match_equation_exists("AAZ", &patt, None, None));
     }
 
     #[test]
     fn test_charset_matching() {
         let patt = parse_form("[abc]").unwrap();
-        assert!(match_equation_exists("A", &patt, None));
-        assert!(match_equation_exists("B", &patt, None));
-        assert!(match_equation_exists("C", &patt, None));
-        assert!(!match_equation_exists("D", &patt, None));
+        assert!(match_equation_exists("A", &patt, None, None));
+        assert!(match_equation_exists("B", &patt, None, None));
+        assert!(match_equation_exists("C", &patt, None, None));
+        assert!(!match_equation_exists("D", &patt, None, None));
     }
 
     #[test]
@@ -874,4 +891,3 @@ fn test_var_vowel_var_no_panic_and_matches() {
     assert!(!match_equation_exists("C", &patt, None));  // too short
     assert!(!match_equation_exists("CA", &patt, None));  // too short
 }
-

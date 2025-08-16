@@ -41,10 +41,8 @@ impl Bindings {
         self.map.iter()
     }
 
-    // Get the map (currently unused)
-    /*
-    fn get_map(&self) -> &HashMap<char, String> {
+    // Get the map
+    pub fn get_map(&self) -> &HashMap<char, String> {
         &self.map
     }
-    */
 }
