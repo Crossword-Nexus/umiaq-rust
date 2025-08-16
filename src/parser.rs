@@ -219,7 +219,7 @@ fn match_equation_internal(
         if parts.is_empty() {
             if chars.is_empty() {
                 // Check the joint constraints (if any)
-                if joint_constraints.map_or(true, |jc| jc.all_satisfied(bindings)) {
+                if joint_constraints.is_none_or(|jc| jc.all_satisfied(bindings)) {
                     let mut full_result = bindings.clone();
                     full_result.set_word(word);
                     results.push(full_result);
@@ -252,26 +252,20 @@ fn match_equation_internal(
                     }
                 }
             }
+            // TODO? DRY: Vowel, Consonant, CharSet cases
             FormPart::Vowel => {
-                if let Some((c, rest_chars)) = chars.split_first() {
-                    if VOWEL_SET.contains(c) {
-                        return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
-                    }
+                if let Some((c, rest_chars)) = chars.split_first() && VOWEL_SET.contains(c) {
+                    return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
             FormPart::Consonant => {
-                if let Some((c, rest_chars)) = chars.split_first() {
-                    if CONSONANT_SET.contains(c) {
-                        return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
-                    }
+                if let Some((c, rest_chars)) = chars.split_first() && CONSONANT_SET.contains(c) {
+                    return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
             FormPart::Charset(set) => {
-                if let Some((c, rest_chars)) = chars.split_first() {
-                    // `word` is uppercased, but your Charset stores lowercase; normalize one side:
-                    if set.contains(&c.to_ascii_lowercase()) {
-                        return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
-                    }
+                if let Some((c, rest_chars)) = chars.split_first() && set.contains(&c.to_ascii_lowercase()) {
+                    return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
 

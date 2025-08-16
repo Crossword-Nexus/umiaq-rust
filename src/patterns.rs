@@ -106,15 +106,8 @@ pub struct Pattern {
 impl Pattern {
     /// Constructs a new `Pattern` from any type that can be converted into a `String`.
     /// The resulting `lookup_keys` is initialized to `None`.
-    fn of(string: impl Into<String>) -> Self {
-        Self {
-            raw_string: string.into(),
-            lookup_keys: None,
-            original_index: 0,
-        }
-    }
-
-    fn create_with_index(string: impl Into<String>, original_index: usize) -> Self {
+    /// `original_index` is the index for this `Pattern`'s position in the original equation.
+    fn create(string: impl Into<String>, original_index: usize) -> Self {
         Self {
             raw_string: string.into(),
             lookup_keys: None,
@@ -147,6 +140,8 @@ impl Pattern {
 ///   with the variables seen so far (its *join key*).
 pub struct Patterns {
     /// List of patterns directly extracted from the input string (not constraints)
+    // TODO should we keep Vec<Pattern> for each order or just one (likely ordered_list) and use map
+    //      (original_to_ordered) when other is needed?
     pub list: Vec<Pattern>,
     /// Map of variable names (A-Z) to their associated constraints
     pub var_constraints: VarConstraints,
@@ -228,13 +223,13 @@ impl Patterns {
             } else {
                 // We only want to add a form if it is parseable
                 // Specifically, things like |AB|=7 should not be picked up here
-                // TODO: do we check for those separately?
+                // TODO do we check for those separately?
+                // TODO avoid calling parse_form twice on the same form? (here and in solve_equation)
                 if let Ok(_parsed) = parse_form(form) {
-                    self.list.push(Pattern::create_with_index(*form, next_form_ix));
+                    self.list.push(Pattern::create(*form, next_form_ix));
                     next_form_ix += 1;
                 } else {
-                    // parse_form() failed — skip or log it
-                    // TODO: log it?
+                    // TODO throw exception
                 }
             }
         }
