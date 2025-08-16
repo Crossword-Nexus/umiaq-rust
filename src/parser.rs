@@ -111,6 +111,21 @@ impl ParsedForm {
 
         Ok(ParsedForm { parts, prefilter })
     }
+
+    // Return an iterator over the form parts
+    pub fn iter(&self) -> std::slice::Iter<'_, FormPart> {
+        self.parts.iter()
+    }
+}
+
+// Enable `for part in &parsed_form { ... }`
+impl<'a> IntoIterator for &'a ParsedForm {
+    type Item = &'a FormPart;
+    type IntoIter = std::slice::Iter<'a, FormPart>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.parts.iter()
+    }
 }
 
 /// Validate whether a candidate binding value is allowed under a `VarConstraint`.
