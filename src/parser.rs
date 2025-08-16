@@ -253,20 +253,28 @@ fn match_equation_internal(
                 }
             }
             FormPart::Vowel => {
-                if VOWEL_SET.contains(chars.first().unwrap()) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
+                if let Some((c, rest_chars)) = chars.split_first() {
+                    if VOWEL_SET.contains(c) {
+                        return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
+                    }
                 }
             }
             FormPart::Consonant => {
-                if CONSONANT_SET.contains(chars.first().unwrap()) {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
+                if let Some((c, rest_chars)) = chars.split_first() {
+                    if CONSONANT_SET.contains(c) {
+                        return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
+                    }
                 }
             }
             FormPart::Charset(set) => {
-                if set.contains(&chars.first().unwrap().to_ascii_lowercase()) { // TODO? avoid to_ascii_lowercase here (and elsewhere) by uppercasing things early
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
+                if let Some((c, rest_chars)) = chars.split_first() {
+                    // `word` is uppercased, but your Charset stores lowercase; normalize one side:
+                    if set.contains(&c.to_ascii_lowercase()) {
+                        return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
+                    }
                 }
             }
+
             FormPart::Anagram(s) => {
                 // Match if the next len chars are an anagram of target
                 let len = s.len();
@@ -874,4 +882,12 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ParseError::ParseFailure { position: 0, remaining: _ }));
     }
+}
+
+#[test]
+fn test_var_vowel_var_no_panic_and_matches() {
+    let patt = parse_form("A@B").unwrap();
+    assert!(match_equation_exists("CAB", &patt, None, None)); // 'A'='C', '@'='A', 'B'='B
+    assert!(!match_equation_exists("C", &patt, None, None));  // too short
+    assert!(!match_equation_exists("CA", &patt, None, None));  // too short
 }
