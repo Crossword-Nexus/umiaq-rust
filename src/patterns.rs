@@ -122,6 +122,24 @@ impl Pattern {
             .map_or(false, |keys| keys == &self.variables())
     }
 
+    // Get the "constraint score" (name?) of a pattern
+    // The more literals and @# it has, the more constrained it is
+    fn constraint_score(&self) -> usize {
+        let s = &self.raw_string;
+        s.chars()
+            .map(|c| {
+                if c.is_ascii_lowercase() {
+                    3
+                } else if c == '@' || c == '#' {
+                    1
+                } else {
+                    0
+                }
+            })
+            .sum()
+    }
+
+
     // TODO? just do this once (lazily) rather than recomputing it each time?
     /// Extracts all uppercase ASCII letters from the pattern string.
     /// These are treated as variable names (e.g., A, B, C).
