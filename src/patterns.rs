@@ -114,6 +114,13 @@ impl Pattern {
         }
     }
 
+    // Check if the pattern is "deterministic"
+    fn is_deterministic(&self) -> bool {
+        self.lookup_keys
+            .as_ref()
+            .map_or(false, |keys| keys == &self.variables())
+    }
+
     fn create_with_index(string: impl Into<String>, original_index: usize) -> Self {
         Self {
             raw_string: string.into(),
