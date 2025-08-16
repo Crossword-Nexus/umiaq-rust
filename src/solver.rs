@@ -173,6 +173,9 @@ fn recursive_join(
 /// Will return a `ParseError` if a form cannot be parsed.
 // TODO? add more detail in Errors section
 pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Result<Vec<Vec<Bindings>>, ParseError> {
+    // 0. Make a hash set version of our word list
+    let word_set: HashSet<&str> = word_list.iter().copied().collect();
+
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let patterns = Patterns::of(input);
@@ -207,6 +210,11 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
         for (i, patt) in patterns.iter().enumerate() {
             // Skip this pattern if we already have too many matches for it
             if words[i].count >= MAX_INITIAL_MATCHES { // TODO is there a better way to handle this? could lead to 0 final outputs when there are some...
+                continue;
+            }
+
+            // Skip this pattern if it is deterministic and fully bound
+            if patt.is_deterministic() && patt.all_vars_in_lookup_keys() {
                 continue;
             }
 
