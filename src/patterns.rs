@@ -140,8 +140,17 @@ impl Pattern {
         }
     }
 
-    // Get the "constraint score" (name?) of a pattern
-    // The more literals and @# it has, the more constrained it is
+    /// True iff every variable this pattern uses is included in its lookup_keys.
+    /// (If lookup_keys is None, only patterns with zero variables return true.)
+    pub fn all_vars_in_lookup_keys(&self) -> bool {
+        match &self.lookup_keys {
+            Some(keys) => self.variables().is_subset(keys),
+            None => self.variables().is_empty(),
+        }
+    }
+
+    /// Get the "constraint score" (name?) of a pattern
+    /// The more literals and @# it has, the more constrained it is
     fn constraint_score(&self) -> usize {
         let s = &self.raw_string;
         s.chars()
