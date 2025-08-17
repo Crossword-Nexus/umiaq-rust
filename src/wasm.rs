@@ -18,13 +18,13 @@ fn binding_to_word(b: &Bindings) -> Option<String> {
     b.get_word().cloned()
 }
 
-/// JS entry: (input: string, word_list: string[], num_results: number)
+/// JS entry: (input: string, word_list: string[], num_results_requested: number)
 /// returns Array<Array<string>> — only the bound words
 #[wasm_bindgen]
 pub fn solve_equation_wasm(
     input: &str,
     word_list: JsValue,
-    num_results: usize,
+    num_results_requested: usize,
 ) -> Result<JsValue, JsValue> {
     // word_list: string[] -> Vec<String>
     let words: Vec<String> = serde_wasm_bindgen::from_value(word_list)
@@ -32,7 +32,7 @@ pub fn solve_equation_wasm(
     // Borrow as &[&str] for the solver
     let refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
 
-    let raw = solve_equation(input, &refs, num_results)?; // Vec<Vec<Bindings>>
+    let raw = solve_equation(input, &refs, num_results_requested)?; // Vec<Vec<Bindings>>
 
     // Keep only the "*" word from each Bindings
     let js_ready: Vec<Vec<String>> = raw

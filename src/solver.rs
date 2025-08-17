@@ -46,10 +46,10 @@ pub struct CandidateBuckets {
 /// - `selected`: the partial solution (one chosen Binding per pattern so far).
 /// - `env`: the accumulated variable → value environment from earlier choices.
 /// - `results`: completed solutions (each is a Vec<Binding>, one per pattern).
-/// - `num_results`: cap on how many full solutions to collect.
+/// - `num_results_requested`: cap on how many full solutions to collect.
 ///
 /// Return:
-/// - This function mutates `results` and stops early once it has `num_results`.
+/// - This function mutates `results` and stops early once it has `num_results_requested`.
 fn recursive_join(
     idx: usize,
     words: &Vec<CandidateBuckets>,
@@ -57,13 +57,13 @@ fn recursive_join(
     selected: &mut Vec<Bindings>,
     env: &mut HashMap<char, String>,
     results: &mut Vec<Vec<Bindings>>,
-    num_results: usize,
+    num_results_requested: usize,
     patterns: &Patterns,                 // for patt.deterministic / vars / lookup_keys
     parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
     word_list_as_set: &HashSet<&str>,
 ) {
     // Stop if we’ve met the requested quota of full solutions.
-    if results.len() >= num_results {
+    if results.len() >= num_results_requested {
         return;
     }
 
@@ -98,7 +98,7 @@ fn recursive_join(
 
             selected.push(binding);
             recursive_join(
-                idx + 1, words, lookup_keys, selected, env, results, num_results,
+                idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
                 patterns, parsed_forms, word_list_as_set,
             );
             selected.pop();
@@ -152,7 +152,7 @@ fn recursive_join(
 
     // Try each candidate binding for this pattern.
     for cand in bucket_candidates {
-        if results.len() >= num_results {
+        if results.len() >= num_results_requested {
             break; // stop early if we’ve already met the quota
         }
 
@@ -189,7 +189,7 @@ fn recursive_join(
 
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
-        recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results,
+        recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
                        patterns, parsed_forms, word_list_as_set);
         selected.pop();
 
@@ -205,7 +205,7 @@ fn recursive_join(
 ///
 /// - `input`: equation in our pattern syntax (e.g., `"AB;BA;|A|=2;..."`)
 /// - `word_list`: list of candidate words to test
-/// - `num_results`: maximum number of *final* results to return
+/// - `num_results_requested`: maximum number of *final* results to return
 ///
 /// Returns:
 /// - A `Vec` of solutions, each solution being a `Vec<Binding>` where each `Binding`
@@ -215,7 +215,7 @@ fn recursive_join(
 ///
 /// Will return a `ParseError` if a form cannot be parsed.
 // TODO? add more detail in Errors section
-pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Result<Vec<Vec<Bindings>>, ParseError> {
+pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: usize) -> Result<Vec<Vec<Bindings>>, ParseError> {
     // 0. Make a hash set version of our word list
     let word_list_as_set: HashSet<&str> = word_list.iter().copied().collect();
 
@@ -357,7 +357,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
         &mut selected,  // current partial solution (initially empty)
         &mut env,       // current variable environment (initially empty)
         &mut results,   // collect final solutions here
-        num_results,    // stop once we have this many solutions
+        num_results_requested,    // stop once we have this many solutions
         &patterns,
         &parsed_forms,
         &word_list_as_set,
@@ -370,7 +370,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
         }).collect::<Vec<_>>()
     }).collect::<Vec<_>>();
 
-    // Return up to `num_results` reordered solutions
+    // Return up to `num_results_requested` reordered solutions
     Ok(reordered)
 }
 
