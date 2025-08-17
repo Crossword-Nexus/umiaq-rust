@@ -375,3 +375,12 @@ fn test_solve_equation2() {
     println!("{:?}", results);
     assert_eq!(2, results.len());
 }
+
+#[test]
+fn test_solve_equation3() {
+    let word_list: Vec<&str> = vec!["INCH", "CHIN", "DADA", "TEST", "SKY", "SLY"];
+    let input = "AkB;AlB".to_string();
+    let results = solve_equation(&input, &word_list, 5).unwrap();
+    println!("{:?}", results);
+    assert_eq!(1, results.len());
+}
