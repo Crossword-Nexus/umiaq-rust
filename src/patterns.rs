@@ -331,7 +331,7 @@ impl Patterns {
                     let overlap = p.variables().intersection(&found_vars).count();
                     (overlap, tie_tail(p))
                 })
-                .map(|(i, _)| (i, patt_list[i].clone()))
+                .map(|(i, p)| (i, p.clone()))
                 .unwrap();
 
             // Assign join keys for the chosen pattern
