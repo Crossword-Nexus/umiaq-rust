@@ -168,7 +168,7 @@ impl Pattern {
 
 
     /// Return the variables present in the pattern
-    fn variables(&self) -> &HashSet<char> {
+    pub fn variables(&self) -> &HashSet<char> {
         &self._variables
     }
 
