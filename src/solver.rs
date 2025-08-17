@@ -2,6 +2,7 @@ use crate::bindings::{Bindings, WORD_SENTINEL};
 use crate::joint_constraints::parse_joint_constraints;
 use crate::parser::{match_equation_all, parse_form, ParseError, ParsedForm};
 use crate::patterns::Patterns;
+use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
 
 use std::collections::{HashMap, HashSet};
 
@@ -246,6 +247,12 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
     // 4a. Get the joint constraints
     let joint_constraints = parse_joint_constraints(input);
 
+    // 4b. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
+    let scan_hints: Vec<PatternLenHints> = parsed_forms
+        .iter()
+        .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, joint_constraints.as_ref()))
+        .collect();
+
     // 5. Iterate through every candidate word.
     'words_loop: for &word in word_list {
         // Check each pattern against this word
@@ -259,6 +266,14 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
             if patt.is_deterministic && patt.all_vars_in_lookup_keys() {
                 continue;
             }
+
+            // ---- Cheap prefilter by length (skip calling the matcher if impossible) ----
+            let wlen = word.len();
+            let hint = &scan_hints[i];
+            if !hint.is_word_len_possible(wlen) {
+                continue; // length can't possibly fit this form; skip
+            }
+
 
             // Try matching the word against the parsed pattern.
             // `match_equation_all` returns a list of `Bindings` (variable→string maps)
