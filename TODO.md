@@ -16,6 +16,7 @@
 * use `Range`s for length ranges?
 * add length constraints to individual variables when there is a joint constraint
 * add word_length to forms with known length (e.g., `~AnB#@.` with `|AB|=5` has length 8)
+  * More generally, `A*B;|AB|=6` has length >= 6
 * allow constraints like |A|<4, |B|>=5, etc.
 * consider adding a struct when faced with long argument lists (for methods)
 * throw exception if cannot parse form in `make_list` (else case)
