@@ -84,6 +84,10 @@ pub enum FormPart {
 }
 
 impl FormPart {
+    pub(crate) fn is_deterministic(&self) -> bool {
+        matches!(self, FormPart::Var(_) | FormPart::RevVar(_) | FormPart::Lit(_))
+    }
+
     fn get_tag_string(&self) -> Option<&str> {
         match self {
             FormPart::Dot => Some("."),
@@ -118,24 +122,19 @@ impl ParsedForm {
     }
 
     /// If this form is deterministic, build the concrete word using `env`.
-    /// Returns None if any required var is unbound or if a non-deterministic part is present.
+    /// Returns None if any required var is unbound or if a nondeterministic part is present.
     pub fn materialize_deterministic_with_env(
         &self,
         env: &std::collections::HashMap<char, String>,
     ) -> Option<String> {
-        let mut out = String::new();
-        for part in self.iter() {
+        self.iter().map(|part| {
             match part {
-                FormPart::Lit(s) => out.push_str(&s.to_ascii_uppercase()),
-                FormPart::Var(v) => out.push_str(env.get(v)?.as_str()),
-                FormPart::RevVar(v) => {
-                    let val = env.get(v)?;
-                    out.extend(val.chars().rev());
-                }
-                _ => return None, // any other FormPart => not deterministic
+                FormPart::Lit(s) => Some(s.to_ascii_uppercase()),
+                FormPart::Var(v) => Some(env.get(v)?.clone()),
+                FormPart::RevVar(v) => Some(env.get(v)?.chars().rev().collect()),
+                _ => None // TODO! test that this fails fast!
             }
-        }
-        Some(out)
+        }).collect::<Option<String>>()
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::constraints::VarConstraints;
-use crate::parser::{parse_form, FormPart, ParseError};
+use crate::parser::{parse_form, ParseError};
 use fancy_regex::Regex;
 use std::cmp::Reverse;
 use std::collections::HashSet;
@@ -101,9 +101,9 @@ pub struct Pattern {
     /// This is stable and survives reordering/cloning.
     pub original_index: usize,
     /// Determine whether the string is deterministic. Created on init.
-    deterministic: bool,
+    pub(crate) is_deterministic: bool,
     /// The set of variables present in the pattern
-    _variables: HashSet<char>,
+    pub(crate) variables: HashSet<char>,
 }
 
 /// Implementation for the `Pattern` struct, representing a single pattern string
@@ -116,17 +116,11 @@ impl Pattern {
         let raw_string = string.into();
         // Determine if the pattern is deterministic
         let deterministic = parse_form(&raw_string)
-            .map(|parts| {
-                parts.iter().all(|p| {
-                    matches!(p, FormPart::Var(_)
-                                | FormPart::RevVar(_)
-                                | FormPart::Lit(_))
-                })
-            })
+            .map(|parts| { parts.iter().all(|p| { p.is_deterministic() }) })
             .unwrap_or(false);
 
         // Get the variables involved
-        let _vars = raw_string
+        let vars = raw_string
             .chars()
             .filter(char::is_ascii_uppercase)
             .collect();
@@ -135,17 +129,17 @@ impl Pattern {
             raw_string,
             lookup_keys: None,
             original_index,
-            deterministic,
-            _variables: _vars,
+            is_deterministic: deterministic,
+            variables: vars,
         }
     }
 
-    /// True iff every variable this pattern uses is included in its lookup_keys.
-    /// (If lookup_keys is None, only patterns with zero variables return true.)
+    /// True iff every variable this pattern uses is included in its `lookup_keys`.
+    /// (If `lookup_keys` is `None`, only patterns with zero variables return true.)
     pub fn all_vars_in_lookup_keys(&self) -> bool {
         match &self.lookup_keys {
-            Some(keys) => self.variables().is_subset(keys),
-            None => self.variables().is_empty(),
+            Some(keys) => self.variables.is_subset(keys),
+            None => self.variables.is_empty(),
         }
     }
 
@@ -156,25 +150,14 @@ impl Pattern {
         s.chars()
             .map(|c| {
                 if c.is_ascii_lowercase() {
-                    3
+                    3 // TODO avoid magic constants (i.e., name this)
                 } else if c == '@' || c == '#' {
-                    1
+                    1 // TODO avoid magic constants (i.e., name this)
                 } else {
-                    0
+                    0 // TODO avoid magic constants (i.e., name this)
                 }
             })
             .sum()
-    }
-
-
-    /// Return the variables present in the pattern
-    pub fn variables(&self) -> &HashSet<char> {
-        &self._variables
-    }
-
-    /// A flag to tell us if the pattern is deterministic
-    pub fn is_deterministic(&self) -> bool {
-        self.deterministic
     }
 
     /// Set the lookup keys
@@ -301,15 +284,15 @@ impl Patterns {
         let mut patt_list = self.list.clone();
         let mut ordered = Vec::with_capacity(patt_list.len());
 
-        // Reusable tie-break tail: (constraint_score desc, deterministic asc, original_index desc)
+        // Reusable tiebreak tail: (constraint_score desc, deterministic asc, original_index desc)
         // Note: Reverse(bool) makes false > true under max_by_key, i.e., ascending by bool.
-        let tie_tail = |p: &Pattern| (p.constraint_score(), Reverse(p.deterministic), Reverse(p.original_index));
+        let tie_tail = |p: &Pattern| (p.constraint_score(), Reverse(p.is_deterministic), Reverse(p.original_index));
 
         // First pick: most variables; tiebreak by tail.
         let first_ix = patt_list
             .iter()
             .enumerate()
-            .max_by_key(|(_, p)| (p.variables().len(), tie_tail(p)))
+            .max_by_key(|(_, p)| (p.variables.len(), tie_tail(p)))
             .map(|(i, _)| i)
             .unwrap();
 
@@ -320,23 +303,22 @@ impl Patterns {
             // Vars already “seen”
             let found_vars: HashSet<char> = ordered
                 .iter()
-                .flat_map(|p| p.variables().iter().copied())
+                .flat_map(|p| p.variables.iter().copied())
                 .collect();
 
-            // Next pick: most overlap; tiebreak by tail.
+            // Next pick: maximize overlap; tiebreak by tail.
             let (ix, mut next) = patt_list
                 .iter()
                 .enumerate()
                 .max_by_key(|(_, p)| {
-                    let overlap = p.variables().intersection(&found_vars).count();
+                    let overlap = p.variables.intersection(&found_vars).count();
                     (overlap, tie_tail(p))
                 })
                 .map(|(i, p)| (i, p.clone()))
                 .unwrap();
 
             // Assign join keys for the chosen pattern
-            let lookup_keys: HashSet<char> = next
-                .variables()
+            let lookup_keys: HashSet<char> = next.variables
                 .intersection(&found_vars)
                 .copied()
                 .collect();
@@ -451,9 +433,9 @@ mod tests {
         let input = "ABC;BC;C";
         let patterns = Patterns::of(input);
 
-        let vars0 = patterns.ordered_list[0].variables();
-        let vars1 = patterns.ordered_list[1].variables();
-        let vars2 = patterns.ordered_list[2].variables();
+        let vars0 = &patterns.ordered_list[0].variables;
+        let vars1 = &patterns.ordered_list[1].variables;
+        let vars2 = &patterns.ordered_list[2].variables;
 
         assert!(vars0.len() >= vars1.len());
         assert!(vars1.intersection(&vars0).count() >= vars2.intersection(&vars0).count());
