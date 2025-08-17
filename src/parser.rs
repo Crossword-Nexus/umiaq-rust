@@ -126,7 +126,7 @@ impl ParsedForm {
         let mut out = String::new();
         for part in self.iter() {
             match part {
-                FormPart::Lit(s) => out.push_str(s),
+                FormPart::Lit(s) => out.push_str(&s.to_ascii_uppercase()),
                 FormPart::Var(v) => out.push_str(env.get(v)?.as_str()),
                 FormPart::RevVar(v) => {
                     let val = env.get(v)?;
