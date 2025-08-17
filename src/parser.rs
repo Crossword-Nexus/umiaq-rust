@@ -117,19 +117,22 @@ impl ParsedForm {
         self.parts.iter()
     }
 
-    /// If this form is deterministic, build the concrete word using the given bindings.
-    /// Returns `None` if any required var is unbound or the form isn't deterministic.
-    pub fn materialize_deterministic(&self, bindings: &Bindings) -> Option<String> {
+    /// If this form is deterministic, build the concrete word using `env`.
+    /// Returns None if any required var is unbound or if a non-deterministic part is present.
+    pub fn materialize_deterministic_with_env(
+        &self,
+        env: &std::collections::HashMap<char, String>,
+    ) -> Option<String> {
         let mut out = String::new();
-        for part in &self.parts {
+        for part in self.iter() {
             match part {
                 FormPart::Lit(s) => out.push_str(s),
-                FormPart::Var(v)     => out.push_str(bindings.get(*v)?),
-                FormPart::RevVar(v)  => {
-                    let val = bindings.get(*v)?;
+                FormPart::Var(v) => out.push_str(env.get(v)?.as_str()),
+                FormPart::RevVar(v) => {
+                    let val = env.get(v)?;
                     out.extend(val.chars().rev());
                 }
-                _ => return None, // anything else means not deterministic
+                _ => return None, // any other FormPart => not deterministic
             }
         }
         Some(out)
