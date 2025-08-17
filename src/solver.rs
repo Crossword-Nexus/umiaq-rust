@@ -59,7 +59,7 @@ fn recursive_join(
     num_results: usize,
     patterns: &Patterns,                 // for patt.deterministic / vars / lookup_keys
     parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
-    wordset: &HashSet<&str>,
+    word_list_as_set: &HashSet<&str>,
 ) {
     // Stop if we’ve met the requested quota of full solutions.
     if results.len() >= num_results {
@@ -74,11 +74,11 @@ fn recursive_join(
 
     // ---- FAST PATH: deterministic + fully keyed ----------------------------
     let patt = &patterns.ordered_list[idx];
-    if patt.is_deterministic() && patt.all_vars_in_lookup_keys() {
+    if patt.is_deterministic && patt.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
         let pf = &parsed_forms[idx];
         if let Some(expected) = pf.materialize_deterministic_with_env(env) {
-            if !wordset.contains(expected.as_str()) {
+            if !word_list_as_set.contains(expected.as_str()) {
                 // This branch cannot succeed — prune immediately.
                 return;
             }
@@ -88,7 +88,7 @@ fn recursive_join(
             // - include only vars that belong to this pattern (they must already be in env)
             let mut binding = Bindings::default();
             binding.set_word(&expected);
-            for &v in patt.variables() {
+            for &v in &patt.variables {
                 // safe to unwrap because all vars are in lookup_keys ⇒ must be in env
                 if let Some(val) = env.get(&v) {
                     binding.set(v, val.clone());
@@ -98,12 +98,13 @@ fn recursive_join(
             selected.push(binding);
             recursive_join(
                 idx + 1, words, lookup_keys, selected, env, results, num_results,
-                patterns, parsed_forms, wordset,
+                patterns, parsed_forms, word_list_as_set,
             );
             selected.pop();
             return; // IMPORTANT: skip normal enumeration path
         } else {
             // Not actually materializable (shouldn't happen if patt.deterministic is correct)
+            // TODO throw error?
             return;
         }
     }
@@ -188,7 +189,7 @@ fn recursive_join(
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
         recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results,
-                       patterns, parsed_forms, wordset);
+                       patterns, parsed_forms, word_list_as_set);
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -215,7 +216,7 @@ fn recursive_join(
 // TODO? add more detail in Errors section
 pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Result<Vec<Vec<Bindings>>, ParseError> {
     // 0. Make a hash set version of our word list
-    let word_set: HashSet<&str> = word_list.iter().copied().collect();
+    let word_list_as_set: HashSet<&str> = word_list.iter().copied().collect();
 
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
@@ -255,7 +256,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
             }
 
             // Skip this pattern if it is deterministic and fully bound
-            if patt.is_deterministic() && patt.all_vars_in_lookup_keys() {
+            if patt.is_deterministic && patt.all_vars_in_lookup_keys() {
                 continue;
             }
 
@@ -344,7 +345,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
         num_results,    // stop once we have this many solutions
         &patterns,
         &parsed_forms,
-        &word_set,
+        &word_list_as_set,
     );
 
     // ---- Reorder solutions back to original form order ----
@@ -378,9 +379,14 @@ fn test_solve_equation2() {
 
 #[test]
 fn test_solve_equation3() {
-    let word_list: Vec<&str> = vec!["INCH", "CHIN", "DADA", "TEST", "SKY", "SLY"];
+    let word_list = vec!["INCH", "CHIN", "DADA", "TEST", "SKY", "SLY"];
     let input = "AkB;AlB".to_string();
     let results = solve_equation(&input, &word_list, 5).unwrap();
-    println!("{:?}", results);
-    assert_eq!(1, results.len());
+
+    let sky_bindings = Bindings { map: HashMap::from([('*', "SKY".to_string()), ('A', "S".to_string()), ('B', "Y".to_string())]) };
+    let sly_bindings = Bindings { map: HashMap::from([('*', "SLY".to_string()), ('A', "S".to_string()), ('B', "Y".to_string())]) };
+    // NB: this could give a false negative if SLY comes out before SKY (since we presumably shouldn't care about the order), so...
+    // TODO allow order independence for equality... perhaps create a richer struct than just Vec<Bindings> that has a notion of order-independent equality
+    let expected = Vec::from([Vec::from([sky_bindings, sly_bindings])]);
+    assert_eq!(expected, results);
 }
