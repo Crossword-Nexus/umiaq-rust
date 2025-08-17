@@ -30,7 +30,7 @@ struct Cli {
 
     /// Maximum number of results to return
     #[arg(short = 'n', long, default_value_t = 100)]
-    num_results: usize,
+    num_results_requested: usize,
 }
 
 fn main() -> std::io::Result<()> {
@@ -43,7 +43,7 @@ fn main() -> std::io::Result<()> {
     let words_ref: Vec<&str> = wl.entries.iter().map(String::as_str).collect();
 
     let t_solve = Instant::now();
-    let solutions: Vec<Vec<Bindings>> = solver::solve_equation(&cli.pattern, &words_ref, cli.num_results)?;
+    let solutions: Vec<Vec<Bindings>> = solver::solve_equation(&cli.pattern, &words_ref, cli.num_results_requested)?;
     let solve_secs = t_solve.elapsed().as_secs_f64();
 
     for solution in &solutions {
