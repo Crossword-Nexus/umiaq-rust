@@ -1,6 +1,7 @@
 use crate::constraints::VarConstraints;
-use crate::parser::{parse_form, ParseError};
+use crate::parser::{parse_form, FormPart, ParseError};
 use fancy_regex::Regex;
+use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
@@ -99,6 +100,10 @@ pub struct Pattern {
     /// Position of this form among *forms only* in the original (display) order.
     /// This is stable and survives reordering/cloning.
     pub original_index: usize,
+    /// Determine whether the string is deterministic. Created on init.
+    deterministic: bool,
+    /// The set of variables present in the pattern
+    _variables: HashSet<char>,
 }
 
 /// Implementation for the `Pattern` struct, representing a single pattern string
@@ -108,21 +113,73 @@ impl Pattern {
     /// The resulting `lookup_keys` is initialized to `None`.
     /// `original_index` is the index for this `Pattern`'s position in the original equation.
     fn create(string: impl Into<String>, original_index: usize) -> Self {
+        let raw_string = string.into();
+        // Determine if the pattern is deterministic
+        let deterministic = parse_form(&raw_string)
+            .map(|parts| {
+                parts.iter().all(|p| {
+                    matches!(p, FormPart::Var(_)
+                                | FormPart::RevVar(_)
+                                | FormPart::Lit(_))
+                })
+            })
+            .unwrap_or(false);
+
+        // Get the variables involved
+        let _vars = raw_string
+            .chars()
+            .filter(char::is_ascii_uppercase)
+            .collect();
+
         Self {
-            raw_string: string.into(),
+            raw_string,
             lookup_keys: None,
             original_index,
+            deterministic,
+            _variables: _vars,
         }
     }
 
-    // TODO? just do this once (lazily) rather than recomputing it each time?
-    /// Extracts all uppercase ASCII letters from the pattern string.
-    /// These are treated as variable names (e.g., A, B, C).
-    fn variables(&self) -> HashSet<char> {
-        self.raw_string
-            .chars()
-            .filter(char::is_ascii_uppercase)
-            .collect()
+    /// True iff every variable this pattern uses is included in its lookup_keys.
+    /// (If lookup_keys is None, only patterns with zero variables return true.)
+    pub fn all_vars_in_lookup_keys(&self) -> bool {
+        match &self.lookup_keys {
+            Some(keys) => self.variables().is_subset(keys),
+            None => self.variables().is_empty(),
+        }
+    }
+
+    /// Get the "constraint score" (name?) of a pattern
+    /// The more literals and @# it has, the more constrained it is
+    fn constraint_score(&self) -> usize {
+        let s = &self.raw_string;
+        s.chars()
+            .map(|c| {
+                if c.is_ascii_lowercase() {
+                    3
+                } else if c == '@' || c == '#' {
+                    1
+                } else {
+                    0
+                }
+            })
+            .sum()
+    }
+
+
+    /// Return the variables present in the pattern
+    pub fn variables(&self) -> &HashSet<char> {
+        &self._variables
+    }
+
+    /// A flag to tell us if the pattern is deterministic
+    pub fn is_deterministic(&self) -> bool {
+        self.deterministic
+    }
+
+    /// Set the lookup keys
+    pub fn set_lookup_keys(&mut self, keys: HashSet<char>) {
+        self.lookup_keys = Some(keys);
     }
 }
 
@@ -239,45 +296,52 @@ impl Patterns {
     /// Reorders the list of patterns to improve solving efficiency.
     /// First selects the pattern with the most variables,
     /// then repeatedly selects the next pattern with the most overlap with those already chosen.
-    /// This ensures early patterns can help prune the solution space. // TODO is "ensures" correct?
+    /// This helps early patterns prune the solution space.
     fn ordered_partitions(&self) -> Vec<Pattern> {
         let mut patt_list = self.list.clone();
-        let mut ordered = Vec::new();
+        let mut ordered = Vec::with_capacity(patt_list.len());
 
-        // Find the index of the pattern with the most variables
+        // Reusable tie-break tail: (constraint_score desc, deterministic asc, original_index desc)
+        // Note: Reverse(bool) makes false > true under max_by_key, i.e., ascending by bool.
+        let tie_tail = |p: &Pattern| (p.constraint_score(), Reverse(p.deterministic), Reverse(p.original_index));
+
+        // First pick: most variables; tiebreak by tail.
         let first_ix = patt_list
             .iter()
             .enumerate()
-            .max_by_key(|(_, p)| p.variables().len())
+            .max_by_key(|(_, p)| (p.variables().len(), tie_tail(p)))
             .map(|(i, _)| i)
             .unwrap();
 
-        // Start the ordered list with that most-variable-rich pattern
         let first = patt_list.remove(first_ix);
         ordered.push(first);
 
         while !patt_list.is_empty() {
-            // Collect all variables used in the ordered patterns so far
-            let found_vars: HashSet<char> = ordered.iter().flat_map(Pattern::variables).collect();
+            // Vars already “seen”
+            let found_vars: HashSet<char> = ordered
+                .iter()
+                .flat_map(|p| p.variables().iter().copied())
+                .collect();
 
-            // Find the pattern that shares the most variables with `found_vars`
+            // Next pick: most overlap; tiebreak by tail.
             let (ix, mut next) = patt_list
                 .iter()
                 .enumerate()
-                .map(|(i, p)| {
+                .max_by_key(|(_, p)| {
                     let overlap = p.variables().intersection(&found_vars).count();
-                    (i, overlap)
+                    (overlap, tie_tail(p))
                 })
-                .max_by_key(|&(_, count)| count)
-                .map(|(i, _)| (i, patt_list[i].clone()))
+                .map(|(i, p)| (i, p.clone()))
                 .unwrap();
 
-            let lookup_keys = next
+            // Assign join keys for the chosen pattern
+            let lookup_keys: HashSet<char> = next
                 .variables()
                 .intersection(&found_vars)
                 .copied()
                 .collect();
-            next.lookup_keys = Some(lookup_keys);
+            next.set_lookup_keys(lookup_keys);
+
             patt_list.remove(ix);
             ordered.push(next);
         }

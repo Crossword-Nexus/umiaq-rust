@@ -1,6 +1,6 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
 use crate::joint_constraints::parse_joint_constraints;
-use crate::parser::{match_equation_all, parse_form, ParseError};
+use crate::parser::{match_equation_all, parse_form, ParseError, ParsedForm};
 use crate::patterns::Patterns;
 
 use std::collections::{HashMap, HashSet};
@@ -57,6 +57,9 @@ fn recursive_join(
     env: &mut HashMap<char, String>,
     results: &mut Vec<Vec<Bindings>>,
     num_results: usize,
+    patterns: &Patterns,                 // for patt.deterministic / vars / lookup_keys
+    parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
+    wordset: &HashSet<&str>,
 ) {
     // Stop if we’ve met the requested quota of full solutions.
     if results.len() >= num_results {
@@ -68,6 +71,43 @@ fn recursive_join(
         results.push(selected.clone());
         return;
     }
+
+    // ---- FAST PATH: deterministic + fully keyed ----------------------------
+    let patt = &patterns.ordered_list[idx];
+    if patt.is_deterministic() && patt.all_vars_in_lookup_keys() {
+        // The word is fully determined by literals + already-bound vars in `env`.
+        let pf = &parsed_forms[idx];
+        if let Some(expected) = pf.materialize_deterministic_with_env(env) {
+            if !wordset.contains(expected.as_str()) {
+                // This branch cannot succeed — prune immediately.
+                return;
+            }
+
+            // Build a minimal Bindings for this pattern:
+            // - include WORD_SENTINEL (whole word)
+            // - include only vars that belong to this pattern (they must already be in env)
+            let mut binding = Bindings::default();
+            binding.set_word(&expected);
+            for &v in patt.variables() {
+                // safe to unwrap because all vars are in lookup_keys ⇒ must be in env
+                if let Some(val) = env.get(&v) {
+                    binding.set(v, val.clone());
+                }
+            }
+
+            selected.push(binding);
+            recursive_join(
+                idx + 1, words, lookup_keys, selected, env, results, num_results,
+                patterns, parsed_forms, wordset,
+            );
+            selected.pop();
+            return; // IMPORTANT: skip normal enumeration path
+        } else {
+            // Not actually materializable (shouldn't happen if patt.deterministic is correct)
+            return;
+        }
+    }
+    // ------------------------------------------------------------------------
 
     // Decide which bucket of candidates to iterate for pattern `idx`.
     //
@@ -147,7 +187,8 @@ fn recursive_join(
 
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
-        recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results);
+        recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results,
+                       patterns, parsed_forms, wordset);
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -173,6 +214,9 @@ fn recursive_join(
 /// Will return a `ParseError` if a form cannot be parsed.
 // TODO? add more detail in Errors section
 pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Result<Vec<Vec<Bindings>>, ParseError> {
+    // 0. Make a hash set version of our word list
+    let word_set: HashSet<&str> = word_list.iter().copied().collect();
+
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let patterns = Patterns::of(input);
@@ -207,6 +251,11 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
         for (i, patt) in patterns.iter().enumerate() {
             // Skip this pattern if we already have too many matches for it
             if words[i].count >= MAX_INITIAL_MATCHES { // TODO is there a better way to handle this? could lead to 0 final outputs when there are some...
+                continue;
+            }
+
+            // Skip this pattern if it is deterministic and fully bound
+            if patt.is_deterministic() && patt.all_vars_in_lookup_keys() {
                 continue;
             }
 
@@ -293,6 +342,9 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results: usize) -> Re
         &mut env,       // current variable environment (initially empty)
         &mut results,   // collect final solutions here
         num_results,    // stop once we have this many solutions
+        &patterns,
+        &parsed_forms,
+        &word_set,
     );
 
     // ---- Reorder solutions back to original form order ----
@@ -322,4 +374,13 @@ fn test_solve_equation2() {
     let results = solve_equation(&input, &word_list, 5).unwrap();
     println!("{:?}", results);
     assert_eq!(2, results.len());
+}
+
+#[test]
+fn test_solve_equation3() {
+    let word_list: Vec<&str> = vec!["INCH", "CHIN", "DADA", "TEST", "SKY", "SLY"];
+    let input = "AkB;AlB".to_string();
+    let results = solve_equation(&input, &word_list, 5).unwrap();
+    println!("{:?}", results);
+    assert_eq!(1, results.len());
 }

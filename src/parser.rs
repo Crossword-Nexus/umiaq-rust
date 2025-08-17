@@ -111,6 +111,42 @@ impl ParsedForm {
 
         Ok(ParsedForm { parts, prefilter })
     }
+
+    // Return an iterator over the form parts
+    pub fn iter(&self) -> std::slice::Iter<'_, FormPart> {
+        self.parts.iter()
+    }
+
+    /// If this form is deterministic, build the concrete word using `env`.
+    /// Returns None if any required var is unbound or if a non-deterministic part is present.
+    pub fn materialize_deterministic_with_env(
+        &self,
+        env: &std::collections::HashMap<char, String>,
+    ) -> Option<String> {
+        let mut out = String::new();
+        for part in self.iter() {
+            match part {
+                FormPart::Lit(s) => out.push_str(&s.to_ascii_uppercase()),
+                FormPart::Var(v) => out.push_str(env.get(v)?.as_str()),
+                FormPart::RevVar(v) => {
+                    let val = env.get(v)?;
+                    out.extend(val.chars().rev());
+                }
+                _ => return None, // any other FormPart => not deterministic
+            }
+        }
+        Some(out)
+    }
+}
+
+// Enable `for part in &parsed_form { ... }`
+impl<'a> IntoIterator for &'a ParsedForm {
+    type Item = &'a FormPart;
+    type IntoIter = std::slice::Iter<'a, FormPart>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.parts.iter()
+    }
 }
 
 /// Validate whether a candidate binding value is allowed under a `VarConstraint`.
