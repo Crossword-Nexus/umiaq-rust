@@ -180,34 +180,23 @@ where
             sum_ui = match (sum_ui, b.ui) { (Some(a), Some(bu)) => Some(a + bu), _ => None };
         }
 
-        // Weighted min at fixed T (distribute to cheapest weights first)
-        let mut weighted_min_for_t = |t: usize| -> Option<usize> {
+        /// Compute the weighted extremal sum at fixed total `t`.
+        /// If `minimize` is true, distribute to cheapest weights first (minimization).
+        /// If false, distribute to most expensive weights first (maximization).
+        fn weighted_extreme_for_t(rows: &[Row], sum_li: usize, sum_ui: Option<usize>, t: usize, minimize: bool) -> Option<usize> {
             if t < sum_li { return None; }
             if let Some(su) = sum_ui { if t > su { return None; } }
-            let base = rows.iter().map(|r| r.w * r.li).sum::<usize>();
-            let mut rem = t - sum_li;
-            let mut rows_sorted = rows.clone();
-            rows_sorted.sort_by_key(|r| r.w);
-            let mut extra = 0usize;
-            for r in &rows_sorted {
-                if rem == 0 { break; }
-                let cap = r.ui.map(|u| u.saturating_sub(r.li)).unwrap_or(rem);
-                let take = cap.min(rem);
-                extra += r.w * take;
-                rem -= take;
-            }
-            debug_assert_eq!(rem, 0);
-            Some(base + extra)
-        };
 
-        // Weighted max at fixed T (distribute to most expensive weights first)
-        let mut weighted_max_for_t = |t: usize| -> Option<usize> {
-            if t < sum_li { return None; }
-            if let Some(su) = sum_ui { if t > su { return None; } }
             let base = rows.iter().map(|r| r.w * r.li).sum::<usize>();
             let mut rem = t - sum_li;
-            let mut rows_sorted = rows.clone();
-            rows_sorted.sort_by_key(|r| std::cmp::Reverse(r.w));
+
+            let mut rows_sorted = rows.to_vec();
+            if minimize {
+                rows_sorted.sort_by_key(|r| r.w);            // cheapest first
+            } else {
+                rows_sorted.sort_by_key(|r| std::cmp::Reverse(r.w)); // most expensive first
+            }
+
             let mut extra = 0usize;
             for r in &rows_sorted {
                 if rem == 0 { break; }
@@ -216,13 +205,45 @@ where
                 extra += r.w * take;
                 rem -= take;
             }
+
             debug_assert_eq!(rem, 0);
             Some(base + extra)
-        };
+        }
+
+        let weighted_min_for_t = |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui, t, true);
+        let weighted_max_for_t = |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui, t, false);
+
 
         // Evaluate endpoints of the group’s allowed total interval
-        let gmin_w = weighted_min_for_t(g.total_min);
-        let gmax_w = match g.total_max { Some(tmax) => weighted_max_for_t(tmax), None => None };
+        // ---- Account for group vars that are NOT in this form ------------------
+        // They eat into the group's total before we allocate to in-form vars.
+        let mut outside_form_min = 0usize;
+        let mut outside_form_max: Option<usize> = Some(0);
+
+        for v in g.vars.iter().copied().filter(|v| !multiplicity.contains_key(v)) {
+            let (li, ui) = get_var_bounds(v);
+            outside_form_min += li;
+            outside_form_max = match (outside_form_max, ui) {
+                (Some(a), Some(b)) => Some(a + b),
+                _ => None, // unbounded outside ⇒ no finite lower bound for in-form part
+            };
+        }
+
+        // Effective totals for the in-form part of this group:
+        // - For the LOWER bound, outside takes as much as possible (use outside_form_max if finite).
+        // - For the UPPER bound, outside takes as little as possible (use outside_form_min).
+        let tmin_eff_opt = outside_form_max.map(|of_max| g.total_min.saturating_sub(of_max));
+        let tmax_eff_opt = g.total_max.map(|tmax| tmax.saturating_sub(outside_form_min));
+
+        // Evaluate endpoints of the adjusted interval for in-form vars.
+        let gmin_w = match tmin_eff_opt {
+            Some(tmin_eff) => weighted_min_for_t(tmin_eff),
+            None => None, // no finite lower bound if outside unbounded
+        };
+        let gmax_w = match tmax_eff_opt {
+            Some(tmax_eff) => weighted_max_for_t(tmax_eff),
+            None => None,
+        };
 
         // Combine with outside-of-group contributions
         let outside: Vec<char> = vars.iter().copied().filter(|v| !gvars.contains(v)).collect();
@@ -284,7 +305,7 @@ fn group_constraints_for_form(form: &ParsedForm, jcs: Option<&JointConstraints>)
 
     // Filter joint constraints to those whose vars ⊆ present, and convert to intervals
     jcs.0.iter()
-        .filter(|jc| jc.vars.iter().all(|v| present.contains(v)))
+        .filter(|jc| jc.vars.iter().any(|v| present.contains(v)))
         .filter_map(group_from_joint)
         .collect()
 }
@@ -402,6 +423,18 @@ mod tests {
         let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
         assert_eq!(hints.min_len, 6); // star contributes 0 to min
         assert_eq!(hints.max_len, None);
+        assert_eq!(hints.exact_len, None);
+    }
+
+    #[test]
+    fn group_hints_apply_to_single_var() {
+        let form = pf(vec![FormPart::Var('A')]);
+        let jc = JointConstraint { vars: vec!['A','B'], target: 6, rel: RelMask::EQ };
+        let jcs = JointConstraints(vec![jc]);
+        let vcs = VarConstraints::default();
+        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        assert_eq!(hints.min_len, 1);
+        assert_eq!(hints.max_len, Some(5));
         assert_eq!(hints.exact_len, None);
     }
 }
