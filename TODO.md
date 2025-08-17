@@ -9,14 +9,14 @@
 * add integration tests with real word lists
 * literals and word-list entries to LC ASAP (and solutions to UC at last moment)
   * remove some unnecessary `to_uppercase()` statements
-* allow for constraints like `|AB|=5`
 * improve prefilter for, e.g., `AB;|A|=2;|B|=2` (`.{2}.{2}`)
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * add support for `<` and `>` like in Qat
 * "binding" vs. "bindings" in variable names, comments, etc.
 * use `Range`s for length ranges?
 * add length constraints to individual variables when there is a joint constraint
-* optimize joint constraints
+* add word_length to forms with known length (e.g., `~AnB#@.` with `|AB|=5` has length 8)
+  * More generally, `A*B;|AB|=6` has length >= 6
 * allow constraints like |A|<4, |B|>=5, etc.
 * consider adding a struct when faced with long argument lists (for methods)
 * throw exception if cannot parse form in `make_list` (else case)
