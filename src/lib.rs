@@ -6,6 +6,7 @@ pub mod parser;
 pub mod patterns;
 pub mod constraints;
 mod joint_constraints;
+mod scan_hints;
 
 // Compile the wasm glue only when targeting wasm32.
 #[cfg(target_arch = "wasm32")]
