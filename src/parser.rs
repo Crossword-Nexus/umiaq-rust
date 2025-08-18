@@ -267,7 +267,7 @@ fn match_equation_internal(
         match first {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored lowercase)
-                return is_prefix(&s, &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
+                return is_prefix(s, &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
             }
             FormPart::Dot => {
                 // Single-char wildcard
@@ -297,7 +297,7 @@ fn match_equation_internal(
                 }
             }
             FormPart::Charset(set) => {
-                if let Some((c, rest_chars)) = chars.split_first() && set.contains(&c) {
+                if let Some((c, rest_chars)) = chars.split_first() && set.contains(c) {
                     return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
@@ -418,7 +418,7 @@ fn match_equation_internal(
     // Normalize word and start recursive matching
     let chars: Vec<char> = word.chars().collect();
     let mut bindings = Bindings::default();
-    helper(&chars, &parsed_form.parts, &mut bindings, results, all_matches, &word, constraints, joint_constraints);
+    helper(&chars, &parsed_form.parts, &mut bindings, results, all_matches, word, constraints, joint_constraints);
 }
 
 /// Convert a parsed `FormPart` sequence into a regex string.
@@ -435,7 +435,7 @@ fn form_to_regex_str(parts: &[FormPart]) -> String {
         match part {
             FormPart::Var(c) => regex_str.push_str(&get_regex_str_segment(var_counts, &mut var_to_backreference_num, &mut backreference_index, *c)),
             FormPart::RevVar(c) => regex_str.push_str(&get_regex_str_segment(rev_var_counts, &mut rev_var_to_backreference_num, &mut backreference_index, *c)),
-            FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(&s)),
+            FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(s)),
             FormPart::Dot => regex_str.push('.'),
             FormPart::Star => regex_str.push_str(".*"),
             FormPart::Vowel => {
@@ -453,7 +453,7 @@ fn form_to_regex_str(parts: &[FormPart]) -> String {
             }
             FormPart::Anagram(s) => {
                 let len = s.len();
-                let class = fancy_regex::escape(&s);
+                let class = fancy_regex::escape(s);
                 let _ = write!(regex_str, "[{class}]{{{len}}}");
             }
         }
