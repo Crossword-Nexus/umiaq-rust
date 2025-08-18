@@ -251,8 +251,8 @@ impl Patterns {
                 let var_constraint = self.var_constraints.ensure(var);
 
                 if let Ok((min, max)) = parse_length_range(len) {
-                    var_constraint.min_length = min.unwrap();
-                    var_constraint.max_length = max.unwrap();
+                    var_constraint.min_length = min;
+                    var_constraint.max_length = max;
                 } else {
                     // TODO error here... though also handle the no-length-specified case correctly
                 }
@@ -396,6 +396,7 @@ fn parse_length_range(input: &str) -> Result<(Option<usize>, Option<usize>), Par
 
 #[cfg(test)]
 mod tests {
+    use crate::constraints::VarConstraint;
     use super::*;
 
     #[test]
@@ -407,25 +408,36 @@ mod tests {
 
         // Test constraints
         let a = patterns.var_constraints.get('A').unwrap();
-        assert_eq!(3, a.min_length);
-        assert_eq!(3, a.max_length);
-        assert_eq!(['B'].into_iter().collect::<HashSet<_>>(), a.not_equal);
+
+        let expected_a = VarConstraint {
+            min_length: Some(3),
+            max_length: Some(3),
+            form: None,
+            not_equal: ['B'].into_iter().collect(),
+        };
+        assert_eq!(expected_a, a.clone());
 
         let b = patterns.var_constraints.get('B').unwrap();
-        assert_eq!(2, b.min_length);
-        assert_eq!(2, b.max_length);
-        assert_eq!(Some("b*"), b.form.as_deref());
-        assert_eq!(['A'].into_iter().collect::<HashSet<_>>(), b.not_equal);
+        let expected_b = VarConstraint {
+            min_length: Some(2),
+            max_length: Some(2),
+            form: Some("b*".to_string()),
+            not_equal: ['A'].into_iter().collect(),
+        };
+        assert_eq!(expected_b, b.clone());
     }
 
     #[test]
     fn test_complex_re() {
         let patterns = Patterns::of("A;A=(3-4:x*)");
 
-        let var_constraint = patterns.var_constraints.get('A').unwrap();
-        assert_eq!(3, var_constraint.min_length);
-        assert_eq!(4, var_constraint.max_length);
-        assert_eq!(Some("x*"), var_constraint.form.as_deref());
+        let expected = VarConstraint {
+            min_length: Some(3),
+            max_length: Some(4),
+            form: Some("x*".to_string()),
+            not_equal: Default::default(),
+        };
+        assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
     }
 
     #[test]
@@ -433,12 +445,10 @@ mod tests {
         let input = "ABC;BC;C";
         let patterns = Patterns::of(input);
 
-        let vars0 = &patterns.ordered_list[0].variables;
-        let vars1 = &patterns.ordered_list[1].variables;
-        let vars2 = &patterns.ordered_list[2].variables;
+        let vars: Vec<HashSet<char>> = patterns.ordered_list.iter().map(|p| p.variables.clone()).collect();
 
-        assert!(vars0.len() >= vars1.len());
-        assert!(vars1.intersection(&vars0).count() >= vars2.intersection(&vars0).count());
+        assert!((&vars[0]).len() >= (&vars[1]).len());
+        assert!((&vars[1]).intersection(&vars[0]).count() >= (&vars[2]).intersection(&vars[0]).count());
     }
 
     #[test]
