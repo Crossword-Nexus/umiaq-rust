@@ -7,7 +7,7 @@ use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
 use std::collections::{HashMap, HashSet};
 
 /// The max number of matches to grab during our initial pass through the word list
-const MAX_INITIAL_MATCHES: usize = 50_000;
+const MAX_INITIAL_MATCHES: usize = 500_000;
 
 /// Bucket key for indexing candidates by the subset of variables that must agree.
 /// - `None` means "no lookup constraints for this pattern" (Python's `words[i][None]`).
