@@ -12,16 +12,18 @@ use std::cmp::Ordering;
 /// Compound operators (<=, >=, !=) are unions of these bits.
 /// Evaluation is then: `rel.allows(total.cmp(&target))`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RelMask(u8);
+pub struct RelMask {
+    mask: u8,
+}
 
 impl RelMask {
-    pub const LT: Self = Self(0b001);
-    pub const EQ: Self = Self(0b010);
-    pub const GT: Self = Self(0b100);
+    pub const LT: Self = Self { mask: 0b001 };
+    pub const EQ: Self = Self { mask: 0b010 };
+    pub const GT: Self = Self { mask: 0b100 };
 
-    pub const LE: Self = Self(Self::LT.0 | Self::EQ.0); // <=
-    pub const GE: Self = Self(Self::GT.0 | Self::EQ.0); // >=
-    pub const NE: Self = Self(Self::LT.0 | Self::GT.0); // !=
+    pub const LE: Self = Self { mask: Self::LT.mask | Self::EQ.mask }; // <=
+    pub const GE: Self = Self { mask: Self::GT.mask | Self::EQ.mask }; // >=
+    pub const NE: Self = Self { mask: Self::LT.mask | Self::GT.mask }; // !=
 
     /// Return true if this mask allows the given ordering outcome.
     #[inline]
@@ -31,7 +33,7 @@ impl RelMask {
             Ordering::Equal   => 0b010,
             Ordering::Greater => 0b100,
         };
-        (self.0 & bit) != 0
+        (self.mask & bit) != 0
     }
 
     /// Parse an operator token into a mask.
@@ -139,7 +141,9 @@ fn parse_joint_len(expr: &str) -> Option<JointConstraint> {
 
 /// Container for many joint constraints (useful as a field on your puzzle/parse).
 #[derive(Debug, Default, Clone)]
-pub struct JointConstraints(pub Vec<JointConstraint>);
+pub struct JointConstraints {
+    pub as_vec: Vec<JointConstraint>, // TODO? avoid using this directly
+}
 
 impl JointConstraints {
     /// Return true iff **every** joint constraint is satisfied w.r.t. `bindings`.
@@ -148,7 +152,7 @@ impl JointConstraints {
     /// (see `JointConstraint::is_satisfied_by`), so this is safe to call
     /// during search as a "non-pruning check".
     pub fn all_satisfied(&self, bindings: &Bindings) -> bool {
-        self.0.iter().all(|jc| jc.is_satisfied_by(bindings))
+        self.as_vec.iter().all(|jc| jc.is_satisfied_by(bindings))
     }
 
     // Test-only helper mirroring `all_satisfied` over a plain map.
@@ -157,7 +161,7 @@ impl JointConstraints {
         &self,
         map: &std::collections::HashMap<char, String>
     ) -> bool {
-        self.0.iter().all(|jc| jc.is_satisfied_by_map(map))
+        self.as_vec.iter().all(|jc| jc.is_satisfied_by_map(map))
     }
 }
 
@@ -172,7 +176,7 @@ pub fn parse_joint_constraints(equation: &str) -> Option<JointConstraints> {
             v.push(jc);
         }
     }
-    if v.is_empty() { None } else { Some(JointConstraints(v)) }
+    if v.is_empty() { None } else { Some(JointConstraints { as_vec: v }) }
 }
 
 #[cfg(test)]
@@ -230,15 +234,15 @@ mod tests {
         let equation = format!("|AB|=3{sep}foo{sep}|BC|<=5");
 
         let parsed = parse_joint_constraints(&equation).expect("should find constraints");
-        assert_eq!(parsed.0.len(), 2);
+        assert_eq!(parsed.as_vec.len(), 2);
 
-        assert_eq!(parsed.0[0].vars, vec!['A','B']);
-        assert_eq!(parsed.0[0].target, 3);
-        assert_eq!(parsed.0[0].rel, RelMask::EQ);
+        assert_eq!(parsed.as_vec[0].vars, vec!['A', 'B']);
+        assert_eq!(parsed.as_vec[0].target, 3);
+        assert_eq!(parsed.as_vec[0].rel, RelMask::EQ);
 
-        assert_eq!(parsed.0[1].vars, vec!['B','C']);
-        assert_eq!(parsed.0[1].target, 5);
-        assert_eq!(parsed.0[1].rel, RelMask::LE);
+        assert_eq!(parsed.as_vec[1].vars, vec!['B', 'C']);
+        assert_eq!(parsed.as_vec[1].target, 5);
+        assert_eq!(parsed.as_vec[1].rel, RelMask::LE);
     }
 
     #[test]
@@ -262,10 +266,12 @@ mod tests {
 
     #[test]
     fn jointconstraints_all_satisfied_map_variant() {
-        let jcs = JointConstraints(vec![
-            JointConstraint { vars: vec!['A','B'], target: 6, rel: RelMask::LE }, // len(A)+len(B) <= 6
-            JointConstraint { vars: vec!['B','C'], target: 3, rel: RelMask::GE }, // len(B)+len(C) >= 3
-        ]);
+        let jcs = JointConstraints {
+            as_vec: vec![
+                JointConstraint { vars: vec!['A', 'B'], target: 6, rel: RelMask::LE }, // len(A)+len(B) <= 6
+                JointConstraint { vars: vec!['B', 'C'], target: 3, rel: RelMask::GE }, // len(B)+len(C) >= 3
+            ]
+        };
 
         let mut map = HashMap::new();
         map.insert('A', "NO".to_string());     // 2
