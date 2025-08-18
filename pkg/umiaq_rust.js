@@ -177,17 +177,17 @@ function takeFromExternrefTable0(idx) {
     return value;
 }
 /**
- * JS entry: (input: string, word_list: string[], num_results: number)
+ * JS entry: (input: string, word_list: string[], num_results_requested: number)
  * returns Array<Array<string>> — only the bound words
  * @param {string} input
  * @param {any} word_list
- * @param {number} num_results
+ * @param {number} num_results_requested
  * @returns {any}
  */
-export function solve_equation_wasm(input, word_list, num_results) {
+export function solve_equation_wasm(input, word_list, num_results_requested) {
     const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.solve_equation_wasm(ptr0, len0, word_list, num_results);
+    const ret = wasm.solve_equation_wasm(ptr0, len0, word_list, num_results_requested);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

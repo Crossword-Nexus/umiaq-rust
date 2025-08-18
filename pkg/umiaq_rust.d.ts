@@ -2,10 +2,10 @@
 /* eslint-disable */
 export function init_panic_hook(): void;
 /**
- * JS entry: (input: string, word_list: string[], num_results: number)
+ * JS entry: (input: string, word_list: string[], num_results_requested: number)
  * returns Array<Array<string>> — only the bound words
  */
-export function solve_equation_wasm(input: string, word_list: any, num_results: number): any;
+export function solve_equation_wasm(input: string, word_list: any, num_results_requested: number): any;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
