@@ -122,7 +122,7 @@ impl ParsedForm {
     }
 
     /// If this form is deterministic, build the concrete word using `env`.
-    /// Returns None if any required var is unbound or if a nondeterministic part is present.
+    /// Returns `None` if any required var is unbound or if a nondeterministic part is present.
     pub fn materialize_deterministic_with_env(
         &self,
         env: &std::collections::HashMap<char, String>,
