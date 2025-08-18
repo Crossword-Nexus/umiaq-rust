@@ -72,43 +72,23 @@ impl fmt::Display for VarConstraints {
 /// - `form` is an optional sub-pattern the variable's match must satisfy
 ///   (e.g., `"a*"` means "must start with `a`"; `"*z*"` means "must contain `z`").
 /// - `not_equal` lists variables whose matches must *not* be identical to this one.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VarConstraint {
-    pub min_length: usize,
-    pub max_length: usize,
+    pub min_length: Option<usize>,
+    pub max_length: Option<usize>,
     pub form: Option<String>,     // e.g., "a*" or "*z*"
     pub not_equal: HashSet<char>, // e.g., A's set contains 'B' if `A != B` is required
 }
 
-impl Default for VarConstraint {
-    fn default() -> Self {
-        Self {
-            min_length: 1,
-            max_length: usize::MAX,
-            form: None,
-            not_equal: HashSet::new(),
-        }
-    }
-}
-
 impl VarConstraint {
-    /// Return the (min, max) length bounds for this variable.
-    ///
-    /// - If a bound is missing, falls back to the provided defaults.
-    /// - This is often used when generating regex prefilters or substring loops.
-    fn bounds(&self) -> (usize, usize) {
-        let min = self.min_length;
-        let max = self.max_length;
-        (min, max)
-    }
-
     /// Set both min and max to the same exact length.
     pub(crate) fn set_exact_len(&mut self, len: usize) {
-        self.min_length = len;
-        self.max_length = len;
+        self.min_length = Some(len);
+        self.max_length = Some(len);
     }
 }
 
+// TODO better pretty printing of length ranges
 /// Compact human-readable display for a single constraint.
 impl fmt::Display for VarConstraint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -131,26 +111,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bounds_with_overrides() {
-        let vc = VarConstraint {
-            min_length: 2,
-            max_length: 5,
-            form: None,
-            not_equal: HashSet::new(),
-        };
-        assert_eq!((2, 5), vc.bounds());
-    }
-
-    #[test]
     fn ensure_creates_default() {
         let mut vcs = VarConstraints::default();
         assert!(vcs.get('A').is_none());
         {
             let a = vcs.ensure('A');
             // default created; tweak it
-            a.min_length = 3;
+            a.min_length = Some(3);
         }
-        assert_eq!(3, vcs.get('A').unwrap().min_length);
+        assert_eq!(Some(3), vcs.get('A').unwrap().min_length);
         assert_eq!(1, vcs.len());
     }
 
@@ -166,23 +135,25 @@ mod tests {
 
     #[test]
     fn display_var_constraint_is_stable() {
-        let mut vc = VarConstraint::default();
-        vc.min_length = 2;
-        vc.max_length = 4;
-        vc.form = Some("a*".into());
+        let mut vc = VarConstraint {
+            min_length: Some(2),
+            max_length: Some(4),
+            form: Some("a*".into()),
+            not_equal: Default::default(),
+        };
         vc.not_equal.extend(['C', 'B']); // out of order on purpose
         let shown = vc.to_string();
         // not_equal should be sorted -> {BC}
-        assert_eq!("len=[2, 4]; form=Some(\"a*\"); not_equal={BC}", shown);
+        assert_eq!("len=[Some(2), Some(4)]; form=Some(\"a*\"); not_equal={BC}", shown);
     }
 
     #[test]
     fn display_var_constraints_multiline_sorted() {
         let mut vcs = VarConstraints::default();
         let mut a = VarConstraint::default();
-        a.min_length = 1;
+        a.min_length = Some(1);
         let mut c = VarConstraint::default();
-        c.max_length = 2;
+        c.max_length = Some(2);
         let mut b = VarConstraint::default();
         b.form = Some("*x*".into());
         // Insert out of order to verify deterministic sort in Display
@@ -194,9 +165,9 @@ mod tests {
         let lines: Vec<&str> = s.lines().collect();
 
         let expected = vec![
-            "A: len=[1, 18446744073709551615]; form=None; not_equal={}",
-            "B: len=[1, 18446744073709551615]; form=Some(\"*x*\"); not_equal={}",
-            "C: len=[1, 2]; form=None; not_equal={}"
+            "A: len=[Some(1), None]; form=None; not_equal={}",
+            "B: len=[None, None]; form=Some(\"*x*\"); not_equal={}",
+            "C: len=[None, Some(2)]; form=None; not_equal={}"
         ];
 
         assert_eq!(expected, lines);

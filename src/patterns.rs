@@ -251,8 +251,8 @@ impl Patterns {
                 let var_constraint = self.var_constraints.ensure(var);
 
                 if let Ok((min, max)) = parse_length_range(len) {
-                    var_constraint.min_length = min.unwrap();
-                    var_constraint.max_length = max.unwrap();
+                    var_constraint.min_length = min;
+                    var_constraint.max_length = max;
                 } else {
                     // TODO error here... though also handle the no-length-specified case correctly
                 }
@@ -410,8 +410,8 @@ mod tests {
         let a = patterns.var_constraints.get('A').unwrap();
 
         let expected_a = VarConstraint {
-            min_length: 3,
-            max_length: 3,
+            min_length: Some(3),
+            max_length: Some(3),
             form: None,
             not_equal: ['B'].into_iter().collect(),
         };
@@ -419,8 +419,8 @@ mod tests {
 
         let b = patterns.var_constraints.get('B').unwrap();
         let expected_b = VarConstraint {
-            min_length: 2,
-            max_length: 2,
+            min_length: Some(2),
+            max_length: Some(2),
             form: Some("b*".to_string()),
             not_equal: ['A'].into_iter().collect(),
         };
@@ -432,8 +432,8 @@ mod tests {
         let patterns = Patterns::of("A;A=(3-4:x*)");
 
         let expected = VarConstraint {
-            min_length: 3,
-            max_length: 4,
+            min_length: Some(3),
+            max_length: Some(4),
             form: Some("x*".to_string()),
             not_equal: Default::default(),
         };

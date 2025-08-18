@@ -151,19 +151,17 @@ impl<'a> IntoIterator for &'a ParsedForm {
 /// Validate whether a candidate binding value is allowed under a `VarConstraint`.
 ///
 /// Checks:
-/// 0. If "length" constraints are present, enforce them
-/// 1. If `form` is present, the value must itself match that form.
-/// 2. The value must not equal any variable listed in `not_equal` that is already bound.
+/// 1. If length constraints are present, enforce them
+/// 2. If `form` is present, the value must itself match that form.
+/// 3. The value must not equal any variable listed in `not_equal` that is already bound.
 fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings) -> bool {
-    // 0) Length checks (if configured)
-    if constraints.min_length > 0 && val.len() < constraints.min_length {
-        return false;
-    }
-    if constraints.max_length > 0 && val.len() > constraints.max_length {
+    // 1. Length checks (if configured)
+    if constraints.min_length.is_some_and(|min_len| val.len() < min_len) ||
+        constraints.max_length.is_some_and(|max_len| val.len() > max_len) {
         return false;
     }
 
-    // 1) Apply nested form constraint if present
+    // 2. Apply nested-form constraint if present
     if let Some(form_str) = &constraints.form {
         match parse_form(form_str) {
             Ok(p) => {
@@ -175,7 +173,7 @@ fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings)
         }
     }
 
-    // 2) Check "not equal" constraints
+    // 3. Check "not equal" constraints
     for &other in &constraints.not_equal {
         if let Some(existing) = bindings.get(other) && existing == val {
             return false;
@@ -319,13 +317,12 @@ fn match_equation_internal(
 
                 // Not bound yet: try binding to all possible lengths
                 // To prune the search space, apply length constraints up front
-                let mut min_len = 1usize;
-                let mut max_len = chars.len(); // cannot take more than what’s left
-
-                if let Some(all_c) = constraints && let Some(c) = all_c.get(*var_name) {
-                    if c.min_length > 0 { min_len = min_len.max(c.min_length); }
-                    if c.max_length > 0 { max_len = max_len.min(c.max_length); }
-                }
+                let min_len = constraints.and_then(|constraints_inner|
+                    constraints_inner.get(*var_name).map(|vc| vc.min_length)
+                ).flatten().unwrap_or(1usize);
+                let max_len = constraints.and_then(|constraints_inner|
+                    constraints_inner.get(*var_name).map(|vc| vc.max_length)
+                ).flatten().unwrap_or(chars.len());
                 if min_len > max_len { return false; }
 
                 for l in min_len..=max_len {
@@ -431,9 +428,9 @@ fn match_equation_internal(
 /// Used for the initial fast prefilter in `match_equation_internal`.
 fn form_to_regex_str(parts: &[FormPart]) -> String {
     let (var_counts, rev_var_counts) = get_var_and_rev_var_counts(parts);
-    let mut var_to_backreference_num = [0usize; NUM_POSSIBLE_VARIABLES];
-    let mut rev_var_to_backreference_num = [0usize; NUM_POSSIBLE_VARIABLES];
-    let mut backreference_index = 0usize;
+    let mut var_to_backreference_num = [0; NUM_POSSIBLE_VARIABLES];
+    let mut rev_var_to_backreference_num = [0; NUM_POSSIBLE_VARIABLES];
+    let mut backreference_index = 0;
 
     let mut regex_str = String::new();
     for part in parts {
@@ -486,8 +483,8 @@ fn get_regex_str_segment(var_counts: [usize; NUM_POSSIBLE_VARIABLES], var_to_bac
 // TODO doesn't really need to count--really only need to the return values to distinguish between
 //      one and many (NB: in the zero case callers won't use what's returned here)
 fn get_var_and_rev_var_counts(parts: &[FormPart]) -> ([usize; NUM_POSSIBLE_VARIABLES], [usize; NUM_POSSIBLE_VARIABLES]) {
-    let mut var_counts = [0usize; NUM_POSSIBLE_VARIABLES];
-    let mut rev_var_counts = [0usize; NUM_POSSIBLE_VARIABLES];
+    let mut var_counts = [0; NUM_POSSIBLE_VARIABLES];
+    let mut rev_var_counts = [0; NUM_POSSIBLE_VARIABLES];
     for part in parts {
         match part {
             FormPart::Var(c) => var_counts[char_to_num(*c)] += 1,
@@ -675,15 +672,15 @@ mod tests {
         const MIN_LENGTH: usize = 2;
         const MAX_LENGTH: usize = 3;
         // min length 2, max_length 3
-        vc.min_length = MIN_LENGTH;
-        vc.max_length = MAX_LENGTH;
+        vc.min_length = Some(MIN_LENGTH);
+        vc.max_length = Some(MAX_LENGTH);
         // associate this constraint with variable 'A'
         var_constraints.insert('A', vc);
 
         let matches = match_equation_all("HOTHOT", &patt, Some(&var_constraints), None);
         println!("{matches:?}");
-        for m in matches.iter() {
-            assert!((MIN_LENGTH..=MAX_LENGTH).contains(&m.get('A').unwrap().len()));
+        for bindings in matches.iter() {
+            assert!((MIN_LENGTH..=MAX_LENGTH).contains(&bindings.get('A').unwrap().len()));
         }
     }
 
@@ -698,14 +695,14 @@ mod tests {
         // first, add it for A
         let mut vc_a = VarConstraint::default();
         vc_a.not_equal.insert('B');
-        vc_a.min_length = 2;
-        vc_a.max_length = 2;
+        vc_a.min_length = Some(2);
+        vc_a.max_length = Some(2);
         var_constraints.insert('A', vc_a);
         // now add it for B
         let mut vc_b = VarConstraint::default();
         vc_b.not_equal.insert('A');
-        vc_b.min_length = 2;
-        vc_b.max_length = 2;
+        vc_b.min_length = Some(2);
+        vc_b.max_length = Some(2);
         var_constraints.insert('B', vc_b);
 
         let matches = match_equation_all("INCH", &patt, Some(&var_constraints), None);
