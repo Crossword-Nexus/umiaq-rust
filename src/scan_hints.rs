@@ -42,8 +42,7 @@ pub struct PatternLenHints {
 impl PatternLenHints {
     /// Quick check for a candidate word length against this hint.
     pub fn is_word_len_possible(&self, len: usize) -> bool {
-        // TODO avoid magic constants! (1, usize::MAX)
-        len >= self.min_len.unwrap_or(1) && len <= self.max_len.unwrap_or(usize::MAX)
+        self.min_len.is_none_or(|min_len| len >= min_len) && self.max_len.is_none_or(|max_len| len <= max_len)
     }
 }
 
