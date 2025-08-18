@@ -3,6 +3,8 @@
 * fix "2-", "-4", etc. in literal constraints
 * allow for "complex" constraints like `A=(g*)`
 * avoid duplicating work (e.g., `parse_form` call in `make_list`)
+* consistency in using `usize::MAX` vs. `None` for unbounded-above lengths(?)
+* remove `exact_len` from `PatternLenHints` (and derive from `min_len` and `max_len`)
 * add detailed error messages
 * add progress indicators for long-running operations
 * implement parallel processing for large word lists
