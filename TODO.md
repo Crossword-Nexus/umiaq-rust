@@ -8,8 +8,6 @@
 * add progress indicators for long-running operations
 * implement parallel processing for large word lists
 * add integration tests with real word lists
-* literals and word-list entries to LC ASAP (and solutions to UC at last moment)
-  * remove some unnecessary `to_uppercase()` statements
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * add support for `<` and `>` like in Qat
 * "binding" vs. "bindings" in variable names, comments, etc.

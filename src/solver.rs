@@ -204,7 +204,9 @@ fn recursive_join(
 /// Read in an equation string and return results from the word list
 ///
 /// - `input`: equation in our pattern syntax (e.g., `"AB;BA;|A|=2;..."`)
-/// - `word_list`: list of candidate words to test
+/// - `word_list`: list of candidate words to test.
+///   Note that we require (but do not enforce!) that all words be lowercase.
+///   TODO: should we enforce this?
 /// - `num_results_requested`: maximum number of *final* results to return
 ///
 /// Returns:
@@ -376,7 +378,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
 #[test]
 fn test_solve_equation() {
-    let word_list: Vec<&str> = vec!["LAX", "TAX", "LOX"];
+    let word_list: Vec<&str> = vec!["lax", "tax", "lox"];
     let input = "l.x".to_string();
     let results = solve_equation(&input, &word_list, 5).unwrap();
     println!("{:?}", results);
@@ -385,7 +387,7 @@ fn test_solve_equation() {
 
 #[test]
 fn test_solve_equation2() {
-    let word_list: Vec<&str> = vec!["INCH", "CHIN", "DADA", "TEST", "AB"];
+    let word_list: Vec<&str> = vec!["inch", "chin", "dada", "test", "ab"];
     let input = "AB;BA;|A|=2;|B|=2;!=AB".to_string();
     let results = solve_equation(&input, &word_list, 5).unwrap();
     println!("{:?}", results);
@@ -394,12 +396,12 @@ fn test_solve_equation2() {
 
 #[test]
 fn test_solve_equation3() {
-    let word_list = vec!["INCH", "CHIN", "DADA", "TEST", "SKY", "SLY"];
+    let word_list = vec!["inch", "chin", "dada", "test", "sky", "sly"];
     let input = "AkB;AlB".to_string();
     let results = solve_equation(&input, &word_list, 5).unwrap();
 
-    let sky_bindings = Bindings { map: HashMap::from([('*', "SKY".to_string()), ('A', "S".to_string()), ('B', "Y".to_string())]) };
-    let sly_bindings = Bindings { map: HashMap::from([('*', "SLY".to_string()), ('A', "S".to_string()), ('B', "Y".to_string())]) };
+    let sky_bindings = Bindings { map: HashMap::from([('*', "sky".to_string()), ('A', "s".to_string()), ('B', "y".to_string())]) };
+    let sly_bindings = Bindings { map: HashMap::from([('*', "sly".to_string()), ('A', "s".to_string()), ('B', "y".to_string())]) };
     // NB: this could give a false negative if SLY comes out before SKY (since we presumably shouldn't care about the order), so...
     // TODO allow order independence for equality... perhaps create a richer struct than just Vec<Bindings> that has a notion of order-independent equality
     let expected = Vec::from([Vec::from([sky_bindings, sly_bindings])]);

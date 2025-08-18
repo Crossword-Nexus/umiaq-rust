@@ -18,10 +18,10 @@ use std::sync::{LazyLock, OnceLock};
 use crate::joint_constraints::JointConstraints;
 
 // Character-set constants
-const VOWELS: &str = "AEIOUY";
-const CONSONANTS: &str = "BCDFGHJKLMNPQRSTVWXZ";
+const VOWELS: &str = "aeiouy";
+const CONSONANTS: &str = "bcdfghjklmnpqrstvwxz";
 const VARIABLE_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-// TODO is this only every used to represent the possible values of literal chars?
+// TODO is this only ever used to represent the possible values of literal chars?
 const LITERAL_CHARS: &str = "abcdefghijklmnopqrstuvwxyz";
 
 const NUM_POSSIBLE_VARIABLES: usize = VARIABLE_CHARS.len();
@@ -74,11 +74,11 @@ impl From<ParseError> for std::io::Error {
 pub enum FormPart {
     Var(char),          // 'A': uppercase A–Z variable reference
     RevVar(char),       // '~A': reversed variable reference
-    Lit(String),        // 'abc': literal lowercase sequence (will be uppercased internally)
+    Lit(String),        // 'abc': literal lowercase sequence (lowercase)
     Dot,                // '.' wildcard: exactly one letter
     Star,               // '*' wildcard: zero or more letters
-    Vowel,              // '@' wildcard: any vowel (AEIOUY)
-    Consonant,          // '#' wildcard: any consonant (BCDF...XZ)
+    Vowel,              // '@' wildcard: any vowel (aeiouy)
+    Consonant,          // '#' wildcard: any consonant (bcdf...xz)
     Charset(Vec<char>), // '[abc]': any of the given letters
     Anagram(String),    // '/abc': any permutation of the given letters
 }
@@ -129,7 +129,7 @@ impl ParsedForm {
     ) -> Option<String> {
         self.iter().map(|part| {
             match part {
-                FormPart::Lit(s) => Some(s.to_ascii_uppercase()),
+                FormPart::Lit(s) => Some(s.clone()),
                 FormPart::Var(v) => Some(env.get(v)?.clone()),
                 FormPart::RevVar(v) => Some(env.get(v)?.chars().rev().collect()),
                 _ => None // TODO! test that this fails fast!
@@ -266,8 +266,8 @@ fn match_equation_internal(
 
         match first {
             FormPart::Lit(s) => {
-                // Literal match (case-insensitive, stored uppercased)
-                return is_prefix(&s.to_ascii_uppercase(), &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
+                // Literal match (case-insensitive, stored lowercase)
+                return is_prefix(&s, &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
             }
             FormPart::Dot => {
                 // Single-char wildcard
@@ -297,7 +297,7 @@ fn match_equation_internal(
                 }
             }
             FormPart::Charset(set) => {
-                if let Some((c, rest_chars)) = chars.split_first() && set.contains(&c.to_ascii_lowercase()) {
+                if let Some((c, rest_chars)) = chars.split_first() && set.contains(&c) {
                     return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
                 }
             }
@@ -382,15 +382,15 @@ fn match_equation_internal(
     }
 
     // TODO? support beyond 0-127 (i.e., beyond ASCII)? (at least document behavior (here and in general)!)
-    // TODO are we actually guaranteed to have uppercase_word be uppercase?
-    fn are_anagrams(uppercase_word: &[char], other_word: &str) -> bool {
-        if uppercase_word.len() != other_word.len() {
+    // TODO are we actually guaranteed to have lowercase_word be lowercase?
+    fn are_anagrams(lowercase_word: &[char], other_word: &str) -> bool {
+        if lowercase_word.len() != other_word.len() {
             return false;
         }
 
         let mut char_counts = [0u8; 128];
 
-        for &c in uppercase_word {
+        for &c in lowercase_word {
             if (c as usize) < 128 {
                 char_counts[c as usize] += 1;
             }
@@ -398,12 +398,11 @@ fn match_equation_internal(
         }
 
         for c in other_word.chars() {
-            let c_upper = c.to_ascii_uppercase();
-            if (c_upper as usize) < 128 {
-                if char_counts[c_upper as usize] == 0 {
+            if (c as usize) < 128 {
+                if char_counts[c as usize] == 0 {
                     return false;
                 }
-                char_counts[c_upper as usize] -= 1;
+                char_counts[c as usize] -= 1;
             }
         }
 
@@ -417,7 +416,6 @@ fn match_equation_internal(
     }
 
     // Normalize word and start recursive matching
-    let word = word.to_uppercase(); // TODO perform uppercasing as early as possible
     let chars: Vec<char> = word.chars().collect();
     let mut bindings = Bindings::default();
     helper(&chars, &parsed_form.parts, &mut bindings, results, all_matches, &word, constraints, joint_constraints);
@@ -437,7 +435,7 @@ fn form_to_regex_str(parts: &[FormPart]) -> String {
         match part {
             FormPart::Var(c) => regex_str.push_str(&get_regex_str_segment(var_counts, &mut var_to_backreference_num, &mut backreference_index, *c)),
             FormPart::RevVar(c) => regex_str.push_str(&get_regex_str_segment(rev_var_counts, &mut rev_var_to_backreference_num, &mut backreference_index, *c)),
-            FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(&s.to_uppercase())),
+            FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(&s)),
             FormPart::Dot => regex_str.push('.'),
             FormPart::Star => regex_str.push_str(".*"),
             FormPart::Vowel => {
@@ -449,14 +447,13 @@ fn form_to_regex_str(parts: &[FormPart]) -> String {
             FormPart::Charset(chars) => {
                 regex_str.push('[');
                 for c in chars {
-                    regex_str.push(c.to_ascii_uppercase());
+                    regex_str.push(*c);
                 }
                 regex_str.push(']');
             }
             FormPart::Anagram(s) => {
                 let len = s.len();
-                let s_upper = s.to_uppercase();
-                let class = fancy_regex::escape(&s_upper);
+                let class = fancy_regex::escape(&s);
                 let _ = write!(regex_str, "[{class}]{{{len}}}");
             }
         }
@@ -599,22 +596,22 @@ mod tests {
     #[test]
     fn test_match_equation_exists() {
         let patt = parse_form("A~A[rstlne]/jon@#.*").unwrap();
-        assert!(match_equation_exists("AARONJUDGE", &patt, None, None));
-        assert!(!match_equation_exists("NOON", &patt, None, None));
-        assert!(!match_equation_exists("TOON", &patt, None, None));
+        assert!(match_equation_exists("aaronjudge", &patt, None, None));
+        assert!(!match_equation_exists("noon", &patt, None, None));
+        assert!(!match_equation_exists("toon", &patt, None, None));
     }
 
     #[test]
     fn test_valid_binding_not_equal_pass() {
-        // A must be != B; current B is bound to "TEST"
+        // A must be != B; current B is bound to "test"
         let mut vc = VarConstraint::default();
         vc.not_equal.insert('B');
 
         let mut b = Bindings::default();
-        b.set('B', "TEST".to_string());
+        b.set('B', "test".to_string());
 
         // "OTHER" != "TEST", so this should pass
-        assert!(is_valid_binding("OTHER", &vc, &b));
+        assert!(is_valid_binding("other", &vc, &b));
     }
 
     #[test]
@@ -623,7 +620,7 @@ mod tests {
         vc.form = Option::from("abc*".to_string());
 
         let b = Bindings::default();
-        assert!(is_valid_binding("ABCAT", &vc, &b));
+        assert!(is_valid_binding("abcat", &vc, &b));
     }
 
     #[test]
@@ -720,7 +717,7 @@ mod tests {
         vc.form = Option::from("*i.*".to_string());
         var_constraints1.insert('A', vc.clone());
 
-        assert!(match_equation_exists("INCH", &patt, Some(&var_constraints1), None));
+        assert!(match_equation_exists("inch", &patt, Some(&var_constraints1), None));
 
         // Second constraint: A=(*z*)
         let mut var_constraints2 = VarConstraints::default();
@@ -728,7 +725,7 @@ mod tests {
         vc2.form = Option::from("*z*".to_string());
         var_constraints2.insert('A', vc2.clone());
 
-        assert!(!match_equation_exists("INCH", &patt, Some(&var_constraints2), None));
+        assert!(!match_equation_exists("inch", &patt, Some(&var_constraints2), None));
     }
 
     #[test]
@@ -786,7 +783,7 @@ mod tests {
 
     #[test]
     fn test_form_to_regex_str() {
-        assert_eq!("L.X", form_to_regex_str(&parse_form("l.x").unwrap().parts));
+        assert_eq!("l.x", form_to_regex_str(&parse_form("l.x").unwrap().parts));
     }
 
     #[test]
@@ -811,88 +808,88 @@ mod tests {
 
     #[test]
     fn test_form_to_regex_str_with_wildcards() {
-        assert_eq!("..*[AEIOUY][BCDFGHJKLMNPQRSTVWXZ]", form_to_regex_str(&parse_form(".*@#").unwrap().parts));
+        assert_eq!("..*[aeiouy][bcdfghjklmnpqrstvwxz]", form_to_regex_str(&parse_form(".*@#").unwrap().parts));
     }
 
     #[test]
     fn test_palindrome_matching() {
         let patt = parse_form("A~A").unwrap();
-        assert!(match_equation_exists("NOON", &patt, None, None));
-        assert!(!match_equation_exists("RADAR", &patt, None, None));
-        assert!(!match_equation_exists("TEST", &patt, None, None));
+        assert!(match_equation_exists("noon", &patt, None, None));
+        assert!(!match_equation_exists("radar", &patt, None, None));
+        assert!(!match_equation_exists("test", &patt, None, None));
     }
 
     #[test]
     fn test_anagram_matching() {
         let patt = parse_form("/triangle").unwrap();
-        assert!(match_equation_exists("INTEGRAL", &patt, None, None));
-        assert!(!match_equation_exists("SQUARE", &patt, None, None));
+        assert!(match_equation_exists("integral", &patt, None, None));
+        assert!(!match_equation_exists("square", &patt, None, None));
     }
 
     #[test]
     fn test_variable_binding() {
         let patt = parse_form("AB").unwrap();
-        let binding = match_equation_all("INCH", &patt, None, None).into_iter().next().unwrap();
+        let binding = match_equation_all("inch", &patt, None, None).into_iter().next().unwrap();
         // TODO allow for IN/CH or INC/H
-        assert_eq!(Some(&"I".to_string()), binding.get('A'));
-        assert_eq!(Some(&"NCH".to_string()), binding.get('B'));
+        assert_eq!(Some(&"i".to_string()), binding.get('A'));
+        assert_eq!(Some(&"nch".to_string()), binding.get('B'));
     }
 
     #[test]
     fn test_reversed_variable_binding() {
         let patt = parse_form("A~A").unwrap();
-        let bindings = match_equation_all("NOON", &patt, None, None).into_iter().next().unwrap();
-        assert_eq!(Some(&"NO".to_string()), bindings.get('A'));
+        let bindings = match_equation_all("noon", &patt, None, None).into_iter().next().unwrap();
+        assert_eq!(Some(&"no".to_string()), bindings.get('A'));
     }
 
     #[test]
     fn test_literal_matching() {
         let patt = parse_form("abc").unwrap();
-        assert!(match_equation_exists("ABC", &patt, None, None));
-        assert!(!match_equation_exists("XYZ", &patt, None, None));
+        assert!(match_equation_exists("abc", &patt, None, None));
+        assert!(!match_equation_exists("xyz", &patt, None, None));
     }
 
     #[test]
     fn test_dot_wildcard() {
         let patt = parse_form("a.z").unwrap();
-        assert!(match_equation_exists("ABZ", &patt, None, None));
-        assert!(match_equation_exists("AZZ", &patt, None, None));
-        assert!(!match_equation_exists("AZ", &patt, None, None));
-        assert!(!match_equation_exists("ABBZ", &patt, None, None));
+        assert!(match_equation_exists("abz", &patt, None, None));
+        assert!(match_equation_exists("azz", &patt, None, None));
+        assert!(!match_equation_exists("az", &patt, None, None));
+        assert!(!match_equation_exists("abbz", &patt, None, None));
     }
 
     #[test]
     fn test_star_wildcard() {
         let patt = parse_form("a*z").unwrap();
-        assert!(match_equation_exists("AZ", &patt, None, None));
-        assert!(match_equation_exists("ABZ", &patt, None, None));
-        assert!(match_equation_exists("ABBBZ", &patt, None, None));
-        assert!(!match_equation_exists("AY", &patt, None, None));
+        assert!(match_equation_exists("az", &patt, None, None));
+        assert!(match_equation_exists("abz", &patt, None, None));
+        assert!(match_equation_exists("abbbz", &patt, None, None));
+        assert!(!match_equation_exists("ay", &patt, None, None));
     }
 
     #[test]
     fn test_vowel_wildcard() {
         let patt = parse_form("A@Z").unwrap();
-        assert!(match_equation_exists("AAZ", &patt, None, None));
-        assert!(match_equation_exists("AEZ", &patt, None, None));
-        assert!(!match_equation_exists("ABZ", &patt, None, None));
+        assert!(match_equation_exists("aaz", &patt, None, None));
+        assert!(match_equation_exists("aez", &patt, None, None));
+        assert!(!match_equation_exists("abz", &patt, None, None));
     }
 
     #[test]
     fn test_consonant_wildcard() {
         let patt = parse_form("A#Z").unwrap();
-        assert!(match_equation_exists("ABZ", &patt, None, None));
-        assert!(match_equation_exists("ACZ", &patt, None, None));
-        assert!(!match_equation_exists("AAZ", &patt, None, None));
+        assert!(match_equation_exists("abz", &patt, None, None));
+        assert!(match_equation_exists("acz", &patt, None, None));
+        assert!(!match_equation_exists("aaz", &patt, None, None));
     }
 
     #[test]
     fn test_charset_matching() {
         let patt = parse_form("[abc]").unwrap();
-        assert!(match_equation_exists("A", &patt, None, None));
-        assert!(match_equation_exists("B", &patt, None, None));
-        assert!(match_equation_exists("C", &patt, None, None));
-        assert!(!match_equation_exists("D", &patt, None, None));
+        assert!(match_equation_exists("a", &patt, None, None));
+        assert!(match_equation_exists("b", &patt, None, None));
+        assert!(match_equation_exists("c", &patt, None, None));
+        assert!(!match_equation_exists("d", &patt, None, None));
     }
 
     #[test]
@@ -913,7 +910,7 @@ mod tests {
 #[test]
 fn test_var_vowel_var_no_panic_and_matches() {
     let patt = parse_form("A@B").unwrap();
-    assert!(match_equation_exists("CAB", &patt, None, None)); // 'A'='C', '@'='A', 'B'='B
-    assert!(!match_equation_exists("C", &patt, None, None));  // too short
-    assert!(!match_equation_exists("CA", &patt, None, None));  // too short
+    assert!(match_equation_exists("cab", &patt, None, None)); // 'A'='C', '@'='A', 'B'='B
+    assert!(!match_equation_exists("c", &patt, None, None));  // too short
+    assert!(!match_equation_exists("ca", &patt, None, None));  // too short
 }

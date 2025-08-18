@@ -70,7 +70,7 @@
         document.getElementById("mainUI").style.display = "block";
       } else if (e.data.type === 'ok') {
         const rows = e.data.results;
-        resultsEl.textContent = rows.map(r => r.join(' • ')).join('\n') || 'No matches found.';
+        resultsEl.textContent = rows.map(r => r.join(' • ').toUpperCase()).join('\n') || 'No matches found.';
       } else if (e.data.type === 'err') {
         resultsEl.textContent = 'Error: ' + e.data.error;
       }

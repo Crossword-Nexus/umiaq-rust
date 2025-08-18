@@ -4,7 +4,7 @@
 //! string — the latter is important for WebAssembly/browser builds, since direct file I/O
 //! isn't allowed there).
 //!
-//! The output is a `WordList` struct containing a flat `Vec<String>` of uppercase words.
+//! The output is a `WordList` struct containing a flat `Vec<String>` of lowercase words.
 //! We do NOT store scores, because the solver only needs the word strings themselves.
 //!
 //! The parsing logic:
@@ -12,7 +12,7 @@
 //! - Lines without a semicolon are skipped silently.
 //! - `score` is parsed as an integer, and words with scores below `min_score` are skipped.
 //! - Words longer than `max_len` are skipped.
-//! - All words are normalized to uppercase.
+//! - All words are normalized to lowercase.
 //! - The final list is deduplicated and sorted by length first, then alphabetically.
 //!
 //! This module is designed to be **WASM-friendly** — no `std::fs` calls are made unless
@@ -33,8 +33,8 @@ use std::cmp::Ordering;
 /// the solver does not require the associated scores during pattern matching.
 #[derive(Debug, Clone)]
 pub struct WordList {
-    /// List of uppercase words.
-    /// Example: `["ABLE", "ACID", "ACORN", ...]`
+    /// List of lowercase words.
+    /// Example: `["able", "acid", "acorn", ...]`
     pub entries: Vec<String>,
 }
 
@@ -58,8 +58,8 @@ impl WordList {
     /// 2. Skips empty lines and lines without a `;` separator.
     /// 3. Splits each valid line into `word` and `score` parts.
     /// 4. Parses the score and filters by `min_score` and `max_len`.
-    /// 5. Converts `word` to uppercase.
-    /// 6. Deduplicates the list (case-insensitive because we uppercase early).
+    /// 5. Converts `word` to lowercase.
+    /// 6. Deduplicates the list (case-insensitive because we lowercase early).
     /// 7. Sorts by length, then alphabetically.
     fn parse_from_str(
         contents: &str,
@@ -107,8 +107,8 @@ impl WordList {
                     return None;
                 }
 
-                // Convert the word to uppercase.
-                let word = word_raw.to_uppercase();
+                // Convert the word to lowercase.
+                let word = word_raw.to_lowercase();
 
                 // Skip words longer than `max_len`.
                 if word.len() > max_len {
