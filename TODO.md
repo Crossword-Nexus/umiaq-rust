@@ -1,6 +1,5 @@
 * populate this file (`TODO.md`) with TODOs found in code comments
 * organize this file (at least sort... somehow)
-* fix "2-", "-4", etc. in literal constraints
 * allow for "complex" constraints like `A=(g*)`
 * (?) add methods on `char` (and `String`?): `is_variable` and `is_literal` (just sugar for `is_ascii_uppercase`, `is_ascii_lowercase`)
 * avoid duplicating work (e.g., `parse_form` call in `make_list`)

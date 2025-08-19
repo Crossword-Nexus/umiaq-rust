@@ -15,7 +15,7 @@ static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+
 static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
 static VAR_RE_STR: &str = "([A-Z])";
-static LENGTH_RE_STR: &str = "(\\d+(-\\d+)?)";
+static LENGTH_RE_STR: &str = "(\\d+-\\d+|\\d+-|-\\d+|\\d+)";
 // TODO constrain re to only allow lc letters, '.', '*', '/', '@', '#', etc. instead of "^)" in "[^)]"
 static LIT_PATTERN_RE_STR: &str = "([^)]+)";
 
@@ -31,8 +31,10 @@ static LIT_PATTERN_RE_STR: &str = "([^)]+)";
 // inner_constraint = {length range}:{literal string}
 //                  | {length range}
 //                  | {literal string}
-// length range = {number}
-//              | {number}-{number}
+// length range = {number}-{number}
+//              | {number}-
+//              | -{number}
+//              | {number}
 // number = {digit}
 //        | {digit}{number}
 // digit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
@@ -57,8 +59,7 @@ static LIT_PATTERN_RE_STR: &str = "([^)]+)";
 //
 // group 1: var
 // group 2: length constraint
-// group 3 (ignored): hyphen plus end of length range (when present)
-// group 4: literal pattern
+// group 3: literal pattern
 static COMPLEX_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(&format!("^{VAR_RE_STR}=\\(?{LENGTH_RE_STR}:?{LIT_PATTERN_RE_STR}\\)?$")).unwrap());
 // "^([A-Z])=(\\d+(-\\d+)?):?[^)]+$"
@@ -247,7 +248,7 @@ impl Patterns {
                 // Extract variable and complex constraint info
                 let var = cap[1].chars().next().unwrap();
                 let len = &cap[2];
-                let patt = cap[4].to_string();
+                let patt = cap[3].to_string();
                 let var_constraint = self.var_constraints.ensure(var);
 
                 if let Ok((min, max)) = parse_length_range(len) {
@@ -434,6 +435,45 @@ mod tests {
         let expected = VarConstraint {
             min_length: Some(3),
             max_length: Some(4),
+            form: Some("x*".to_string()),
+            not_equal: Default::default(),
+        };
+        assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
+    }
+
+    #[test]
+    fn test_complex_re_unbounded_max_len() {
+        let patterns = Patterns::of("A;A=(3-:x*)");
+
+        let expected = VarConstraint {
+            min_length: Some(3),
+            max_length: None,
+            form: Some("x*".to_string()),
+            not_equal: Default::default(),
+        };
+        assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
+    }
+
+    #[test]
+    fn test_complex_re_unbounded_min_len() {
+        let patterns = Patterns::of("A;A=(-4:x*)");
+
+        let expected = VarConstraint {
+            min_length: None,
+            max_length: Some(4),
+            form: Some("x*".to_string()),
+            not_equal: Default::default(),
+        };
+        assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
+    }
+
+    #[test]
+    fn test_complex_re_exact_len() {
+        let patterns = Patterns::of("A;A=(6:x*)");
+
+        let expected = VarConstraint {
+            min_length: Some(6),
+            max_length: Some(6),
             form: Some("x*".to_string()),
             not_equal: Default::default(),
         };
