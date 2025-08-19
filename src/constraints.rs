@@ -13,12 +13,11 @@ pub struct VarConstraints {
 }
 
 impl VarConstraints {
-    /// Create a `VarConstraints` map whose internal map is `map`.
-    fn of(map: HashMap<char, VarConstraint>) -> Self {
-        Self { inner: map }
-    }
+    // Create a `VarConstraints` map whose internal map is `map`.
+    //fn of(map: HashMap<char, VarConstraint>) -> Self { Self { inner: map } }
 
     /// Insert a complete `VarConstraint` for a variable.
+    #[cfg(test)]
     pub(crate) fn insert(&mut self, var: char, constraint: VarConstraint) {
         self.inner.insert(var, constraint);
     }
@@ -34,20 +33,17 @@ impl VarConstraints {
         self.inner.get(&var)
     }
 
-    /// Iterate over `(variable, constraint)` pairs.
-    fn iter(&self) -> impl Iterator<Item = (&char, &VarConstraint)> {
-        self.inner.iter()
-    }
+    // Iterate over `(variable, constraint)` pairs.
+    //fn iter(&self) -> impl Iterator<Item = (&char, &VarConstraint)> { self.inner.iter() }
 
-    /// Convenience: number of variables with constraints.
+    // Convenience: number of variables with constraints.
+    #[cfg(test)]
     fn len(&self) -> usize {
         self.inner.len()
     }
 
-    /// Convenience: true if no constraints are stored.
-    fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
+    // Convenience: true if no constraints are stored.
+    // fn is_empty(&self) -> bool { self.inner.is_empty() }
 }
 
 /// Pretty, deterministic display (sorted by variable) like:
