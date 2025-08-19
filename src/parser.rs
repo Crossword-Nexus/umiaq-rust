@@ -52,6 +52,8 @@ pub enum ParseError {
     EmptyForm,
     #[error("Invalid length range \"{input}\"")]
     InvalidLengthRange { input: String },
+    #[error("{str}")]
+    InvalidComplexConstraint { str: String },
 }
 
 // TODO test this

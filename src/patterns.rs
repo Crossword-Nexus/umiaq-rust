@@ -232,14 +232,14 @@ impl Patterns {
                     let var_constraint = self.var_constraints.ensure(v);
                     var_constraint.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
-            } else if let Some((var, cc_vc)) = get_complex_constraint(form) {
+            } else if let Ok((var, cc_vc)) = get_complex_constraint(form) {
                 let var_constraint = self.var_constraints.ensure(var);
 
                 // TODO is there a better way to do this?
                 var_constraint.min_length = cc_vc.min_length;
                 var_constraint.max_length = cc_vc.max_length;
                 var_constraint.form = cc_vc.form;
-            } else {
+            } else { // TODO? avoid swallowing error?
                 // We only want to add a form if it is parseable
                 // Specifically, things like |AB|=7 should not be picked up here
                 // TODO do we check for those separately?
@@ -346,15 +346,15 @@ impl Patterns {
 
 // TODO? do this via regex?
 // e.g., A=(3-;x*)
-fn get_complex_constraint(form: &&str) -> Option<(char, VarConstraint)> {
+fn get_complex_constraint(form: &&str) -> Result<(char, VarConstraint), ParseError> {
     let top_parts = form.split('=').collect::<Vec<_>>();
     if top_parts.len() != 2 {
-        return None
+        return Err(ParseError::InvalidComplexConstraint { str: format!("expected 1 equals sign (not {})", top_parts.len()) });
     }
 
     let var_str = top_parts[0];
     if var_str.len() != 1 {
-        return None
+        return Err(ParseError::InvalidComplexConstraint { str: format!("expected 1 character (as the variable) to the left of \"=\" (not {})", var_str.len()) });
     }
 
     let var = var_str.chars().next().unwrap();
@@ -374,7 +374,7 @@ fn get_complex_constraint(form: &&str) -> Option<(char, VarConstraint)> {
     let constraint_halves = inner_constraint_str.split(':').collect::<Vec<_>>();
     let (len_range, literal_constraint_str) = match constraint_halves.len() {
         2 => {
-            let len_range = parse_length_range(constraint_halves[0]).unwrap(); // TODO! error handling!
+            let len_range = parse_length_range(constraint_halves[0])?;
             (Some(len_range), Some(constraint_halves[1]))
         },
         1 => {
@@ -383,7 +383,7 @@ fn get_complex_constraint(form: &&str) -> Option<(char, VarConstraint)> {
                 Err(_) => (None, Some(constraint_halves[0]))
             }
         }
-        _ => return None
+        _ => return Err(ParseError::InvalidComplexConstraint { str: format!("too many colons--0 or 1 expected (not {})", constraint_halves.len() - 1) })
     };
 
     let vc = VarConstraint {
@@ -393,7 +393,7 @@ fn get_complex_constraint(form: &&str) -> Option<(char, VarConstraint)> {
         not_equal: HashSet::default(),
     };
 
-    Some((var, vc))
+    Ok((var, vc))
 }
 
 /// Enable `for p in &patterns { ... }`.
