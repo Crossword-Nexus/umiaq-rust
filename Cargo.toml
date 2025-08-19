@@ -2,6 +2,9 @@
 name = "umiaq-rust"
 version = "0.1.0"
 edition = "2024"
+description = "A Qat-like equation solver"
+repository = "https://github.com/crosswordnexus/umiaq"
+license = "MIT"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

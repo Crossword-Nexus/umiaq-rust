@@ -1,7 +1,13 @@
 {
   "name": "umiaq-rust",
   "type": "module",
+  "description": "A Qat-like equation solver",
   "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crosswordnexus/umiaq"
+  },
   "files": [
     "umiaq_rust_bg.wasm",
     "umiaq_rust.js",
