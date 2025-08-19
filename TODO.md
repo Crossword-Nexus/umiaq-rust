@@ -16,4 +16,5 @@
 * allow constraints like |A|<4, |B|>=5, etc.
 * consider adding a struct when faced with long argument lists (for methods)
 * throw exception if cannot parse form in `make_list` (else case)
+* Because of the way we check joint constraints, `AB;CD;AC;BD;|ABCD|=10` does not only return results of total length 10 (so umm fix that)
 * misc. TODOs in code
