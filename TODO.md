@@ -11,11 +11,9 @@
 * implement parallel processing for large word lists
 * add integration tests with real word lists
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
-* add support for `<` and `>` like in Qat
 * "binding" vs. "bindings" in variable names, comments, etc.
 * use `Range`s for length ranges?
 * allow constraints like |A|<4, |B|>=5, etc.
 * consider adding a struct when faced with long argument lists (for methods)
 * throw exception if cannot parse form in `make_list` (else case)
-* Allow for Qat's complex constraint syntax as the entire query (e.g., `7-9:x*a`)
 * misc. TODOs in code
