@@ -40,6 +40,7 @@
     <button type="submit" id="wordlist-button" value="Upload wordlist">(Optional) Upload wordlist</button>
 
     <div id="results"></div>
+    <div id="results-meta" style="margin-top:0.5em; font-style:italic; color:#bbb;"></div>
 
     <div id="examples-container"></div>
 
@@ -71,14 +72,27 @@
       } else if (e.data.type === 'ok') {
         const rows = e.data.results;
         resultsEl.textContent = rows.map(r => r.join(' • ').toUpperCase()).join('\n') || 'No matches found.';
+
+        if (searchStart !== null) {
+          const elapsed = ((performance.now() - searchStart) / 1000).toFixed(2);
+          const count = rows.length;
+          document.getElementById("results-meta").textContent =
+                  `${count} result${count !== 1 ? 's' : ''} loaded in ${elapsed} seconds.`;
+        }
+
       } else if (e.data.type === 'err') {
         resultsEl.textContent = 'Error: ' + e.data.error;
       }
     };
 
+    // For timing
+    let searchStart = null;
+
     async function solve(e) {
       e.preventDefault();
       resultsEl.textContent = 'Loading …';
+      document.getElementById("results-meta").textContent = '';
+      searchStart = performance.now();   // mark start time
       worker.postMessage({
         type: 'solve',
         input: inputEl.value.trim(),
