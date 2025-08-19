@@ -1,4 +1,4 @@
-use crate::constraints::VarConstraints;
+use crate::constraints::{VarConstraint, VarConstraints};
 use crate::parser::{parse_form, ParseError};
 use fancy_regex::Regex;
 use std::cmp::Reverse;
@@ -14,14 +14,9 @@ static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+
 /// Matches inequality constraints like `!=AB`
 static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
-static VAR_RE_STR: &str = "(?<var>[A-Z])";
-static LENGTH_RE_STR: &str = "(?<len>\\d+-\\d+|\\d+-|-\\d+|\\d+)";
-// TODO constrain re to only allow lc letters, '.', '*', '/', '@', '#', etc. instead of "^)" in "[^)]"
-static LIT_PATTERN_RE_STR: &str = "(?<lit>[^)]+)";
-
 // TODO? disallow accepting one paren and not the other
 // TODO require colon if both types, require no colon if just one (but support both or just one)
-/// Matches complex constraints like `A=(3-5:a*)` with optional length and pattern
+/// Matches complex constraints like `A=(3-5:a*)` with length and/or pattern
 // syntax:
 //
 // complex constraint expression = {variable name}={constraint}
@@ -56,13 +51,6 @@ static LIT_PATTERN_RE_STR: &str = "(?<lit>[^)]+)";
 // one or more literal string chars = {literal string char}
 //               | {literal string char}{charset chars}
 // anagram string = /{one or more literal string chars}
-//
-// group 1 (var): var
-// group 2 (len): length constraint
-// group 3 (lit): literal pattern
-static COMPLEX_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(&format!("^{VAR_RE_STR}=\\(?{LENGTH_RE_STR}:?{LIT_PATTERN_RE_STR}\\)?$")).unwrap());
-// "^([A-Z])=(\\d+(-\\d+)?):?[^)]+$"
 #[derive(Debug, Clone)]
 /// A single raw form string plus *solver metadata*; **not tokenized**.
 /// Use `parse_equation(&pattern.raw_string)` to get `Vec<FormPart>`.
@@ -244,23 +232,13 @@ impl Patterns {
                     let var_constraint = self.var_constraints.ensure(v);
                     var_constraint.not_equal = vars.iter().copied().filter(|&x| x != v).collect();
                 }
-            } else if let Some(cap) = COMPLEX_RE.captures(form).unwrap() {
-                // Extract variable and complex constraint info
-                let var = cap.name("var").unwrap().as_str().chars().next().unwrap();
-                let len = cap.name("len").unwrap().as_str();
-                let patt = cap.name("lit").unwrap().as_str();
+            } else if let Some((var, cc_vc)) = get_complex_constraint(form) {
                 let var_constraint = self.var_constraints.ensure(var);
 
-                if let Ok((min, max)) = parse_length_range(len) {
-                    var_constraint.min_length = min;
-                    var_constraint.max_length = max;
-                } else {
-                    // TODO error here... though also handle the no-length-specified case correctly
-                }
-
-                if !patt.is_empty() && patt != "*" {
-                    var_constraint.form = Some(patt.to_string());
-                }
+                // TODO is there a better way to do this?
+                var_constraint.min_length = cc_vc.min_length;
+                var_constraint.max_length = cc_vc.max_length;
+                var_constraint.form = cc_vc.form;
             } else {
                 // We only want to add a form if it is parseable
                 // Specifically, things like |AB|=7 should not be picked up here
@@ -366,6 +344,58 @@ impl Patterns {
     */
 }
 
+// TODO? do this via regex?
+// e.g., A=(3-;x*)
+fn get_complex_constraint(form: &&str) -> Option<(char, VarConstraint)> {
+    let top_parts = form.split('=').collect::<Vec<_>>();
+    if top_parts.len() != 2 {
+        return None
+    }
+
+    let var_str = top_parts[0];
+    if var_str.len() != 1 {
+        return None
+    }
+
+    let var = var_str.chars().next().unwrap();
+
+    let constraint_str = top_parts[1].to_string();
+
+    // remove outer parentheses if they are there
+    let inner_constraint_str = if constraint_str.starts_with('(') && constraint_str.ends_with(')') {
+        let mut chars = constraint_str.chars();
+        chars.next();
+        chars.next_back();
+        chars.as_str()
+    } else {
+        constraint_str.as_str()
+    };
+
+    let constraint_halves = inner_constraint_str.split(':').collect::<Vec<_>>();
+    let (len_range, literal_constraint_str) = match constraint_halves.len() {
+        2 => {
+            let len_range = parse_length_range(constraint_halves[0]).unwrap(); // TODO! error handling!
+            (Some(len_range), Some(constraint_halves[1]))
+        },
+        1 => {
+            match parse_length_range(constraint_halves[0]) {
+                Ok(len_range) => (Some(len_range), None),
+                Err(_) => (None, Some(constraint_halves[0]))
+            }
+        }
+        _ => return None
+    };
+
+    let vc = VarConstraint {
+        min_length: len_range.and_then(|lr| lr.0),
+        max_length: len_range.and_then(|lr| lr.1),
+        form: literal_constraint_str.map(ToString::to_string),
+        not_equal: HashSet::default(),
+    };
+
+    Some((var, vc))
+}
+
 /// Enable `for p in &patterns { ... }`.
 ///
 /// Why `&Patterns` and not `Patterns`?
@@ -386,12 +416,12 @@ impl<'a> IntoIterator for &'a Patterns {
 /// Parses a string like "3-5", "-5", "3-", or "3" into min and max length values.
 /// Returns `((min, max))` where each is an `Option<usize>`.
 fn parse_length_range(input: &str) -> Result<(Option<usize>, Option<usize>), ParseError> {
-    let parts: Vec<&str> = input.split('-').collect();
-    if (parts.len() == 1 && parts[0].is_empty()) || parts.len() > 2 {
-        return Err(ParseError::InvalidLengthRange { input: input.parse().unwrap() })
+    let parts: Vec<_> = input.split('-').map(|part| part.parse::<usize>().ok()).collect();
+    if (parts.len() == 1 && parts[0].is_none()) || parts.len() > 2 {
+        return Err(ParseError::InvalidLengthRange { input: input.to_string() })
     }
-    let min = parts.first().and_then(|s| s.parse::<usize>().ok());
-    let max = parts.last().and_then(|s| s.parse::<usize>().ok());
+    let min = *parts.first().unwrap();
+    let max = *parts.last().unwrap();
     Ok((min, max))
 }
 
@@ -428,6 +458,31 @@ mod tests {
         assert_eq!(expected_b, b.clone());
     }
 
+    #[test]
+    fn test_complex_re_len_only() {
+        let patterns = Patterns::of("A;A=(6)");
+
+        let expected = VarConstraint {
+            min_length: Some(6),
+            max_length: Some(6),
+            form: None,
+            not_equal: Default::default(),
+        };
+        assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
+    }
+
+    #[test]
+    fn test_complex_re_lit_only() {
+        let patterns = Patterns::of("A;A=(g*)");
+
+        let expected = VarConstraint {
+            min_length: None,
+            max_length: None,
+            form: Some("g*".to_string()),
+            not_equal: Default::default(),
+        };
+        assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
+    }
     #[test]
     fn test_complex_re() {
         let patterns = Patterns::of("A;A=(3-4:x*)");
