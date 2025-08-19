@@ -320,12 +320,21 @@ fn match_equation_internal(
                 let min_len = constraints.and_then(|constraints_inner|
                     constraints_inner.get(*var_name).map(|vc| vc.min_length)
                 ).flatten().unwrap_or(1usize);
-                let max_len = constraints.and_then(|constraints_inner|
+                let max_len_cfg = constraints.and_then(|constraints_inner|
                     constraints_inner.get(*var_name).map(|vc| vc.max_length)
                 ).flatten().unwrap_or(chars.len());
-                if min_len > max_len { return false; }
 
-                for l in min_len..=max_len {
+                let avail = chars.len();
+
+                // If the minimum exceeds what we have left, this path can't work
+                if min_len > avail {
+                    return false;
+                }
+
+                // Never try to slice past what's actually available
+                let capped_max = std::cmp::min(max_len_cfg, avail);
+
+                for l in min_len..=capped_max {
                     let candidate_chars = &chars[..l];
 
                     let bound_val = if matches!(first, FormPart::RevVar(_)) {
