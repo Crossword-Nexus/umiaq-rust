@@ -14,10 +14,10 @@ static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+
 /// Matches inequality constraints like `!=AB`
 static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
-static VAR_RE_STR: &str = "([A-Z])";
-static LENGTH_RE_STR: &str = "(\\d+-\\d+|\\d+-|-\\d+|\\d+)";
+static VAR_RE_STR: &str = "(?<var>[A-Z])";
+static LENGTH_RE_STR: &str = "(?<len>\\d+-\\d+|\\d+-|-\\d+|\\d+)";
 // TODO constrain re to only allow lc letters, '.', '*', '/', '@', '#', etc. instead of "^)" in "[^)]"
-static LIT_PATTERN_RE_STR: &str = "([^)]+)";
+static LIT_PATTERN_RE_STR: &str = "(?<lit>[^)]+)";
 
 // TODO? disallow accepting one paren and not the other
 // TODO require colon if both types, require no colon if just one (but support both or just one)
@@ -57,9 +57,9 @@ static LIT_PATTERN_RE_STR: &str = "([^)]+)";
 //               | {literal string char}{charset chars}
 // anagram string = /{one or more literal string chars}
 //
-// group 1: var
-// group 2: length constraint
-// group 3: literal pattern
+// group 1 (var): var
+// group 2 (len): length constraint
+// group 3 (lit): literal pattern
 static COMPLEX_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(&format!("^{VAR_RE_STR}=\\(?{LENGTH_RE_STR}:?{LIT_PATTERN_RE_STR}\\)?$")).unwrap());
 // "^([A-Z])=(\\d+(-\\d+)?):?[^)]+$"
@@ -246,9 +246,9 @@ impl Patterns {
                 }
             } else if let Some(cap) = COMPLEX_RE.captures(form).unwrap() {
                 // Extract variable and complex constraint info
-                let var = cap[1].chars().next().unwrap();
-                let len = &cap[2];
-                let patt = cap[3].to_string();
+                let var = cap.name("var").unwrap().as_str().chars().next().unwrap();
+                let len = cap.name("len").unwrap().as_str();
+                let patt = cap.name("lit").unwrap().as_str();
                 let var_constraint = self.var_constraints.ensure(var);
 
                 if let Ok((min, max)) = parse_length_range(len) {
@@ -259,7 +259,7 @@ impl Patterns {
                 }
 
                 if !patt.is_empty() && patt != "*" {
-                    var_constraint.form = Some(patt);
+                    var_constraint.form = Some(patt.to_string());
                 }
             } else {
                 // We only want to add a form if it is parseable
