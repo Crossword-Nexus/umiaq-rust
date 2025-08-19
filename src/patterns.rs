@@ -345,7 +345,7 @@ impl Patterns {
 }
 
 // TODO? do this via regex?
-// e.g., A=(3-;x*)
+// e.g., A=(3-:x*)
 fn get_complex_constraint(form: &&str) -> Result<(char, VarConstraint), ParseError> {
     let top_parts = form.split('=').collect::<Vec<_>>();
     if top_parts.len() != 2 {
