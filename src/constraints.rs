@@ -1,5 +1,5 @@
 // constraints.rs
-use once_cell::unsync::OnceCell;
+use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use crate::parser::{parse_form, ParsedForm};
