@@ -1,5 +1,8 @@
 # Umiaq
 
+## Usage
+[A web interface is available](web/index.html)
+
 ## License
 MIT License.
 
