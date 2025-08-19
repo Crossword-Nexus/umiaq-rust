@@ -1,6 +1,9 @@
-# umiaq-rust
+# Umiaq
 
-Umiaq, rewritten in Rust
+## License
+MIT License.
+
+Spread the Word List is released under CC BY-NC-SA 4.0
 
 ## Features
 
