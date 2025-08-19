@@ -334,6 +334,7 @@ dependencies = [
  "fancy-regex",
  "lazy_static",
  "nom",
+ "once_cell",
  "serde",
  "serde-wasm-bindgen",
  "thiserror",

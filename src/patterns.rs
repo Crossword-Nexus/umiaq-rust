@@ -391,6 +391,7 @@ fn get_complex_constraint(form: &&str) -> Result<(char, VarConstraint), ParseErr
         max_length: len_range.and_then(|lr| lr.1),
         form: literal_constraint_str.map(ToString::to_string),
         not_equal: HashSet::default(),
+        ..Default::default()
     };
 
     Ok((var, vc))
@@ -445,6 +446,7 @@ mod tests {
             max_length: Some(3),
             form: None,
             not_equal: ['B'].into_iter().collect(),
+            ..Default::default()
         };
         assert_eq!(expected_a, a.clone());
 
@@ -454,6 +456,7 @@ mod tests {
             max_length: Some(2),
             form: Some("b*".to_string()),
             not_equal: ['A'].into_iter().collect(),
+            ..Default::default()
         };
         assert_eq!(expected_b, b.clone());
     }
@@ -466,7 +469,7 @@ mod tests {
             min_length: Some(6),
             max_length: Some(6),
             form: None,
-            not_equal: Default::default(),
+            ..Default::default()
         };
         assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
     }
@@ -479,7 +482,7 @@ mod tests {
             min_length: None,
             max_length: None,
             form: Some("g*".to_string()),
-            not_equal: Default::default(),
+            ..Default::default()
         };
         assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
     }
@@ -491,7 +494,7 @@ mod tests {
             min_length: Some(3),
             max_length: Some(4),
             form: Some("x*".to_string()),
-            not_equal: Default::default(),
+            ..Default::default()
         };
         assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
     }
@@ -504,7 +507,7 @@ mod tests {
             min_length: Some(3),
             max_length: None,
             form: Some("x*".to_string()),
-            not_equal: Default::default(),
+            ..Default::default()
         };
         assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
     }
@@ -517,7 +520,7 @@ mod tests {
             min_length: None,
             max_length: Some(4),
             form: Some("x*".to_string()),
-            not_equal: Default::default(),
+            ..Default::default()
         };
         assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
     }
@@ -530,7 +533,7 @@ mod tests {
             min_length: Some(6),
             max_length: Some(6),
             form: Some("x*".to_string()),
-            not_equal: Default::default(),
+            ..Default::default()
         };
         assert_eq!(expected, patterns.var_constraints.get('A').unwrap().clone());
     }
