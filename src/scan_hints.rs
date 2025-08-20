@@ -238,14 +238,8 @@ where
         let tmax_eff_opt = g.total_max.map(|tmax| tmax.saturating_sub(outside_form_min.unwrap_or(1)));
 
         // Evaluate endpoints of the adjusted interval for in-form vars.
-        let gmin_w = match tmin_eff_opt {
-            Some(tmin_eff) => weighted_min_for_t(tmin_eff),
-            None => None, // no finite lower bound if outside unbounded
-        };
-        let gmax_w = match tmax_eff_opt {
-            Some(tmax_eff) => weighted_max_for_t(tmax_eff),
-            None => None,
-        };
+        let gmin_w = tmin_eff_opt.and_then(weighted_min_for_t);
+        let gmax_w = tmax_eff_opt.and_then(weighted_max_for_t);
 
         // Combine with outside-of-group contributions
         let outside: Vec<char> = vars.iter().copied().filter(|v| !gvars.contains(v)).collect();

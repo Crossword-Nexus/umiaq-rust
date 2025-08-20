@@ -290,7 +290,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
                 //   Some(Vec<(char, String)>) => specific values for shared variables,
                 //                                sorted for deterministic equality/hash.
                 let key: LookupKey = match patt.lookup_keys.as_ref() {
-                    None => None,
+                    None => None, // TODO? use map or and_then
                     Some(keys) => {
                         let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
                         for &var in keys {
