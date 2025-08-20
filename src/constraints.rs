@@ -87,10 +87,7 @@ impl VarConstraint {
     }
     /// Get the parsed form
     pub fn get_parsed_form(&self) -> Option<&ParsedForm> {
-        match &self.form {
-            Some(f) => Some(self.parsed_form.get_or_init(|| parse_form(f).unwrap())),
-            None => None,
-        }
+        self.clone().form.map(|f| self.parsed_form.get_or_init(|| parse_form(&f).unwrap()))
     }
 }
 

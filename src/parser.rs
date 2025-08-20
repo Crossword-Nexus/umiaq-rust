@@ -164,10 +164,8 @@ fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings)
     }
 
     // 2. Apply nested-form constraint if present (use cached parse)
-    if let Some(parsed) = constraints.get_parsed_form() {
-        if !match_equation_exists(val, parsed, None, None) {
-            return false;
-        }
+    if let Some(parsed) = constraints.get_parsed_form() && !match_equation_exists(val, parsed, None, None) {
+        return false;
     }
 
     // 3. Check "not equal" constraints
