@@ -285,15 +285,16 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
             // 6. For each binding produced for this pattern/word:
             if let Some(keys) = patt.lookup_keys.as_ref() {
-                for binding in matches {
-                    if keys.iter().all(|&var| binding.get(var).is_some()) {
+                for bindings in matches {
+                    let mut bindings_for_vars = keys.iter().map(|&var| bindings.get(var).map(|binding| (var, binding.clone())));
+                    if bindings_for_vars.all(|binding| binding.is_some()) {
                         // ---- Build the lookup key for bucketing ----
                         // `LookupKey` is:
                         //   None => no shared variables with previous patterns
                         //   Some(Vec<(char, String)>) => specific values for shared variables,
                         //                                sorted for deterministic equality/hash.
                         let key: LookupKey = {
-                            let mut pairs: Vec<_> = keys.iter().map(|&var| (var, binding.get(var).unwrap().clone())).collect();
+                            let mut pairs: Vec<_> = bindings_for_vars.map(|binding| binding.unwrap()).collect();
                             // Sort by variable name so the key is deterministic
                             pairs.sort_unstable_by_key(|(c, _)| *c);
                             Some(pairs)
@@ -301,7 +302,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
                         // ---- Store the binding in the correct bucket ----
                         // Insert into the appropriate bucket (creating a new Vec if needed)
-                        words[i].buckets.entry(key).or_default().push(binding.clone());
+                        words[i].buckets.entry(key).or_default().push(bindings.clone());
 
                         // Track how many bindings we've stored for this pattern
                         words[i].count += 1;
