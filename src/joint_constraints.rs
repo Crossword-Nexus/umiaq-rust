@@ -182,8 +182,7 @@ impl JointConstraints {
         self.as_vec.iter().all(|jc| jc.is_satisfied_by(bindings))
     }
 
-    /// True iff **every** joint constraint is satisfied w.r.t. a slice of Bindings,
-    /// using mid-search semantics (unbound ⇒ skip/true).
+    /// True iff **every** joint constraint is satisfied w.r.t. a slice of Bindings.
     /// Requires all referenced variables to be bound.
     pub fn all_strictly_satisfied_for_parts(&self, parts: &[Bindings]) -> bool {
         self.as_vec.iter().all(|jc| jc.is_strictly_satisfied_by_parts(parts))
