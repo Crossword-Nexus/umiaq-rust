@@ -1,6 +1,8 @@
 // constraints.rs
+use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use crate::parser::{parse_form, ParsedForm};
 
 /// A collection of constraints for variables in a pattern-matching equation.
 ///
@@ -68,12 +70,13 @@ impl fmt::Display for VarConstraints {
 /// - `form` is an optional sub-pattern the variable's match must satisfy
 ///   (e.g., `"a*"` means "must start with `a`"; `"*z*"` means "must contain `z`").
 /// - `not_equal` lists variables whose matches must *not* be identical to this one.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct VarConstraint {
     pub min_length: Option<usize>,
     pub max_length: Option<usize>,
-    pub form: Option<String>,     // e.g., "a*" or "*z*"
-    pub not_equal: HashSet<char>, // e.g., A's set contains 'B' if `A != B` is required
+    pub form: Option<String>,
+    pub not_equal: HashSet<char>,
+    pub parsed_form: OnceCell<ParsedForm>, // Default::default() → OnceCell::new()
 }
 
 impl VarConstraint {
@@ -82,7 +85,27 @@ impl VarConstraint {
         self.min_length = Some(len);
         self.max_length = Some(len);
     }
+    /// Get the parsed form
+    pub fn get_parsed_form(&self) -> Option<&ParsedForm> {
+        match &self.form {
+            Some(f) => Some(self.parsed_form.get_or_init(|| parse_form(f).unwrap())),
+            None => None,
+        }
+    }
 }
+
+// Implement equality for VarConstraint
+impl PartialEq for VarConstraint {
+    fn eq(&self, other: &Self) -> bool {
+        self.min_length == other.min_length
+            && self.max_length == other.max_length
+            && self.form == other.form
+            && self.not_equal == other.not_equal
+        // ignore parsed_form
+    }
+}
+
+impl Eq for VarConstraint {}
 
 // TODO better pretty printing of length ranges
 /// Compact human-readable display for a single constraint.
@@ -135,7 +158,7 @@ mod tests {
             min_length: Some(2),
             max_length: Some(4),
             form: Some("a*".into()),
-            not_equal: Default::default(),
+            ..Default::default()
         };
         vc.not_equal.extend(['C', 'B']); // out of order on purpose
         let shown = vc.to_string();

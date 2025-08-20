@@ -102,7 +102,7 @@ impl FormPart {
 }
 
 /// A `Vec` of `FormPart`s along with a compiled regex prefilter
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedForm {
     pub parts: Vec<FormPart>,
     pub prefilter: Regex,
@@ -163,15 +163,10 @@ fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings)
         return false;
     }
 
-    // 2. Apply nested-form constraint if present
-    if let Some(form_str) = &constraints.form {
-        match parse_form(form_str) {
-            Ok(p) => {
-                if !match_equation_exists(val, &p, None, None) {
-                    return false;
-                }
-            }
-            Err(_) => return false,
+    // 2. Apply nested-form constraint if present (use cached parse)
+    if let Some(parsed) = constraints.get_parsed_form() {
+        if !match_equation_exists(val, parsed, None, None) {
+            return false;
         }
     }
 
