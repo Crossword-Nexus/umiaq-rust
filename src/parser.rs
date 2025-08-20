@@ -119,13 +119,13 @@ impl ParsedForm {
     }
 
     // Return an iterator over the form parts
-    pub fn iter(&self) -> std::slice::Iter<'_, FormPart> {
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, FormPart> {
         self.parts.iter()
     }
 
     /// If this form is deterministic, build the concrete word using `env`.
     /// Returns `None` if any required var is unbound or if a nondeterministic part is present.
-    pub fn materialize_deterministic_with_env(
+    pub(crate) fn materialize_deterministic_with_env(
         &self,
         env: &std::collections::HashMap<char, String>,
     ) -> Option<String> {

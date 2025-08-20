@@ -125,7 +125,7 @@ impl Pattern {
 
     /// True iff every variable this pattern uses is included in its `lookup_keys`.
     /// (If `lookup_keys` is `None`, only patterns with zero variables return true.)
-    pub fn all_vars_in_lookup_keys(&self) -> bool {
+    pub(crate) fn all_vars_in_lookup_keys(&self) -> bool {
         match &self.lookup_keys {
             Some(keys) => self.variables.is_subset(keys),
             None => self.variables.is_empty(),
@@ -150,7 +150,7 @@ impl Pattern {
     }
 
     /// Set the lookup keys
-    pub fn set_lookup_keys(&mut self, keys: HashSet<char>) {
+    pub(crate) fn set_lookup_keys(&mut self, keys: HashSet<char>) {
         self.lookup_keys = Some(keys);
     }
 }
