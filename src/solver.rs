@@ -1,5 +1,5 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
-use crate::joint_constraints::parse_joint_constraints;
+use crate::joint_constraints::{parse_joint_constraints, JointConstraints};
 use crate::parser::{match_equation_all, parse_form, ParseError, ParsedForm};
 use crate::patterns::Patterns;
 use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
@@ -61,6 +61,7 @@ fn recursive_join(
     patterns: &Patterns,                 // for patt.deterministic / vars / lookup_keys
     parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
     word_list_as_set: &HashSet<&str>,
+    joint_constraints: &Option<JointConstraints>,
 ) {
     // Stop if we’ve met the requested quota of full solutions.
     if results.len() >= num_results_requested {
@@ -69,7 +70,13 @@ fn recursive_join(
 
     // Base case: if we’ve placed all patterns, `selected` is a full solution.
     if idx == words.len() {
-        results.push(selected.clone());
+        // Check the joint constraints
+        if joint_constraints
+            .as_ref()
+            .map_or(true, |jcs| jcs.all_strictly_satisfied_for_parts(&selected))
+        {
+            results.push(selected.clone());
+        }
         return;
     }
 
@@ -99,7 +106,7 @@ fn recursive_join(
             selected.push(binding);
             recursive_join(
                 idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                patterns, parsed_forms, word_list_as_set,
+                patterns, parsed_forms, word_list_as_set, joint_constraints
             );
             selected.pop();
             return; // IMPORTANT: skip normal enumeration path
@@ -190,7 +197,7 @@ fn recursive_join(
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
         recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                       patterns, parsed_forms, word_list_as_set);
+                       patterns, parsed_forms, word_list_as_set, joint_constraints);
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -363,6 +370,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         &patterns,
         &parsed_forms,
         &word_list_as_set,
+        &joint_constraints,
     );
 
     // ---- Reorder solutions back to original form order ----
@@ -405,5 +413,17 @@ fn test_solve_equation3() {
     // NB: this could give a false negative if SLY comes out before SKY (since we presumably shouldn't care about the order), so...
     // TODO allow order independence for equality... perhaps create a richer struct than just Vec<Bindings> that has a notion of order-independent equality
     let expected = Vec::from([Vec::from([sky_bindings, sly_bindings])]);
+    assert_eq!(expected, results);
+}
+
+#[test]
+fn test_solve_equation_joint_constraints() {
+    let word_list = vec!["inch", "chin", "chess", "chortle"];
+    let input = "ABC;CD;|ABCD|=7".to_string();
+    let results = solve_equation(&input, &word_list, 5).unwrap();
+
+    let inch_bindings = Bindings { map: HashMap::from([('*', "inch".to_string()), ('A', "i".to_string()), ('B', "n".to_string()), ('C', "ch".to_string())]) };
+    let chess_bindings = Bindings { map: HashMap::from([('*', "chess".to_string()), ('C', "ch".to_string()), ('D', "ess".to_string())]) };
+    let expected = Vec::from([Vec::from([inch_bindings, chess_bindings])]);
     assert_eq!(expected, results);
 }

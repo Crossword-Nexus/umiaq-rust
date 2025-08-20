@@ -85,6 +85,21 @@ impl JointConstraint {
         }
     }
 
+    /// Check this constraint against a *solution row* represented as a slice of Bindings
+    /// (one Bindings per form/pattern). Duplicates in `vars` count toward the sum.
+    /// Returns `false` if *any* referenced var is unbound across `parts`.
+    pub fn is_strictly_satisfied_by_parts(&self, parts: &[Bindings]) -> bool {
+        let mut total: usize = 0;
+        for &v in &self.vars {
+            let len = match resolve_var_len(parts, v) {
+                Some(len) => len,
+                None => return false, // strict: must be fully bound
+            };
+            total += len;
+        }
+        self.rel.allows(total.cmp(&self.target))
+    }
+
     // --- Test-only convenience for asserting behavior without needing real `Bindings`.
     //     This keeps tests independent of crate::bindings internals.
     #[cfg(test)]
@@ -95,6 +110,18 @@ impl JointConstraint {
         let total: usize = self.vars.iter().map(|v| map.get(v).unwrap().len()).sum();
         self.rel.allows(total.cmp(&self.target))
     }
+}
+
+/// Helper: find the current length of variable `v` across a slice of Bindings.
+/// Returns None if `v` is unbound in all Bindings in `parts`.
+#[inline]
+fn resolve_var_len(parts: &[Bindings], v: char) -> Option<usize> {
+    for b in parts {
+        if let Some(s) = b.get(v) {
+            return Some(s.len());
+        }
+    }
+    None
 }
 
 /// Parse a single joint-length expression that **starts at** a `'|'`.
@@ -153,6 +180,13 @@ impl JointConstraints {
     /// during search as a "non-pruning check".
     pub fn all_satisfied(&self, bindings: &Bindings) -> bool {
         self.as_vec.iter().all(|jc| jc.is_satisfied_by(bindings))
+    }
+
+    /// True iff **every** joint constraint is satisfied w.r.t. a slice of Bindings,
+    /// using mid-search semantics (unbound ⇒ skip/true).
+    /// Requires all referenced variables to be bound.
+    pub fn all_strictly_satisfied_for_parts(&self, parts: &[Bindings]) -> bool {
+        self.as_vec.iter().all(|jc| jc.is_strictly_satisfied_by_parts(parts))
     }
 
     // Test-only helper mirroring `all_satisfied` over a plain map.
