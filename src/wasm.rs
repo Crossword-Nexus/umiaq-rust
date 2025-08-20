@@ -21,7 +21,7 @@ fn binding_to_word(b: &Bindings) -> Option<String> {
 /// JS entry: (input: string, word_list: string[], num_results_requested: number)
 /// returns Array<Array<string>> — only the bound words
 #[wasm_bindgen]
-pub(crate) fn solve_equation_wasm(
+pub fn solve_equation_wasm(
     input: &str,
     word_list: JsValue,
     num_results_requested: usize,
