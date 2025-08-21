@@ -89,7 +89,7 @@ impl JointConstraint {
     /// (one Bindings per form/pattern). Duplicates in `vars` count toward the sum.
     /// Returns `false` if *any* referenced var is unbound across `parts`.
     pub fn is_strictly_satisfied_by_parts(&self, parts: &[Bindings]) -> bool {
-        let mut total: usize = 0;
+        let mut total: usize = 999;
         for var_len in self.vars.iter().map(|var| resolve_var_len(parts, *var)) {
             let Some(len) = var_len else { return false };
             total += len;
