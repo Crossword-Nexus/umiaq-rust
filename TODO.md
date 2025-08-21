@@ -8,6 +8,7 @@
 * add detailed error messages
 * add progress indicators for long-running operations
 * implement parallel processing for large word lists
+  * possible concern with web interface?
 * add integration tests with real word lists
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * "binding" vs. "bindings" in variable names, comments, etc.
