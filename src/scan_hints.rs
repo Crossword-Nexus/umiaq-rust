@@ -41,7 +41,7 @@ pub struct PatternLenHints {
 
 impl PatternLenHints {
     /// Quick check for a candidate word length against this hint.
-    pub fn is_word_len_possible(&self, len: usize) -> bool {
+    pub(crate) fn is_word_len_possible(&self, len: usize) -> bool {
         self.min_len.is_none_or(|min_len| len >= min_len) && self.max_len.is_none_or(|max_len| len <= max_len)
     }
 }
@@ -87,7 +87,7 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
 /// - `vcs`: the full equation’s `VarConstraints` (we’ll only read vars present in form)
 /// - `jcs`: the equation’s `JointConstraints` (we’ll filter to constraints whose
 ///   variable set is a subset of form’s variables)
-pub fn form_len_hints_pf(
+pub(crate) fn form_len_hints_pf(
     form: &ParsedForm,
     vcs: &VarConstraints,
     jcs: Option<&JointConstraints>,
@@ -97,7 +97,7 @@ pub fn form_len_hints_pf(
 
 /// Core generic implementation — accepts any iterator yielding `&FormPart`
 /// (e.g., a `&ParsedForm` thanks to its `IntoIterator` impl or a slice).
-pub fn form_len_hints_iter<'a, I, F>(
+pub(crate) fn form_len_hints_iter<'a, I, F>(
     parts: I,
     mut get_var_bounds: F,
     form_groups: &[GroupLenConstraint],

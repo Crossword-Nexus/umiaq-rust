@@ -1,3 +1,4 @@
+use std::cmp::min;
 use crate::bindings::{Bindings, WORD_SENTINEL};
 use crate::joint_constraints::parse_joint_constraints;
 use crate::parser::{match_equation_all, parse_form, ParseError, ParsedForm};
@@ -283,48 +284,40 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             let matches = match_equation_all(word, &parsed_forms[i], Some(var_constraints), joint_constraints.as_ref());
 
             // 6. For each binding produced for this pattern/word:
-            for binding in matches {
-                // ---- Build the lookup key for bucketing ----
-                // `LookupKey` is:
-                //   None => no shared variables with previous patterns
-                //   Some(Vec<(char, String)>) => specific values for shared variables,
-                //                                sorted for deterministic equality/hash.
-                let key: LookupKey = match patt.lookup_keys.as_ref() {
-                    None => None, // TODO? use map or and_then
-                    Some(keys) => {
-                        let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
-                        for &var in keys {
-                            if let Some(val) = binding.get(var) {
-                                pairs.push((var, val.clone()));
-                            } else {
-                                // If any shared var is missing, this binding can't be used
-                                pairs.clear();
-                                break;
-                            }
+            if let Some(keys) = patt.lookup_keys.as_ref() {
+                for bindings in matches {
+                    let mut bindings_for_vars = keys.iter().map(|&var| bindings.get(var).map(|binding| (var, binding.clone())));
+                    if bindings_for_vars.all(|binding| binding.is_some()) {
+                        // ---- Build the lookup key for bucketing ----
+                        // `LookupKey` is:
+                        //   None => no shared variables with previous patterns
+                        //   Some(Vec<(char, String)>) => specific values for shared variables,
+                        //                                sorted for deterministic equality/hash.
+                        let key: LookupKey = {
+                            let mut pairs: Vec<_> = bindings_for_vars.map(|binding| binding.unwrap()).collect();
+                            // Sort by variable name so the key is deterministic
+                            pairs.sort_unstable_by_key(|(c, _)| *c);
+                            Some(pairs)
+                        };
+
+                        // ---- Store the binding in the correct bucket ----
+                        // Insert into the appropriate bucket (creating a new Vec if needed)
+                        words[i].buckets.entry(key).or_default().push(bindings.clone());
+
+                        // Track how many bindings we've stored for this pattern
+                        words[i].count += 1;
+
+                        // Stop scanning more words entirely if this pattern hit the cap
+                        if words[i].count >= MAX_INITIAL_MATCHES {
+                            continue 'words_loop;
                         }
-                        if pairs.is_empty() && !keys.is_empty() {
-                            continue; // skip binding entirely
-                        }
-                        // Sort by variable name so the key is deterministic
-                        pairs.sort_unstable_by_key(|(c, _)| *c);
-                        Some(pairs)
                     }
-                };
-
-                // ---- Store the binding in the correct bucket ----
-                // Clone the "Bindings"
-                let this_binding: Bindings = binding.clone();
-
-                // Insert into the appropriate bucket (creating a new Vec if needed)
-                words[i].buckets.entry(key).or_default().push(this_binding);
-
-                // Track how many bindings we've stored for this pattern
-                words[i].count += 1;
-
-                // Stop scanning more words entirely if this pattern hit the cap
-                if words[i].count >= MAX_INITIAL_MATCHES {
-                    continue 'words_loop;
                 }
+            } else {
+                let limit = min(MAX_INITIAL_MATCHES - words[i].count, matches.len());
+                let entry = words[i].buckets.entry(None).or_default();
+                matches.iter().take(limit).for_each(|bindings| { entry.push(bindings.clone()); });
+                words[i].count += limit;
             }
         }
     }

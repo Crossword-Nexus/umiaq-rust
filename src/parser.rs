@@ -1,3 +1,4 @@
+use std::cmp::min;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -119,13 +120,13 @@ impl ParsedForm {
     }
 
     // Return an iterator over the form parts
-    pub fn iter(&self) -> std::slice::Iter<'_, FormPart> {
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, FormPart> {
         self.parts.iter()
     }
 
     /// If this form is deterministic, build the concrete word using `env`.
     /// Returns `None` if any required var is unbound or if a nondeterministic part is present.
-    pub fn materialize_deterministic_with_env(
+    pub(crate) fn materialize_deterministic_with_env(
         &self,
         env: &std::collections::HashMap<char, String>,
     ) -> Option<String> {
@@ -262,107 +263,97 @@ fn match_equation_internal(
         match first {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored lowercase)
-                return is_prefix(s, &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
+                is_prefix(s, &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
             }
             FormPart::Dot => {
                 // Single-char wildcard
-                if !chars.is_empty() {
-                    return helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
-                }
+                !chars.is_empty() && helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
             }
             FormPart::Star => {
-                // Zero-or-more wildcard; try all possible splits
-                for i in 0..=chars.len() {
-                    if helper(&chars[i..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
-                        && !all_matches
-                    {
-                        return true;
-                    }
-                }
+                !all_matches &&
+                    // Zero-or-more wildcard; try all possible splits
+                    (0..=chars.len()).into_iter().any(|i| {
+                        helper(&chars[i..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
+                    })
             }
-            // TODO? DRY: Vowel, Consonant, CharSet cases
+            // TODO? DRY (Vowel, Consonant, CharSet cases)
             FormPart::Vowel => {
-                if let Some((c, rest_chars)) = chars.split_first() && VOWEL_SET.contains(c) {
-                    return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
-                }
+                chars.split_first().is_some_and(|(c, rest_chars)| {
+                    VOWEL_SET.contains(c) && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
+                })
             }
             FormPart::Consonant => {
-                if let Some((c, rest_chars)) = chars.split_first() && CONSONANT_SET.contains(c) {
-                    return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
-                }
+                chars.split_first().is_some_and(|(c, rest_chars)| {
+                    CONSONANT_SET.contains(c) && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
+                })
             }
             FormPart::Charset(set) => {
-                if let Some((c, rest_chars)) = chars.split_first() && set.contains(c) {
-                    return helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints);
-                }
+                chars.split_first().is_some_and(|(c, rest_chars)| {
+                    set.contains(c) && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
+                })
             }
 
             FormPart::Anagram(s) => {
                 // Match if the next len chars are an anagram of target
                 let len = s.len();
-                if chars.len() >= len && are_anagrams(&chars[..len], s) {
-                    return helper(&chars[len..], rest, bindings, results, all_matches, word, constraints, joint_constraints);
-                }
+
+                chars.len() >= len &&
+                    are_anagrams(&chars[..len], s) &&
+                    helper(&chars[len..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
             }
             FormPart::Var(var_name) | FormPart::RevVar(var_name) => {
                 if let Some(bound_val) = bindings.get(*var_name) {
                     // Already bound: must match exactly
-                    return is_prefix(&get_reversed_or_not(first, bound_val), &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
-                }
+                    is_prefix(&get_reversed_or_not(first, bound_val), &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
+                } else {
+                    // Not bound yet: try binding to all possible lengths
+                    // To prune the search space, apply length constraints up front
+                    let min_len = constraints.and_then(|constraints_inner|
+                        constraints_inner.get(*var_name).map(|vc| vc.min_length)
+                    ).flatten().unwrap_or(1usize);
+                    let max_len_cfg = constraints.and_then(|constraints_inner|
+                        constraints_inner.get(*var_name).map(|vc| vc.max_length)
+                    ).flatten().unwrap_or(chars.len());
 
-                // Not bound yet: try binding to all possible lengths
-                // To prune the search space, apply length constraints up front
-                let min_len = constraints.and_then(|constraints_inner|
-                    constraints_inner.get(*var_name).map(|vc| vc.min_length)
-                ).flatten().unwrap_or(1usize);
-                let max_len_cfg = constraints.and_then(|constraints_inner|
-                    constraints_inner.get(*var_name).map(|vc| vc.max_length)
-                ).flatten().unwrap_or(chars.len());
+                    let avail = chars.len();
 
-                let avail = chars.len();
-
-                // If the minimum exceeds what we have left, this path can't work
-                if min_len > avail {
-                    return false;
-                }
-
-                // Never try to slice past what's actually available
-                let capped_max = std::cmp::min(max_len_cfg, avail);
-
-                for l in min_len..=capped_max {
-                    let candidate_chars = &chars[..l];
-
-                    let bound_val = if matches!(first, FormPart::RevVar(_)) {
-                        candidate_chars.iter().rev().collect::<String>()
+                    // If the minimum exceeds what we have left, this path can't work
+                    if min_len > avail {
+                        false
                     } else {
-                        candidate_chars.iter().collect::<String>()
-                    };
+                        // Never try to slice past what's actually available
+                        let capped_max = min(max_len_cfg, avail);
 
-                    // Apply variable-specific constraints
-                    let valid = if let Some(all_c) = constraints {
-                        if let Some(c) = all_c.get(*var_name) {
-                            is_valid_binding(&bound_val, c, bindings)
-                        } else {
-                            true
-                        }
-                    } else {
-                        true
-                    };
+                        (min_len..=capped_max).into_iter().any(|l| {
+                            let candidate_chars = &chars[..l];
 
-                    if !valid {
-                        continue;
+                            let bound_val: String = if matches!(first, FormPart::RevVar(_)) {
+                                candidate_chars.iter().rev().collect()
+                            } else {
+                                candidate_chars.iter().collect()
+                            };
+
+                            // Apply variable-specific constraints
+                            let valid = constraints.is_none_or(|all_c| {
+                                all_c.get(*var_name).is_none_or(|c| is_valid_binding(&bound_val, c, bindings))
+                            });
+
+                            if valid {
+                                bindings.set(*var_name, bound_val);
+                                if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints, joint_constraints) && !all_matches {
+                                    true
+                                } else {
+                                    bindings.remove(*var_name); // TODO! should these bindings be removed in the other (not-else) case too?
+                                    false
+                                }
+                            } else {
+                                false
+                            }
+                        })
                     }
-
-                    bindings.set(*var_name, bound_val);
-                    if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints, joint_constraints) && !all_matches {
-                        return true;
-                    }
-                    bindings.remove(*var_name);
                 }
             }
         }
-
-        false
     }
 
     /// Returns true if `prefix` is a prefix of `chars`

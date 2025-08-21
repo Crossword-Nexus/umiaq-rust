@@ -86,7 +86,7 @@ impl VarConstraint {
         self.max_length = Some(len);
     }
     /// Get the parsed form
-    pub fn get_parsed_form(&self) -> Option<&ParsedForm> {
+    pub(crate) fn get_parsed_form(&self) -> Option<&ParsedForm> {
         self.form.as_deref().map(|f| self.parsed_form.get_or_init(|| parse_form(f).unwrap()))
     }
 }

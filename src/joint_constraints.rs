@@ -27,7 +27,7 @@ impl RelMask {
 
     /// Return true if this mask allows the given ordering outcome.
     #[inline]
-    pub fn allows(self, ord: Ordering) -> bool {
+    pub(crate) fn allows(self, ord: Ordering) -> bool {
         let bit = match ord {
             Ordering::Less    => 0b001,
             Ordering::Equal   => 0b010,
@@ -38,7 +38,7 @@ impl RelMask {
 
     /// Parse an operator token into a mask.
     /// Accepted: "==", "=", "!=", "<=", ">=", "<", ">".
-    pub fn from_str(op: &str) -> Option<Self> {
+    pub(crate) fn from_str(op: &str) -> Option<Self> {
         Some(match op {
             "==" | "=" => Self::EQ,
             "!="       => Self::NE,
@@ -72,7 +72,7 @@ impl JointConstraint {
     /// If you need a *final* strict check, run this only after all vars are bound,
     /// or add a separate strict method that returns `false` when some vars are unbound.
     #[inline]
-    pub fn is_satisfied_by(&self, bindings: &Bindings) -> bool {
+    pub(crate) fn is_satisfied_by(&self, bindings: &Bindings) -> bool {
         // If not all vars are bound, skip this check for now.
         if bindings.contains_all_vars(&self.vars) {
             // Sum the lengths of the bound strings for the referenced vars.
@@ -151,7 +151,7 @@ impl JointConstraints {
     /// Mid-search semantics: a constraint with unbound vars returns `true`
     /// (see `JointConstraint::is_satisfied_by`), so this is safe to call
     /// during search as a "non-pruning check".
-    pub fn all_satisfied(&self, bindings: &Bindings) -> bool {
+    pub(crate) fn all_satisfied(&self, bindings: &Bindings) -> bool {
         self.as_vec.iter().all(|jc| jc.is_satisfied_by(bindings))
     }
 
@@ -169,7 +169,7 @@ impl JointConstraints {
 /// `FORM_SEPARATOR` (e.g., ';'), feeding each part through `parse_joint_len`.
 ///
 /// Returns `None` if no joint constraints are found.
-pub fn parse_joint_constraints(equation: &str) -> Option<JointConstraints> {
+pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints> {
     let mut v = Vec::new();
     for part in equation.split(FORM_SEPARATOR) {
         if let Some(jc) = parse_joint_len(part.trim()) {
