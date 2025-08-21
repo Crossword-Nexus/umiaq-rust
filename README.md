@@ -23,7 +23,7 @@ Spread the Word List is released under CC BY-NC-SA 4.0
     - length constraints: `|A|=3`
     - inequality constraints: `!=AB` (A must not equal B)
     - complex constraints: `A=(3-5:a*)` (length 3-5, must match pattern "a*")
-    - joint constrints: `|ABC|=10` (the lengths of A, B, C sum to 10)
+    - joint constraints: `|ABC|=10` (the lengths of A, B, C sum to 10)
 - **reversed variables**: `~A`
 
 ### Pattern Examples
