@@ -113,7 +113,7 @@ impl JointConstraint {
 /// Returns None if `v` is unbound in all Bindings in `parts`.
 #[inline]
 fn resolve_var_len(parts: &[Bindings], v: char) -> Option<usize> {
-    parts.iter().map(|bindings| bindings.get(v).map(String::len)).reduce(Option::or).flatten()
+    parts.iter().find_map(|bindings| bindings.get(v).map(String::len))
 }
 
 /// Parse a single joint-length expression that **starts at** a `'|'`.
