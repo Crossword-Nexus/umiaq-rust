@@ -61,7 +61,7 @@ fn recursive_join(
     patterns: &Patterns,                 // for patt.deterministic / vars / lookup_keys
     parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
     word_list_as_set: &HashSet<&str>,
-    joint_constraints: &Option<JointConstraints>,
+    joint_constraints: Option<&JointConstraints>,
 ) {
     // Stop if we’ve met the requested quota of full solutions.
     if results.len() >= num_results_requested {
@@ -73,7 +73,7 @@ fn recursive_join(
         // Check the joint constraints
         if joint_constraints
             .as_ref()
-            .map_or(true, |jcs| jcs.all_strictly_satisfied_for_parts(&selected))
+            .is_none_or(|jcs| jcs.all_strictly_satisfied_for_parts(selected))
         {
             results.push(selected.clone());
         }
@@ -370,7 +370,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         &patterns,
         &parsed_forms,
         &word_list_as_set,
-        &joint_constraints,
+        joint_constraints.as_ref(),
     );
 
     // ---- Reorder solutions back to original form order ----
