@@ -1,36 +1,53 @@
 # Umiaq
 
-## Usage
-[A web interface is available](web/index.html)
+**Umiaq** is an open-source solver and word-pattern matching tool.  
+It’s designed for crossword constructors, wordplay enthusiasts, and puzzle makers who want to search large word lists using expressive patterns, variables, and constraints.
 
-## License
-MIT License.
+👉 [Try the web interface](web/index.html)
 
-Spread the Word List is released under CC BY-NC-SA 4.0
+---
 
 ## Features
 
-- **pattern matching**: match words against complex patterns using variables, wildcards, and constraints
-- **variable binding**: use uppercase letters \(A-Z\) as variables that can bind to substrings
-- **wildcards**: support for various wildcard types:
-    - `.`: exactly one character
-    - `*`: zero or more characters
-    - `@`: any vowel (AEIOUY)
-    - `#`: any consonant (BCDFGHJKLMNPQRSTVWXZ)
-    - `[abc]`: any of the specified characters
-    - `/abc`: anagram of the specified characters
-- **constraints**: Apply constraints to variables:
-    - length constraints: `|A|=3`
-    - inequality constraints: `!=AB` (A must not equal B)
-    - complex constraints: `A=(3-5:a*)` (length 3-5, must match pattern "a*")
-    - joint constraints: `|ABC|=10` (the lengths of A, B, C sum to 10)
-- **reversed variables**: `~A`
+- **Expressive pattern matching**  
+  Match words against patterns with variables, wildcards, and constraints.
 
-### Pattern Examples
+- **Variable binding**  
+  Use uppercase letters (`A`–`Z`) as variables that can bind to substrings and be reused.
 
-- `"l.x"`: matches words like "LAX", "LOX"
-- `"A~A"`: matches palindromes like "NOON", "REDDER"
-- `"AB;|A|=2;|B|=2;!=AB"`: matches words where A and B are distinct 2-letter substrings
-- `"A@#A"`: matches words with some nonempty string, a vowel, a consonant, and the first nonempty string again
-- `"/triangle"`: matches anagrams of "triangle"
-- `"A;AB;|AB|=7;A=(3-4:g*)"` matches words of length 7 that start with a word of length 3-4 whose first letter is "g"
+- **Wildcards**
+  - `.` — any single character
+  - `*` — zero or more characters
+  - `@` — any vowel (`AEIOUY`)
+  - `#` — any consonant (`BCDFGHJKLMNPQRSTVWXZ`)
+  - `[abc]` — any of the listed characters
+  - `/abc` — any anagram of the listed letters
+
+- **Constraints**  
+  Add conditions on variables or groups of variables:
+  - Length: `|A|=3`
+  - Inequality: `!=AB` (A must not equal B)
+  - Complex: `A=(3-5:a*)` (length 3–5, must match pattern `a*`)
+  - Joint: `|ABC|=10` (the lengths of A, B, C sum to 10)
+
+- **Reversed variables**  
+  `~A` matches the reverse of variable `A`.
+
+---
+
+## Examples
+
+- `l.x` → matches words like **LAX**, **LOX**
+- `A~A` → palindromes like **NOON**, **REDDER**
+- `AB;|A|=2;|B|=2;!=AB` → words with two distinct 2-letter substrings
+- `A@#A` → words with some string, then a vowel, then a consonant, then the original string again
+- `/triangle` → any anagram of “triangle”
+- `A;AB;|AB|=7;A=(3-4:g*)` → 7-letter words starting with a 3–4 letter string beginning with **g**
+
+---
+
+## License
+
+- **Code**: MIT License
+- **Word list (Spread the Word List)**: CC BY-NC-SA 4.0  
+
