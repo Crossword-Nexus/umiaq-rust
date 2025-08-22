@@ -272,13 +272,18 @@ where
     PatternLenHints { min_len: weighted_min, max_len: weighted_max }
 }
 
-/// Helper: extract (min,max?) for a variable from `VarConstraints`.
+/// Look up the `(min_length, max_length)` bounds for a variable.
+///
+/// - If the variable exists in `vcs`, return its stored bounds via [`VarConstraint::bounds`].
+/// - If not, fall back to the default `VarConstraint`'s bounds.
 fn var_bounds_from_vcs(vcs: &VarConstraints, var: char) -> (Option<usize>, Option<usize>) {
-    // TODO is there are a better/canonical way to do this?
-    let vc = if let Some(vc) = vcs.get(var) { vc } else { &VarConstraint::default() };
-
-    (vc.min_length, vc.max_length)
+    vcs.get(var)
+        // If present, call the VarConstraint::bounds method to extract (min, max)
+        .map(VarConstraint::bounds)
+        // If missing, fall back to the default VarConstraint and return its bounds
+        .unwrap_or_else(|| VarConstraint::default().bounds())
 }
+
 
 /// Build the list of group constraints (as contiguous intervals) that are *scoped
 /// to this form*: every referenced variable must appear in the form.
@@ -286,11 +291,12 @@ fn group_constraints_for_form(form: &ParsedForm, jcso: Option<&JointConstraints>
     let Some(jcs) = jcso else { return Vec::new(); };
 
     // Collect variable set present in this form
-    // TODO is there a better way to do this?
-    let present: HashSet<_> = form.iter().filter_map(|p|
-        {
-            if let FormPart::Var(v) | FormPart::RevVar(v) = p { Some(v) } else { None }
-        }).collect();
+    let present: HashSet<char> = form.iter()
+        .filter_map(|p| match p {
+            FormPart::Var(v) | FormPart::RevVar(v) => Some(*v), // copy the char
+            _ => None,
+        })
+        .collect();
 
     // Filter joint constraints to those whose vars ⊆ present, and convert to intervals
     jcs.as_vec.iter()
