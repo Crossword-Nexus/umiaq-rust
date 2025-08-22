@@ -731,7 +731,7 @@ mod tests {
 
     #[test]
     fn test_parse_form_charset() {
-        assert_eq!(vec![FormPart::Charset(vec!['a','b','c'])], parse_form("[abc]").unwrap().parts);
+        assert_eq!(vec![FormPart::Charset(vec!['a', 'b', 'c'])], parse_form("[abc]").unwrap().parts);
     }
 
     #[test]
@@ -878,22 +878,22 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ParseError::ParseFailure { position: 0, remaining: _ }));
     }
-}
 
-#[test]
-fn test_var_vowel_var_no_panic_and_matches() {
-    let patt = parse_form("A@B").unwrap();
-    assert!(match_equation_exists("cab", &patt, None, None)); // 'A'='C', '@'='A', 'B'='B
-    assert!(!match_equation_exists("c", &patt, None, None));  // too short
-    assert!(!match_equation_exists("ca", &patt, None, None));  // too short
-}
+    #[test]
+    fn test_var_vowel_var_no_panic_and_matches() {
+        let patt = parse_form("A@B").unwrap();
+        assert!(match_equation_exists("cab", &patt, None, None)); // 'A'='C', '@'='A', 'B'='B
+        assert!(!match_equation_exists("c", &patt, None, None));  // too short
+        assert!(!match_equation_exists("ca", &patt, None, None));  // too short
+    }
 
-/// Test that a pattern with a star works
-#[test]
-fn test_star() {
-    // Pattern
-    let patt = parse_form("l*x").unwrap();
-    let matches = match_equation_all("lox", &patt, None, None);
-    println!("{matches:?}");
-    assert_eq!(1, matches.len());
+    /// Test that a pattern with a star works
+    #[test]
+    fn test_star() {
+        // Pattern
+        let patt = parse_form("l*x").unwrap();
+        let matches = match_equation_all("lox", &patt, None, None);
+        println!("{matches:?}");
+        assert_eq!(1, matches.len());
+    }
 }
