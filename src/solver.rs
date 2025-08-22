@@ -167,17 +167,7 @@ fn recursive_join(
         // its value must match the candidate. This *should* already be true
         // because we selected the bucket using the shared vars—but keep this
         // in case upstream bucketing logic ever changes.
-        let mut compatible = true;
-        for (k, v) in cand.iter() {
-            if *k == WORD_SENTINEL {
-                continue; // ignore the “whole word” sentinel binding
-            }
-            if let Some(prev) = env.get(k) && prev != v {
-                compatible = false;
-                break;
-            }
-        }
-        if !compatible {
+        if cand.iter().filter(|(k, _)| **k != WORD_SENTINEL).any(|(k, v)| env.get(k).map(|prev| prev != v).unwrap_or(false)) {
             continue;
         }
 
@@ -277,9 +267,8 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             }
 
             // ---- Cheap prefilter by length (skip calling the matcher if impossible) ----
-            let wlen = word.len();
             let hint = &scan_hints[i];
-            if !hint.is_word_len_possible(wlen) {
+            if !hint.is_word_len_possible(word.len()) {
                 continue; // length can't possibly fit this form; skip
             }
 
