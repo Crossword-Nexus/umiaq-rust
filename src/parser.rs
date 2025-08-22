@@ -259,9 +259,8 @@ fn match_equation_internal(
                 !chars.is_empty() && helper(&chars[1..], rest, hp)
             }
             FormPart::Star => {
-                !hp.all_matches &&
-                    // Zero-or-more wildcard; try all possible splits
-                    (0..=chars.len()).into_iter().any(|i| helper(&chars[i..], rest, hp))
+                // Zero-or-more wildcard; try all possible splits
+                (0..=chars.len()).any(|i| helper(&chars[i..], rest, hp))
             }
             // TODO? DRY (Vowel, Consonant, CharSet cases)
             FormPart::Vowel => {
@@ -884,4 +883,14 @@ fn test_var_vowel_var_no_panic_and_matches() {
     assert!(match_equation_exists("cab", &patt, None, None)); // 'A'='C', '@'='A', 'B'='B
     assert!(!match_equation_exists("c", &patt, None, None));  // too short
     assert!(!match_equation_exists("ca", &patt, None, None));  // too short
+}
+
+/// Test that a pattern with a star works
+#[test]
+fn test_star() {
+    // Pattern
+    let patt = parse_form("l*x").unwrap();
+    let matches = match_equation_all("lox", &patt, None, None);
+    println!("{matches:?}");
+    assert_eq!(1, matches.len());
 }
