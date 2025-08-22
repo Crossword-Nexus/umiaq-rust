@@ -1,6 +1,7 @@
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
+use crate::umiaq_char::UmiaqChar;
 
 /// Compact representation of the relation between (sum) and (target).
 ///
@@ -136,7 +137,7 @@ fn parse_joint_len(expr: &str) -> Option<JointConstraint> {
     let vars_str = &s[1..end_bar_idx];
 
     // Enforce A–Z only and at least two variables (true "joint" constraint).
-    if !vars_str.chars().all(|c| c.is_ascii_uppercase()) || vars_str.chars().count() < 2 {
+    if !vars_str.chars().all(|c| c.is_variable()) || vars_str.chars().count() < 2 {
         None
     } else {
         // Remainder like "=7", "<= 10", etc.

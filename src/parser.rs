@@ -1,4 +1,5 @@
-use std::cmp::min;
+use crate::umiaq_char::{CONSONANTS, LITERAL_CHARS, VARIABLE_CHARS};
+use crate::umiaq_char::VOWELS;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -9,26 +10,15 @@ use nom::{
     IResult,
     Parser,
 };
+use std::cmp::min;
 
 use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
-use fancy_regex::Regex;
-use std::collections::HashSet;
-use std::fmt::Write as _;
-use std::sync::{LazyLock, OnceLock};
 use crate::joint_constraints::JointConstraints;
-
-// Character-set constants
-const VOWELS: &str = "aeiouy";
-const CONSONANTS: &str = "bcdfghjklmnpqrstvwxz";
-const VARIABLE_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-// TODO is this only ever used to represent the possible values of literal chars?
-const LITERAL_CHARS: &str = "abcdefghijklmnopqrstuvwxyz";
-
-const NUM_POSSIBLE_VARIABLES: usize = VARIABLE_CHARS.len();
-
-static VOWEL_SET: LazyLock<HashSet<char>> = LazyLock::new(|| VOWELS.chars().collect());
-static CONSONANT_SET: LazyLock<HashSet<char>> = LazyLock::new(|| CONSONANTS.chars().collect());
+use crate::umiaq_char::{UmiaqChar, NUM_POSSIBLE_VARIABLES};
+use fancy_regex::Regex;
+use std::fmt::Write as _;
+use std::sync::OnceLock;
 
 static REGEX_CACHE: OnceLock<std::collections::HashMap<String, Regex>> = OnceLock::new();
 
@@ -279,12 +269,12 @@ fn match_equation_internal(
             // TODO? DRY (Vowel, Consonant, CharSet cases)
             FormPart::Vowel => {
                 chars.split_first().is_some_and(|(c, rest_chars)| {
-                    VOWEL_SET.contains(c) && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
+                    c.is_vowel() && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
                 })
             }
             FormPart::Consonant => {
                 chars.split_first().is_some_and(|(c, rest_chars)| {
-                    CONSONANT_SET.contains(c) && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
+                    c.is_consonant() && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
                 })
             }
             FormPart::Charset(set) => {

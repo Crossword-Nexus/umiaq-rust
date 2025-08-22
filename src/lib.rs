@@ -5,6 +5,7 @@ pub mod bindings;
 pub mod parser;
 pub mod patterns;
 pub mod constraints;
+pub mod umiaq_char;
 mod joint_constraints;
 mod scan_hints;
 

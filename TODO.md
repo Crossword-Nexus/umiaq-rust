@@ -1,7 +1,6 @@
 * populate this file (`TODO.md`) with TODOs found in code comments
 * organize this file (at least sort... somehow)
 * implement better prefilters for `Var`s with forms (e.g., `A;A=(x*a)` currently has a prefilter of `.+`)
-* (?) add methods on `char` (and `String`?): `is_variable` and `is_literal` (just sugar for `is_ascii_uppercase`, `is_ascii_lowercase`)
 * return `None` vs `Err`
 * avoid duplicating work (e.g., `parse_form` call in `make_list`)
 * add detailed error messages
