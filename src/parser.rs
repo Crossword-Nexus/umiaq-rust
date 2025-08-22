@@ -223,6 +223,21 @@ fn match_equation_internal(
         }
     }
 
+    /// Try to consume exactly one char if present, and apply `pred` to it.
+    /// - If the predicate passes, recurse with the rest of the chars.
+    /// - Otherwise return false (dead end).
+    ///
+    /// Covers Dot (any char), Vowel, Consonant, Charset, etc.
+    fn take_if(chars: &[char], rest: &[FormPart], hp: &mut HelperParams, pred: impl Fn(char) -> bool) -> bool {
+        if let Some((&c, rest_chars)) = chars.split_first() {
+            if pred(c) {
+                return helper(rest_chars, rest, hp);
+            }
+        }
+        false
+    }
+
+
     // TODO WTF does return value do (also: perhaps it should (always) be used)...
     // TODO maybe instead use a 3-way enum (e.g., can't continue, continue, done)
     /// Recursive matching helper.
@@ -254,25 +269,17 @@ fn match_equation_internal(
                 // Literal match (case-insensitive, stored lowercase)
                 is_prefix(s, &chars, rest, hp)
             }
-            FormPart::Dot => {
-                // Single-char wildcard
-                !chars.is_empty() && helper(&chars[1..], rest, hp)
-            }
+
             FormPart::Star => {
-                !hp.all_matches &&
-                    // Zero-or-more wildcard; try all possible splits
-                    (0..=chars.len()).into_iter().any(|i| helper(&chars[i..], rest, hp))
+                // Zero-or-more wildcard; try all possible splits
+                (0..=chars.len()).any(|i| helper(&chars[i..], rest, hp))
             }
-            // TODO? DRY (Vowel, Consonant, CharSet cases)
-            FormPart::Vowel => {
-                chars.split_first().is_some_and(|(c, rest_chars)| c.is_vowel() && helper(rest_chars, rest, hp))
-            }
-            FormPart::Consonant => {
-                chars.split_first().is_some_and(|(c, rest_chars)| c.is_consonant() && helper(rest_chars, rest, hp))
-            }
-            FormPart::Charset(set) => {
-                chars.split_first().is_some_and(|(c, rest_chars)| set.contains(c) && helper(rest_chars, rest, hp))
-            }
+
+            // Combined vowel, consonant, charset, dot cases
+            FormPart::Dot => take_if(chars, rest, hp, |_| true),
+            FormPart::Vowel => take_if(chars, rest, hp, |c| c.is_vowel()),
+            FormPart::Consonant => take_if(chars, rest, hp, |c| c.is_consonant()),
+            FormPart::Charset(s) => take_if(chars, rest, hp, |c| s.contains(&c)),
 
             FormPart::Anagram(s) => {
                 // Match if the next len chars are an anagram of target
@@ -884,4 +891,14 @@ fn test_var_vowel_var_no_panic_and_matches() {
     assert!(match_equation_exists("cab", &patt, None, None)); // 'A'='C', '@'='A', 'B'='B
     assert!(!match_equation_exists("c", &patt, None, None));  // too short
     assert!(!match_equation_exists("ca", &patt, None, None));  // too short
+}
+
+/// Test that a pattern with a star works
+#[test]
+fn test_star() {
+    // Pattern
+    let patt = parse_form("l*x").unwrap();
+    let matches = match_equation_all("lox", &patt, None, None);
+    println!("{matches:?}");
+    assert_eq!(1, matches.len());
 }
