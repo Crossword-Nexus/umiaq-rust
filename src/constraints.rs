@@ -134,7 +134,7 @@ impl fmt::Display for VarConstraint {
         ne.sort_unstable();
         // Turn it into a string: e.g., ['A','B','C'] → "ABC"
         let ne_str = if ne.is_empty() {
-            "{}".to_string() // explicit empty set
+            "∅".to_string()
         } else {
             ne.into_iter().collect::<String>()
         };
@@ -203,9 +203,9 @@ mod tests {
         let lines: Vec<&str> = s.lines().collect();
 
         let expected = vec![
-            "A: len=[≥1]; form=*; not_equal={}",
-            "B: len=[*]; form=*x*; not_equal={}",
-            "C: len=[≤2]; form=*; not_equal={}"
+            "A: len=[≥1]; form=*; not_equal=∅",
+            "B: len=[*]; form=*x*; not_equal=∅",
+            "C: len=[≤2]; form=*; not_equal=∅"
         ];
 
         assert_eq!(expected, lines);
