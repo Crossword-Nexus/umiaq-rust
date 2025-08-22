@@ -167,7 +167,7 @@ fn recursive_join(
         // its value must match the candidate. This *should* already be true
         // because we selected the bucket using the shared vars—but keep this
         // in case upstream bucketing logic ever changes.
-        if cand.iter().filter(|(k, _)| **k != WORD_SENTINEL).any(|(k, v)| env.get(k).map(|prev| prev != v).unwrap_or(false)) {
+        if cand.iter().filter(|(k, _)| **k != WORD_SENTINEL).any(|(k, v)| env.get(k).is_some_and(|prev| prev != v)) {
             continue;
         }
 
