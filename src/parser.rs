@@ -193,6 +193,16 @@ pub(crate) fn match_equation_all(
     results
 }
 
+// TODO better name
+struct HelperParams<'a> {
+    bindings: &'a mut Bindings,
+    results: &'a mut Vec<Bindings>,
+    all_matches: bool,
+    word: &'a str,
+    constraints: Option<&'a VarConstraints>,
+    joint_constraints: Option<&'a JointConstraints>,
+}
+
 /// Core backtracking search that tries to match `word` against `parts`.
 ///
 /// - Does an initial regex prefilter to skip impossible words quickly.
@@ -224,25 +234,16 @@ fn match_equation_internal(
     /// `bindings`    – current variable assignments
     /// `results`     – collection of successful bindings
     /// `all_matches` – whether to collect all or stop at first
-    fn helper(
-        chars: &[char],
-        parts: &[FormPart],
-        bindings: &mut Bindings,
-        results: &mut Vec<Bindings>,
-        all_matches: bool,
-        word: &str,
-        constraints: Option<&VarConstraints>,
-        joint_constraints: Option<&JointConstraints>,
-    ) -> bool {
+    fn helper(chars: &[char], parts: &[FormPart], hp: &mut HelperParams) -> bool {
         // Base case: no parts left
         if parts.is_empty() {
             if chars.is_empty() {
                 // Check the joint constraints (if any)
-                if joint_constraints.is_none_or(|jc| jc.all_satisfied(bindings)) {
-                    let mut full_result = bindings.clone();
-                    full_result.set_word(word);
-                    results.push(full_result);
-                    return !all_matches; // Stop early if only one match needed
+                if hp.joint_constraints.is_none_or(|jc| jc.all_satisfied(hp.bindings)) {
+                    let mut full_result = hp.bindings.clone();
+                    full_result.set_word(hp.word);
+                    hp.results.push(full_result);
+                    return !hp.all_matches; // Stop early if only one match needed
                 }
             }
             return false;
@@ -253,55 +254,45 @@ fn match_equation_internal(
         match first {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored lowercase)
-                is_prefix(s, &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
+                is_prefix(s, &chars, rest, hp)
             }
             FormPart::Dot => {
                 // Single-char wildcard
-                !chars.is_empty() && helper(&chars[1..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
+                !chars.is_empty() && helper(&chars[1..], rest, hp)
             }
             FormPart::Star => {
-                !all_matches &&
+                !hp.all_matches &&
                     // Zero-or-more wildcard; try all possible splits
-                    (0..=chars.len()).into_iter().any(|i| {
-                        helper(&chars[i..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
-                    })
+                    (0..=chars.len()).into_iter().any(|i| helper(&chars[i..], rest, hp))
             }
             // TODO? DRY (Vowel, Consonant, CharSet cases)
             FormPart::Vowel => {
-                chars.split_first().is_some_and(|(c, rest_chars)| {
-                    c.is_vowel() && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
-                })
+                chars.split_first().is_some_and(|(c, rest_chars)| c.is_vowel() && helper(rest_chars, rest, hp))
             }
             FormPart::Consonant => {
-                chars.split_first().is_some_and(|(c, rest_chars)| {
-                    c.is_consonant() && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
-                })
+                chars.split_first().is_some_and(|(c, rest_chars)| c.is_consonant() && helper(rest_chars, rest, hp))
             }
             FormPart::Charset(set) => {
-                chars.split_first().is_some_and(|(c, rest_chars)| {
-                    set.contains(c) && helper(rest_chars, rest, bindings, results, all_matches, word, constraints, joint_constraints)
-                })
+                chars.split_first().is_some_and(|(c, rest_chars)| set.contains(c) && helper(rest_chars, rest, hp))
             }
 
             FormPart::Anagram(s) => {
                 // Match if the next len chars are an anagram of target
                 let len = s.len();
 
-                chars.len() >= len &&
-                    are_anagrams(&chars[..len], s) &&
-                    helper(&chars[len..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
+                chars.len() >= len && are_anagrams(&chars[..len], s) && helper(&chars[len..], rest, hp)
             }
             FormPart::Var(var_name) | FormPart::RevVar(var_name) => {
-                if let Some(bound_val) = bindings.get(*var_name) {
+                if let Some(bound_val) = hp.bindings.get(*var_name) {
                     // Already bound: must match exactly
-                    is_prefix(&get_reversed_or_not(first, bound_val), &chars, bindings, results, all_matches, word, constraints, rest, joint_constraints)
+                    is_prefix(&get_reversed_or_not(first, bound_val), &chars, rest, hp)
                 } else {
                     // Not bound yet: try binding to all possible lengths
                     // To prune the search space, apply length constraints up front
-                    let min_len = constraints.and_then(|constraints_inner|
+                    let min_len = hp.constraints.and_then(|constraints_inner|
                         constraints_inner.get(*var_name).map(|vc| vc.min_length)
                     ).flatten().unwrap_or(1usize);
-                    let max_len_cfg = constraints.and_then(|constraints_inner|
+                    let max_len_cfg = hp.constraints.and_then(|constraints_inner|
                         constraints_inner.get(*var_name).map(|vc| vc.max_length)
                     ).flatten().unwrap_or(chars.len());
 
@@ -324,18 +315,17 @@ fn match_equation_internal(
                             };
 
                             // Apply variable-specific constraints
-                            let valid = constraints.is_none_or(|all_c| {
-                                all_c.get(*var_name).is_none_or(|c| is_valid_binding(&bound_val, c, bindings))
+                            let valid = hp.constraints.is_none_or(|all_c| {
+                                all_c.get(*var_name).is_none_or(|c| is_valid_binding(&bound_val, c, hp.bindings))
                             });
 
                             if valid {
-                                bindings.set(*var_name, bound_val);
-                                if helper(&chars[l..], rest, bindings, results, all_matches, word, constraints, joint_constraints) && !all_matches {
-                                    true
-                                } else {
-                                    bindings.remove(*var_name); // TODO! should these bindings be removed in the other (not-else) case too?
-                                    false
+                                hp.bindings.set(*var_name, bound_val);
+                                let retval = helper(&chars[l..], rest, hp) && !hp.all_matches;
+                                if !retval {
+                                    hp.bindings.remove(*var_name); // TODO! should these bindings be removed in the other (retval is true) case too?
                                 }
+                                retval
                             } else {
                                 false
                             }
@@ -347,20 +337,11 @@ fn match_equation_internal(
     }
 
     /// Returns true if `prefix` is a prefix of `chars`
-    fn is_prefix(prefix: &str,
-                 chars: &&[char],
-                 bindings: &mut Bindings,
-                 results: &mut Vec<Bindings>,
-                 all_matches: bool,
-                 word: &str,
-                 constraints: Option<&VarConstraints>,
-                 rest: &[FormPart],
-                 joint_constraints: Option<&JointConstraints>,
-    ) -> bool {
-        let n = prefix.len();
+    fn is_prefix(prefix: &str, chars: &&[char], rest: &[FormPart], helper_params: &mut HelperParams) -> bool {
+        let prefix_len = prefix.len();
 
-        if chars.len() >= n && chars[..n].iter().copied().zip(prefix.chars()).all(|(a, b)| a == b) {
-            helper(&chars[n..], rest, bindings, results, all_matches, word, constraints, joint_constraints)
+        if chars.len() >= prefix_len && chars[..prefix_len].iter().copied().zip(prefix.chars()).all(|(a, b)| a == b) {
+            helper(&chars[prefix_len..], rest, helper_params)
         } else {
             false
         }
@@ -401,9 +382,16 @@ fn match_equation_internal(
     }
 
     // Normalize word and start recursive matching
-    let chars: Vec<char> = word.chars().collect();
-    let mut bindings = Bindings::default();
-    helper(&chars, &parsed_form.parts, &mut bindings, results, all_matches, word, constraints, joint_constraints);
+    let mut hp = HelperParams {
+        bindings: &mut Bindings::default(),
+        results,
+        all_matches,
+        word,
+        constraints,
+        joint_constraints,
+    };
+
+    helper(&word.chars().collect::<Vec<_>>(), &parsed_form.parts, &mut hp);
 }
 
 /// Convert a parsed `FormPart` sequence into a regex string.
