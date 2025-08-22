@@ -104,21 +104,39 @@ impl PartialEq for VarConstraint {
 
 impl Eq for VarConstraint {}
 
-// TODO better pretty printing of length ranges
-/// Compact human-readable display for a single constraint.
+/// Compact human-readable display for a single `VarConstraint`.
+///
+/// This is intended for debugging / logs, not for round-tripping.
+/// It summarizes:
+/// - the allowed length range (e.g. `[3–5]`, `[≥3]`, `[≤5]`, `[*]`)
+/// - the optional form string (or `*` if absent)
+/// - the set of variables it must not equal, in sorted order
 impl fmt::Display for VarConstraint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Show not_equal in sorted order for stability
+        // Format the length range nicely.
+        // Handle each case: both bounds, only min, only max, or none.
+        let len_str = match (self.min_length, self.max_length) {
+            (Some(min), Some(max)) => format!("[{}-{}]", min, max),
+            (Some(min), None)      => format!("[≥{}]", min),
+            (None, Some(max))      => format!("[≤{}]", max),
+            (None, None)           => "[*]".to_string(), // unconstrained
+        };
+
+        // Show the "form" string if present, otherwise `-`
+        let form_str = self.form.as_deref().unwrap_or("*");
+
+        // Collect the `not_equal` set into a sorted Vec<char> for stable output
         let mut ne: Vec<char> = self.not_equal.iter().copied().collect();
         ne.sort_unstable();
-        write!(
-            f,
-            "len=[{:?}, {:?}]; form={:?}; not_equal={{{}}}",
-            self.min_length,
-            self.max_length,
-            self.form.as_deref(),
+        // Turn it into a string: e.g. ['A','B','C'] → "ABC"
+        let ne_str = if ne.is_empty() {
+            "{}".to_string() // explicit empty set
+        } else {
             ne.into_iter().collect::<String>()
-        )
+        };
+
+        // Final compact output
+        write!(f, "len={}; form={}; not_equal={}", len_str, form_str, ne_str)
     }
 }
 
@@ -160,7 +178,7 @@ mod tests {
         vc.not_equal.extend(['C', 'B']); // out of order on purpose
         let shown = vc.to_string();
         // not_equal should be sorted -> {BC}
-        assert_eq!("len=[Some(2), Some(4)]; form=Some(\"a*\"); not_equal={BC}", shown);
+        assert_eq!("len=[2-4]; form=a*; not_equal=BC", shown);
     }
 
     #[test]
@@ -181,9 +199,9 @@ mod tests {
         let lines: Vec<&str> = s.lines().collect();
 
         let expected = vec![
-            "A: len=[Some(1), None]; form=None; not_equal={}",
-            "B: len=[None, None]; form=Some(\"*x*\"); not_equal={}",
-            "C: len=[None, Some(2)]; form=None; not_equal={}"
+            "A: len=[≥1]; form=*; not_equal={}",
+            "B: len=[*]; form=*x*; not_equal={}",
+            "C: len=[≤2]; form=*; not_equal={}"
         ];
 
         assert_eq!(expected, lines);
