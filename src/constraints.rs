@@ -89,6 +89,10 @@ impl VarConstraint {
     pub(crate) fn get_parsed_form(&self) -> Option<&ParsedForm> {
         self.form.as_deref().map(|f| self.parsed_form.get_or_init(|| parse_form(f).unwrap()))
     }
+    /// Get bounds
+    pub fn bounds(&self) -> (Option<usize>, Option<usize>) {
+        (self.min_length, self.max_length)
+    }
 }
 
 // Implement equality for VarConstraint
