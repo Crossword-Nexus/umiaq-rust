@@ -1,3 +1,4 @@
 /target
 /.idea
 *.xml
+pkg/README.md
