@@ -277,11 +277,7 @@ where
 /// - If the variable exists in `vcs`, return its stored bounds via [`VarConstraint::bounds`].
 /// - If not, fall back to the default `VarConstraint`'s bounds.
 fn var_bounds_from_vcs(vcs: &VarConstraints, var: char) -> (Option<usize>, Option<usize>) {
-    vcs.get(var)
-        // If present, call the VarConstraint::bounds method to extract (min, max)
-        .map(VarConstraint::bounds)
-        // If missing, fall back to the default VarConstraint and return its bounds
-        .unwrap_or_else(|| VarConstraint::default().bounds())
+    vcs.get(var).unwrap_or(&VarConstraint::default()).bounds()
 }
 
 

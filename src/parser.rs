@@ -228,13 +228,8 @@ fn match_equation_internal(
     /// - Otherwise return false (dead end).
     ///
     /// Covers Dot (any char), Vowel, Consonant, Charset, etc.
-    fn take_if(chars: &[char], rest: &[FormPart], hp: &mut HelperParams, pred: impl Fn(char) -> bool) -> bool {
-        if let Some((&c, rest_chars)) = chars.split_first() {
-            if pred(c) {
-                return helper(rest_chars, rest, hp);
-            }
-        }
-        false
+    fn take_if(chars: &[char], rest: &[FormPart], hp: &mut HelperParams, pred: impl Fn(&char) -> bool) -> bool {
+        chars.split_first().is_some_and(|(c, rest_chars)| pred(c) && helper(rest_chars, rest, hp))
     }
 
 
@@ -277,9 +272,9 @@ fn match_equation_internal(
 
             // Combined vowel, consonant, charset, dot cases
             FormPart::Dot => take_if(chars, rest, hp, |_| true),
-            FormPart::Vowel => take_if(chars, rest, hp, |c| c.is_vowel()),
-            FormPart::Consonant => take_if(chars, rest, hp, |c| c.is_consonant()),
-            FormPart::Charset(s) => take_if(chars, rest, hp, |c| s.contains(&c)),
+            FormPart::Vowel => take_if(chars, rest, hp, char::is_vowel),
+            FormPart::Consonant => take_if(chars, rest, hp, char::is_consonant),
+            FormPart::Charset(s) => take_if(chars, rest, hp, |c| s.contains(c)),
 
             FormPart::Anagram(s) => {
                 // Match if the next len chars are an anagram of target

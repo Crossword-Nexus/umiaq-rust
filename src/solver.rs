@@ -416,4 +416,3 @@ fn test_solve_equation_joint_constraints() {
     let expected = Vec::from([Vec::from([inch_bindings, chess_bindings])]);
     assert_eq!(expected, results);
 }
-
