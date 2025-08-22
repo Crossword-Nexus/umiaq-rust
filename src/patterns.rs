@@ -133,6 +133,11 @@ impl Pattern {
         }
     }
 
+    /// Weights for different pattern parts when computing constraint score.
+    const SCORE_LITERAL: usize = 3;
+    const SCORE_CLASS:   usize = 1; // for @ and #
+    const SCORE_DEFAULT: usize = 0;
+
     /// Get the "constraint score" (name?) of a pattern
     /// The more literals and @# it has, the more constrained it is
     fn constraint_score(&self) -> usize {
@@ -140,11 +145,11 @@ impl Pattern {
         s.chars()
             .map(|c| {
                 if c.is_literal() {
-                    3 // TODO avoid magic constants (i.e., name this)
+                    Self::SCORE_LITERAL
                 } else if c == '@' || c == '#' {
-                    1 // TODO avoid magic constants (i.e., name this)
+                    Self::SCORE_CLASS
                 } else {
-                    0 // TODO avoid magic constants (i.e., name this)
+                    Self::SCORE_DEFAULT
                 }
             })
             .sum()
@@ -227,7 +232,10 @@ impl Patterns {
                 let len = cap[2].parse::<usize>().unwrap();
                 self.var_constraints.ensure(var).set_exact_len(len); // TODO avoid mutability?
             } else if let Some(cap) = NEQ_RE.captures(form).unwrap() {
-                // Extract all variables from inequality constraint (e.g., !=AB means A != B) // TODO document !=ABC (etc.) case
+                // Extract all variables from inequality constraint (e.g., !=AB means A != B)
+                // Examples: !=AB means A != B
+                // !=ABC means A != B, A != C, B != C
+                // In general, it means all listed variables are distinct
                 let vars: Vec<char> = cap[1].chars().collect();
                 for &v in &vars {
                     let var_constraint = self.var_constraints.ensure(v);
