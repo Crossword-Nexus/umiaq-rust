@@ -4,6 +4,7 @@ use fancy_regex::Regex;
 use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::sync::LazyLock;
+use crate::umiaq_char::UmiaqChar;
 
 /// The character that separates forms, in an equation
 pub const FORM_SEPARATOR: char = ';';
@@ -111,7 +112,7 @@ impl Pattern {
         // Get the variables involved
         let vars = raw_string
             .chars()
-            .filter(char::is_ascii_uppercase)
+            .filter(char::is_variable)
             .collect();
 
         Self {
@@ -138,7 +139,7 @@ impl Pattern {
         let s = &self.raw_string;
         s.chars()
             .map(|c| {
-                if c.is_ascii_lowercase() {
+                if c.is_literal() {
                     3 // TODO avoid magic constants (i.e., name this)
                 } else if c == '@' || c == '#' {
                     1 // TODO avoid magic constants (i.e., name this)

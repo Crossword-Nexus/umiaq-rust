@@ -1,6 +1,7 @@
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
+use crate::umiaq_char::UmiaqChar;
 
 /// Compact representation of the relation between (sum) and (target).
 ///
@@ -39,15 +40,15 @@ impl RelMask {
     /// Parse an operator token into a mask.
     /// Accepted: "==", "=", "!=", "<=", ">=", "<", ">".
     pub(crate) fn from_str(op: &str) -> Option<Self> {
-        Some(match op {
-            "==" | "=" => Self::EQ,
-            "!="       => Self::NE,
-            "<="       => Self::LE,
-            ">="       => Self::GE,
-            "<"        => Self::LT,
-            ">"        => Self::GT,
-            _          => return None,
-        })
+        match op {
+            "==" | "=" => Some(Self::EQ),
+            "!=" => Some(Self::NE),
+            "<=" => Some(Self::LE),
+            ">=" => Some(Self::GE),
+            "<" => Some(Self::LT),
+            ">" => Some(Self::GT),
+            _ => None,
+        }
     }
 }
 
@@ -136,26 +137,30 @@ fn parse_joint_len(expr: &str) -> Option<JointConstraint> {
     let vars_str = &s[1..end_bar_idx];
 
     // Enforce A–Z only and at least two variables (true "joint" constraint).
-    if !vars_str.chars().all(|c| c.is_ascii_uppercase()) { return None; }
-    if vars_str.chars().count() < 2 { return None; }
+    if !vars_str.chars().all(|c| c.is_variable()) || vars_str.chars().count() < 2 {
+        None
+    } else {
+        // Remainder like "=7", "<= 10", etc.
+        let rhs = s[end_bar_idx + 1..].trim_start();
 
-    // Remainder like "=7", "<= 10", etc.
-    let rhs = s[end_bar_idx + 1..].trim_start();
+        // Recognize operators (two-char first to avoid "<" grabbing from "<=").
+        let (op_tok, rest) = ["<=", ">=", "==", "!=", "<", ">", "="]
+            .iter()
+            .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start())))?;
 
-    // Recognize operators (two-char first to avoid "<" grabbing from "<=").
-    let (op_tok, rest) = ["<=", ">=", "==", "!=", "<", ">", "="]
-        .iter()
-        .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start())))?;
+        // Parse integer (digits only).
+        let digits_len = rest.chars().take_while(char::is_ascii_digit).count();
+        if digits_len == 0 {
+            None
+        } else {
+            let target: usize = rest[..digits_len].parse().ok()?;
 
-    // Parse integer (digits only).
-    let digits_len = rest.chars().take_while(char::is_ascii_digit).count();
-    if digits_len == 0 { return None; }
-    let target: usize = rest[..digits_len].parse().ok()?;
+            let rel = RelMask::from_str(op_tok)?;
+            let vars = vars_str.chars().collect::<Vec<char>>(); // duplicates are kept
 
-    let rel = RelMask::from_str(op_tok)?;
-    let vars = vars_str.chars().collect::<Vec<char>>(); // duplicates are kept
-
-    Some(JointConstraint { vars, target, rel })
+            Some(JointConstraint { vars, target, rel })
+        }
+    }
 }
 
 /// Container for many joint constraints (useful as a field on your puzzle/parse).
@@ -191,7 +196,7 @@ impl JointConstraints {
 }
 
 /// Parse all joint constraints from an equation string by splitting on your
-/// `FORM_SEPARATOR` (e.g., ';'), feeding each part through `parse_joint_len`.
+/// `FORM_SEPARATOR` (i.e., ';'), feeding each part through `parse_joint_len`.
 ///
 /// Returns `None` if no joint constraints are found.
 pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints> {
