@@ -1,5 +1,4 @@
-use crate::umiaq_char::{CONSONANTS, LITERAL_CHARS, VARIABLE_CHARS};
-use crate::umiaq_char::VOWELS;
+use crate::umiaq_char::{CONSONANTS, LITERAL_CHARS, NUM_POSSIBLE_VARIABLES, UmiaqChar, VARIABLE_CHARS, VOWELS};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -15,7 +14,6 @@ use std::cmp::min;
 use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 use crate::joint_constraints::JointConstraints;
-use crate::umiaq_char::{UmiaqChar, NUM_POSSIBLE_VARIABLES};
 use fancy_regex::Regex;
 use std::fmt::Write as _;
 use std::sync::OnceLock;
