@@ -215,15 +215,12 @@ where
         // Evaluate endpoints of the group’s allowed total interval
         // ---- Account for group vars that are NOT in this form ------------------
         // They eat into the group's total before we allocate to in-form vars.
-        let mut outside_form_min = Some(0);
-        let mut outside_form_max = Some(0);
-
-        // TODO fail fast (as appropriate)
-        for v in g.vars.iter().filter(|v| !var_frequency.contains_key(v)) {
+        let (outside_form_min, outside_form_max) = g.vars.iter()
+            .filter(|v| !var_frequency.contains_key(v))
+            .fold((Some(0), Some(0)), |(cur_outside_form_min, cur_outside_form_max), v|{
             let (li, ui) = get_var_bounds(*v);
-            outside_form_min = some_sums_if_somes(outside_form_min, li);
-            outside_form_max = some_sums_if_somes(outside_form_max, ui);
-        }
+            (some_sums_if_somes(cur_outside_form_min, li), some_sums_if_somes(cur_outside_form_max, ui))
+        });
 
         // Effective totals for the in-form part of this group:
         // - For the LOWER bound, outside takes as much as possible (use outside_form_max if finite).
