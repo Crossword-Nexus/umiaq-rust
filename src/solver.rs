@@ -130,6 +130,15 @@ fn recursive_join(
                 }
             }
 
+            // ---- Recursive join (like umiaq.py’s recursive_filter) ----
+            //
+            // Build an index-aligned vector of `lookup_keys` (one per pattern). Each entry:
+            //   - None  → this pattern contributes to the `None` bucket (no shared vars)
+            //   - Some(vec_of_vars) → this pattern is bucketed by a deterministic
+            //                         `Some(sorted (var,value) pairs)` key
+            //
+            // NOTE: We clone since `p.lookup_keys` is an Option<Vec<char>>. If you’d rather
+            // borrow, you can restructure `recursive_join` to accept slices instead.
             selected.push(binding);
             recursive_join(
                 idx + 1, words, lookup_keys, selected, env, results, seen_solutions,
@@ -375,12 +384,14 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         if cursors.iter().all(|&c| c >= word_list.len()) { break; }
     }
 
+    // ---- Reorder solutions back to original form order ----
     let reordered = results.iter().map(|solution| {
         (0..solution.len()).map(|original_i| {
             (solution.clone())[patterns.original_to_ordered[original_i]].clone()
         }).collect::<Vec<_>>()
     }).collect::<Vec<_>>();
 
+    // Return up to `num_results_requested` reordered solutions
     Ok(reordered)
 }
 
