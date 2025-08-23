@@ -397,8 +397,15 @@ fn test_solve_equation3() {
     let input = "AkB;AlB".to_string();
     let results = solve_equation(&input, &word_list, 5).unwrap();
 
-    let sky_bindings = Bindings { map: HashMap::from([('*', "sky".to_string()), ('A', "s".to_string()), ('B', "y".to_string())]) };
-    let sly_bindings = Bindings { map: HashMap::from([('*', "sly".to_string()), ('A', "s".to_string()), ('B', "y".to_string())]) };
+    let mut sky_bindings = Bindings::default();
+    sky_bindings.set('A', "s".to_string());
+    sky_bindings.set('B', "y".to_string());
+    sky_bindings.set_word("sky".to_string().as_ref());
+
+    let mut sly_bindings = Bindings::default();
+    sly_bindings.set('A', "s".to_string());
+    sly_bindings.set('B', "y".to_string());
+    sly_bindings.set_word("sly".to_string().as_ref());
     // NB: this could give a false negative if SLY comes out before SKY (since we presumably shouldn't care about the order), so...
     // TODO allow order independence for equality... perhaps create a richer struct than just Vec<Bindings> that has a notion of order-independent equality
     let expected = Vec::from([Vec::from([sky_bindings, sly_bindings])]);
@@ -411,8 +418,16 @@ fn test_solve_equation_joint_constraints() {
     let input = "ABC;CD;|ABCD|=7".to_string();
     let results = solve_equation(&input, &word_list, 5).unwrap();
     println!("{:?}", results);
-    let inch_bindings = Bindings { map: HashMap::from([('*', "inch".to_string()), ('A', "i".to_string()), ('B', "n".to_string()), ('C', "ch".to_string())]) };
-    let chess_bindings = Bindings { map: HashMap::from([('*', "chess".to_string()), ('C', "ch".to_string()), ('D', "ess".to_string())]) };
+    let mut inch_bindings = Bindings::default();
+    inch_bindings.set('A', "i".to_string());
+    inch_bindings.set('B', "n".to_string());
+    inch_bindings.set('C', "ch".to_string());
+    inch_bindings.set_word("inch".to_string().as_ref());
+
+    let mut chess_bindings = Bindings::default();
+    chess_bindings.set('C', "ch".to_string());
+    chess_bindings.set('D', "ess".to_string());
+    chess_bindings.set_word("chess".to_string().as_ref());
     let expected = Vec::from([Vec::from([inch_bindings, chess_bindings])]);
     assert_eq!(expected, results);
 }
