@@ -117,9 +117,7 @@ where
     for p in parts {
         match p {
             FormPart::Star => { has_star = true; }
-            FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => {
-                fixed_base += 1;
-            }
+            FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => { fixed_base += 1; }
             FormPart::Lit(s) | FormPart::Anagram(s) => { fixed_base += s.len(); }
             FormPart::Var(v) | FormPart::RevVar(v) => { *var_frequency.entry(*v).or_insert(0) += 1; }
         }
@@ -134,24 +132,23 @@ where
     let mut vars: Vec<char> = var_frequency.keys().copied().collect();
     vars.sort_unstable();
 
-    let mut bounds: HashMap<char, Bounds> = HashMap::new();
-    for &v in &vars {
+    let bounds_map = &vars.iter().map(|&v| {
         let (li, ui) = get_var_bounds(v);
-        bounds.insert(v, Bounds { li, ui });
-    }
+        (v, Bounds { li, ui })
+    }).collect::<HashMap<char, Bounds>>();
 
     let get_weight = |v: char| *var_frequency.get(&v).unwrap_or(&0);
 
     // Baseline min/max ignoring groups
     let mut weighted_min =
         // TODO! do not do "unwrap_or(1)"
-        Some(fixed_base + vars.iter().map(|&v| get_weight(v) * bounds[&v].li.unwrap_or(1)).sum::<usize>());
+        Some(fixed_base + vars.iter().map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(1)).sum::<usize>());
 
     let mut weighted_max =
-        if has_star || vars.iter().any(|&v| bounds[&v].ui.is_none()) {
+        if has_star || vars.iter().any(|&v| bounds_map[&v].ui.is_none()) {
             None
         } else {
-            Some(fixed_base + vars.iter().map(|&v| get_weight(v) * bounds[&v].ui.unwrap()).sum::<usize>())
+            Some(fixed_base + vars.iter().map(|&v| get_weight(v) * bounds_map[&v].ui.unwrap()).sum::<usize>())
         };
 
     // 3. Tighten with group constraints valid for this form
@@ -201,11 +198,14 @@ where
         let mut sum_li: usize = 0;
         let mut sum_ui: Option<usize> = Some(0);
         for &v in &gvars {
-            let b = bounds[&v];
+            let b = bounds_map[&v];
             rows.push(Row { w: get_weight(v), li: b.li, ui: b.ui });
             // TODO! do not do "unwrap_or(1)"
             sum_li += b.li.unwrap_or(1);
-            sum_ui = match (sum_ui, b.ui) { (Some(a), Some(bu)) => Some(a + bu), _ => None };
+            sum_ui = match (sum_ui, b.ui) {
+                (Some(a), Some(bu)) => Some(a + bu),
+                _ => None
+            };
         }
 
         let weighted_min_for_t = |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui, t, true);
@@ -218,16 +218,11 @@ where
         let mut outside_form_min = Some(0);
         let mut outside_form_max = Some(0);
 
-        for v in g.vars.iter().copied().filter(|v| !var_frequency.contains_key(v)) {
-            let (li, ui) = get_var_bounds(v);
-            outside_form_min = match (outside_form_min, li) {
-                (Some(a), Some(b)) => Some(a + b),
-                _ => None, // unbounded outside ⇒ no finite lower bound for in-form part
-            };
-            outside_form_max = match (outside_form_max, ui) {
-                (Some(a), Some(b)) => Some(a + b),
-                _ => None, // unbounded outside ⇒ no finite upper bound for in-form part
-            };
+        // TODO fail fast (as appropriate)
+        for v in g.vars.iter().filter(|v| !var_frequency.contains_key(v)) {
+            let (li, ui) = get_var_bounds(*v);
+            outside_form_min = some_sums_if_somes(outside_form_min, li);
+            outside_form_max = some_sums_if_somes(outside_form_max, ui);
         }
 
         // Effective totals for the in-form part of this group:
@@ -244,11 +239,11 @@ where
         // Combine with outside-of-group contributions
         let outside: Vec<char> = vars.iter().copied().filter(|v| !gvars.contains(v)).collect();
         // TODO! do not do "unwrap_or(1)"
-        let outside_min = outside.iter().map(|&v| get_weight(v) * bounds[&v].li.unwrap_or(1)).sum::<usize>();
-        let outside_max: Option<usize> = if has_star || outside.iter().any(|&v| bounds[&v].ui.is_none()) {
+        let outside_min = outside.iter().map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(1)).sum::<usize>();
+        let outside_max: Option<usize> = if has_star || outside.iter().any(|&v| bounds_map[&v].ui.is_none()) {
             None
         } else {
-            Some(outside.iter().map(|&v| get_weight(v) * bounds[&v].ui.unwrap()).sum::<usize>())
+            Some(outside.iter().map(|&v| get_weight(v) * bounds_map[&v].ui.unwrap()).sum::<usize>())
         };
 
         if let Some(gmin) = gmin_w {
@@ -270,6 +265,13 @@ where
     }
 
     PatternLenHints { min_len: weighted_min, max_len: weighted_max }
+}
+
+fn some_sums_if_somes(outside_form_extremum: Option<usize>, l: Option<usize>) -> Option<usize> {
+    match (outside_form_extremum, l) {
+        (Some(a), Some(b)) => Some(a + b),
+        _ => None, // unbounded outside ⇒ no finite lower bound for in-form part
+    }
 }
 
 /// Look up the `(min_length, max_length)` bounds for a variable.
