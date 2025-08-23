@@ -1,6 +1,7 @@
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
+use crate::constraints::VarConstraints;
 use crate::umiaq_char::UmiaqChar;
 
 /// Compact representation of the relation between (sum) and (target).
@@ -208,6 +209,105 @@ pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints
     }
     if v.is_empty() { None } else { Some(JointConstraints { as_vec: v }) }
 }
+
+/// Attempt to tighten per-variable length bounds using information from joint constraints.
+///
+/// This is a simple propagation step that converts some equalities over groups of variables
+/// into stronger individual bounds.  Example:
+///   • Joint constraint: `|ABCDEFGHIJKLMN| = 14`
+///   • Default per-var bounds: each ≥ 1
+///   • Since sum(mins) = 14, every variable must be exactly length 1.
+/// This allows the solver to avoid exploring longer assignments unnecessarily.
+///
+/// Algorithm outline:
+///   1. For each joint constraint with relation `= T`:
+///      - Collect current min/max bounds for the vars in the group.
+///      - If sum(mins) == T, then all vars are fixed at their minimum length.
+///      - Else if sum(maxes) == T (and all maxes are finite), then all vars are fixed at their maximum.
+///      - Else, perform generic interval tightening:
+///         • New min for Vi = max(current min, T - Σ other maxes)
+///         • New max for Vi = min(current max, T - Σ other mins)
+///
+/// This propagation is *sound* (never removes feasible solutions) and often
+/// eliminates huge amounts of search, especially for long chains of unconstrained vars.
+pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstraints) {
+    for jc in &jcs.as_vec {
+        // Only handle equality constraints; others (<=, >=, !=) don’t propagate as cleanly
+        if jc.rel != RelMask::EQ { continue; }
+
+        // Gather current bounds
+        let mut sum_min = 0usize;
+        let mut sum_max: Option<usize> = Some(0);
+        let mut mins: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
+        let mut maxs: Vec<(char, Option<usize>)> = Vec::with_capacity(jc.vars.len());
+
+        for &v in &jc.vars {
+            let vc = vcs.get(v);
+            let li = vc.and_then(|c| c.min_length).unwrap_or(1);
+            let ui = vc.and_then(|c| c.max_length);
+            sum_min += li;
+            sum_max = match (sum_max, ui) {
+                (Some(a), Some(b)) => Some(a + b),
+                _ => None, // if any ui is unbounded, the total is unbounded
+            };
+            mins.push((v, li));
+            maxs.push((v, ui));
+        }
+
+        // Case 1: minimums already force exact solution → fix every var to its min
+        if sum_min == jc.target {
+            for (v, li) in mins {
+                vcs.ensure(v).set_exact_len(li);
+            }
+            continue;
+        }
+
+        // Case 2: maximums already force exact solution → fix every var to its max
+        if let Some(total_max) = sum_max {
+            if total_max == jc.target {
+                for (v, ui) in maxs {
+                    if let Some(ui) = ui {
+                        vcs.ensure(v).set_exact_len(ui);
+                    }
+                }
+                continue;
+            }
+        }
+
+        // Case 3: generic tightening for each variable individually
+        for &v in &jc.vars {
+            let li = vcs.get(v).and_then(|c| c.min_length).unwrap_or(1);
+            let ui = vcs.get(v).and_then(|c| c.max_length);
+
+            // Compute bounds for "other" variables
+            let sum_other_min: usize = jc.vars.iter()
+                .filter(|&&w| w != v)
+                .map(|&w| vcs.get(w).and_then(|c| c.min_length).unwrap_or(1))
+                .sum();
+
+            let mut sum_other_max: Option<usize> = Some(0);
+            for &w in jc.vars.iter().filter(|&&w| w != v) {
+                let w_ui = vcs.get(w).and_then(|c| c.max_length);
+                sum_other_max = match (sum_other_max, w_ui) {
+                    (Some(a), Some(b)) => Some(a + b),
+                    _ => None, // unbounded if any is unbounded
+                };
+            }
+
+            // Joint constraint gives tighter lower/upper bounds
+            let lower_from_joint = match sum_other_max {
+                Some(s) => jc.target.saturating_sub(s),
+                None => 0, // unbounded above for others ⇒ no new lower bound
+            };
+            let upper_from_joint = jc.target.saturating_sub(sum_other_min);
+
+            let e = vcs.ensure(v);
+            e.min_length = Some(std::cmp::max(li, lower_from_joint));
+            e.max_length = Some(std::cmp::min(ui.unwrap_or(usize::MAX), upper_from_joint));
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
