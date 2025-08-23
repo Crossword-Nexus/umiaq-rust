@@ -5,7 +5,7 @@
 // This module computes (min_len, max_len?) for a single ParsedForm, taking into account:
 //   • fixed tokens in the form (i.e., literals, '.', '@', '#', [charset], /anagram)
 //   • frequencies of variables that appear in the form (Var, RevVar)
-//   • unary per-variable bounds from VarConstraints
+//   • unary per-variable bounds from VarConstraints (normalized: min≥1, max=∞ if unset)
 //   • joint group constraints from JointConstraints that refer ONLY to vars
 //     present in THIS form (e.g., "|AB|=6").
 //
@@ -24,10 +24,10 @@
 //   an arbitrary number of extra characters.
 // -----------------------------------------------------------------------------
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 
 use crate::constraints::{VarConstraint, VarConstraints};
-use crate::joint_constraints::{JointConstraints, JointConstraint, RelMask};
+use crate::joint_constraints::{JointConstraint, JointConstraints, RelMask};
 use crate::parser::{FormPart, ParsedForm};
 
 /// Resulting per-form hints.
@@ -42,7 +42,8 @@ pub struct PatternLenHints {
 impl PatternLenHints {
     /// Quick check for a candidate word length against this hint.
     pub(crate) fn is_word_len_possible(&self, len: usize) -> bool {
-        self.min_len.is_none_or(|min_len| len >= min_len) && self.max_len.is_none_or(|max_len| len <= max_len)
+        self.min_len.is_none_or(|min_len| len >= min_len)
+            && self.max_len.is_none_or(|max_len| len <= max_len)
     }
 }
 
@@ -65,7 +66,13 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
     } else if jc.rel == RelMask::LE {
         (0, Some(jc.target))
     } else if jc.rel == RelMask::LT {
-        if jc.target == 0 { return Some(GroupLenConstraint { vars: jc.vars.clone(), total_min: 0, total_max: Some(0) }); }
+        if jc.target == 0 {
+            return Some(GroupLenConstraint {
+                vars: jc.vars.clone(),
+                total_min: 0,
+                total_max: Some(0),
+            });
+        }
         (0, Some(jc.target - 1))
     } else if jc.rel == RelMask::GE {
         (jc.target, None)
@@ -77,22 +84,36 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
     };
 
     // Basic sanity: empty interval ⇒ None
-    if let Some(tmax) = tmax_opt && tmin > tmax { return None; }
+    if let Some(tmax) = tmax_opt {
+        if tmin > tmax {
+            return None;
+        }
+    }
 
-    Some(GroupLenConstraint { vars: jc.vars.clone(), total_min: tmin, total_max: tmax_opt })
+    Some(GroupLenConstraint {
+        vars: jc.vars.clone(),
+        total_min: tmin,
+        total_max: tmax_opt,
+    })
 }
 
 /// Compute per-form hints from a `ParsedForm` *and* the equation’s constraints.
 ///
-/// - `vcs`: the full equation’s `VarConstraints` (we’ll only read vars present in form)
+/// - `vcs`: the full equation’s `VarConstraints` (we’ll only read vars present in form);
+///          its `bounds(v)` must return normalized `(usize, usize)`
+///          where `usize::MAX` encodes ∞.
 /// - `jcs`: the equation’s `JointConstraints` (we’ll filter to constraints whose
-///   variable set is a subset of form’s variables)
+///   variable set is a subset of the form’s variables)
 pub(crate) fn form_len_hints_pf(
     form: &ParsedForm,
     vcs: &VarConstraints,
     jcs: Option<&JointConstraints>,
 ) -> PatternLenHints {
-    form_len_hints_iter(form, |c| var_bounds_from_vcs(vcs, c), &group_constraints_for_form(form, jcs))
+    form_len_hints_iter(
+        form,
+        |c| vcs.bounds(c), // normalized (min,max) with defaults applied
+        &group_constraints_for_form(form, jcs),
+    )
 }
 
 /// Core generic implementation — accepts any iterator yielding `&FormPart`
@@ -104,10 +125,13 @@ pub(crate) fn form_len_hints_iter<'a, I, F>(
 ) -> PatternLenHints
 where
     I: IntoIterator<Item = &'a FormPart>,
-    F: FnMut(char) -> (Option<usize>, Option<usize>), // (min, max)
+    F: FnMut(char) -> (usize, usize), // normalized (min, max) where max==usize::MAX => ∞
 {
     #[derive(Clone, Copy, Debug)]
-    struct Bounds { li: Option<usize>, ui: Option<usize> }
+    struct Bounds {
+        li: usize,
+        ui: usize, // usize::MAX encodes ∞
+    }
 
     // 1. Scan tokens: accumulate fixed_base, detect '*', and count var frequencies
     let mut fixed_base = 0;
@@ -116,55 +140,101 @@ where
 
     for p in parts {
         match p {
-            FormPart::Star => { has_star = true; }
-            FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => { fixed_base += 1; }
-            FormPart::Lit(s) | FormPart::Anagram(s) => { fixed_base += s.len(); }
-            FormPart::Var(v) | FormPart::RevVar(v) => { *var_frequency.entry(*v).or_insert(0) += 1; }
+            FormPart::Star => {
+                has_star = true;
+            }
+            FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => {
+                fixed_base += 1;
+            }
+            FormPart::Lit(s) | FormPart::Anagram(s) => {
+                fixed_base += s.len();
+            }
+            FormPart::Var(v) | FormPart::RevVar(v) => {
+                *var_frequency.entry(*v).or_insert(0) += 1;
+            }
         }
     }
 
-    // Exact case (exit early)): no variables and no star ⇒ exact fixed length
+    // Exact case (exit early): no variables and no star ⇒ exact fixed length
     if var_frequency.is_empty() && !has_star {
-        return PatternLenHints { min_len: Some(fixed_base), max_len: Some(fixed_base) };
+        return PatternLenHints {
+            min_len: Some(fixed_base),
+            max_len: Some(fixed_base),
+        };
     }
 
     // 2. Pull unary bounds just for vars in this form
     let mut vars: Vec<char> = var_frequency.keys().copied().collect();
     vars.sort_unstable();
 
-    let bounds_map = &vars.iter().map(|&v| {
-        let (li, ui) = get_var_bounds(v);
-        (v, Bounds { li, ui })
-    }).collect::<HashMap<char, Bounds>>();
+    let bounds_map = &vars
+        .iter()
+        .map(|&v| {
+            let (li, ui) = get_var_bounds(v); // normalized
+            (v, Bounds { li, ui })
+        })
+        .collect::<HashMap<char, Bounds>>();
 
     let get_weight = |v: char| *var_frequency.get(&v).unwrap_or(&0);
 
     // Baseline min/max ignoring groups
-    let mut weighted_min =
-        // TODO! do not do "unwrap_or(1)"
-        Some(fixed_base + vars.iter().map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(1)).sum::<usize>());
+    let weighted_min = {
+        let sum = vars
+            .iter()
+            .map(|&v| get_weight(v) * bounds_map[&v].li)
+            .sum::<usize>();
+        Some(fixed_base + sum)
+    };
 
-    let mut weighted_max =
-        if has_star || vars.iter().any(|&v| bounds_map[&v].ui.is_none()) {
-            None
-        } else {
-            Some(fixed_base + vars.iter().map(|&v| get_weight(v) * bounds_map[&v].ui.unwrap()).sum::<usize>())
-        };
+    let weighted_max = if has_star
+        || vars
+        .iter()
+        .any(|&v| bounds_map[&v].ui == VarConstraint::DEFAULT_MAX)
+    {
+        None
+    } else {
+        let sum = vars
+            .iter()
+            .map(|&v| get_weight(v) * bounds_map[&v].ui)
+            .sum::<usize>();
+        Some(fixed_base + sum)
+    };
+
+    let mut weighted_min = weighted_min;
+    let mut weighted_max = weighted_max;
 
     // 3. Tighten with group constraints valid for this form
     for g in form_groups {
         #[derive(Clone, Copy)]
-        struct Row { w: usize, li: Option<usize>, ui: Option<usize> }
+        struct Row {
+            w: usize,
+            li: usize,
+            ui: usize, // usize::MAX encodes ∞
+        }
 
-        /// Compute the weighted extremal sum at fixed total `t`.
-        /// If `minimize` is true, distribute to cheapest weights first (minimization).
-        /// If false, distribute to most expensive weights first (maximization).
-        fn weighted_extreme_for_t(rows: &[Row], sum_li: usize, sum_ui: Option<usize>, t: usize, minimize: bool) -> Option<usize> {
-            if t < sum_li { return None; }
-            if let Some(su) = sum_ui && t > su { return None; }
+        /// Compute the weighted extremal sum at fixed total `t` over the rows,
+        /// where each row contributes `w * len_i`, and `len_i ∈ [li, ui]`.
+        /// If `minimize` is true, distribute remaining length to cheaper weights first;
+        /// otherwise to most expensive first.
+        ///
+        /// `sum_li` is Σ li; `sum_ui_opt` is Σ ui if all ui are finite, else None (∞).
+        fn weighted_extreme_for_t(
+            rows: &[Row],
+            sum_li: usize,
+            sum_ui_opt: Option<usize>,
+            t: usize,
+            minimize: bool,
+        ) -> Option<usize> {
+            if t < sum_li {
+                return None;
+            }
+            if let Some(su) = sum_ui_opt {
+                if t > su {
+                    return None;
+                }
+            }
 
-            // TODO! do not do "unwrap_or(1)"
-            let base = rows.iter().map(|r| r.w * r.li.unwrap_or(1)).sum::<usize>();
+            let base = rows.iter().map(|r| r.w * r.li).sum::<usize>();
             let mut rem = t - sum_li;
 
             let mut rows_sorted = rows.to_vec();
@@ -174,80 +244,128 @@ where
                 rows_sorted.sort_by_key(|r| std::cmp::Reverse(r.w)); // most expensive first
             }
 
-            let mut extra = 0;
+            let mut extra = 0usize;
             for r in &rows_sorted {
-                if rem == 0 { break; }
-                // TODO! do not do "unwrap_or(1)"
-                let cap = r.ui.map_or(rem, |u| u.saturating_sub(r.li.unwrap_or(1)));
-                let take = cap.min(rem);
-                extra += r.w * take;
-                rem -= take;
+                if rem == 0 {
+                    break;
+                }
+                // Capacity available for this row beyond li
+                let cap = if r.ui == VarConstraint::DEFAULT_MAX {
+                    rem
+                } else {
+                    r.ui.saturating_sub(r.li).min(rem)
+                };
+                extra += r.w * cap;
+                rem -= cap;
             }
 
             debug_assert_eq!(rem, 0);
             Some(base + extra)
         }
 
-        if g.vars.is_empty() { continue; }
-        // Intersect with the form’s variables
-        let mut gvars: Vec<char> = g.vars.iter().copied().filter(|v| var_frequency.contains_key(v)).collect();
-        gvars.sort_unstable();
-        if gvars.is_empty() { continue; }
+        if g.vars.is_empty() {
+            continue;
+        }
 
+        // Intersect with the form’s variables (only consider vars that appear in this form)
+        let mut gvars: Vec<char> = g
+            .vars
+            .iter()
+            .copied()
+            .filter(|v| var_frequency.contains_key(v))
+            .collect();
+        gvars.sort_unstable();
+        if gvars.is_empty() {
+            continue;
+        }
+
+        // Build rows and Σ li / Σ ui (finite-only)
         let mut rows: Vec<Row> = Vec::with_capacity(gvars.len());
         let mut sum_li: usize = 0;
-        let mut sum_ui: Option<usize> = Some(0);
+        let mut sum_ui_opt: Option<usize> = Some(0);
         for &v in &gvars {
             let b = bounds_map[&v];
-            rows.push(Row { w: get_weight(v), li: b.li, ui: b.ui });
-            // TODO! do not do "unwrap_or(1)"
-            sum_li += b.li.unwrap_or(1);
-            sum_ui = match (sum_ui, b.ui) {
-                (Some(a), Some(bu)) => Some(a + bu),
-                _ => None
+            rows.push(Row {
+                w: get_weight(v),
+                li: b.li,
+                ui: b.ui,
+            });
+            sum_li += b.li;
+            sum_ui_opt = if b.ui == VarConstraint::DEFAULT_MAX {
+                None
+            } else {
+                sum_ui_opt.map(|a| a + b.ui)
             };
         }
 
-        let weighted_min_for_t = |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui, t, true);
-        let weighted_max_for_t = |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui, t, false);
+        let weighted_min_for_t =
+            |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui_opt, t, true);
+        let weighted_max_for_t =
+            |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui_opt, t, false);
 
-
-        // Evaluate endpoints of the group’s allowed total interval
         // ---- Account for group vars that are NOT in this form ------------------
         // They eat into the group's total before we allocate to in-form vars.
-        let (outside_form_min, outside_form_max) = g.vars.iter()
+        // outside_form_min = Σ (min of vars outside the form)
+        // outside_form_max_opt = Σ (finite max of vars outside the form), None if any is ∞
+        let (outside_form_min, outside_form_max_opt) = g
+            .vars
+            .iter()
             .filter(|v| !var_frequency.contains_key(v))
-            .fold((Some(0), Some(0)), |(cur_outside_form_min, cur_outside_form_max), v|{
-            let (li, ui) = get_var_bounds(*v);
-            (some_sums_if_somes(cur_outside_form_min, li), some_sums_if_somes(cur_outside_form_max, ui))
-        });
+            .fold((0usize, Some(0usize)), |(min_acc, max_acc_opt), &v| {
+                let (li, ui) = get_var_bounds(v);
+                let min_acc = min_acc + li;
+                let max_acc_opt = if ui == VarConstraint::DEFAULT_MAX {
+                    None
+                } else {
+                    max_acc_opt.map(|a| a + ui)
+                };
+                (min_acc, max_acc_opt)
+            });
 
         // Effective totals for the in-form part of this group:
         // - For the LOWER bound, outside takes as much as possible (use outside_form_max if finite).
         // - For the UPPER bound, outside takes as little as possible (use outside_form_min).
-        let tmin_eff_opt = outside_form_max.map(|of_max| g.total_min.saturating_sub(of_max));
-        // TODO! do not do "unwrap_or(1)"
-        let tmax_eff_opt = g.total_max.map(|tmax| tmax.saturating_sub(outside_form_min.unwrap_or(1)));
+        let tmin_eff_opt = match outside_form_max_opt {
+            Some(of_max) => Some(g.total_min.saturating_sub(of_max)),
+            None => Some(0), // if outside can be arbitrarily large, in-form lower could be 0
+        };
+        let tmax_eff_opt = g
+            .total_max
+            .map(|tmax| tmax.saturating_sub(outside_form_min));
 
         // Evaluate endpoints of the adjusted interval for in-form vars.
         let gmin_w = tmin_eff_opt.and_then(weighted_min_for_t);
         let gmax_w = tmax_eff_opt.and_then(weighted_max_for_t);
 
-        // Combine with outside-of-group contributions
+        // Combine with outside-of-group contributions (vars in this form but not in this group)
         let outside: Vec<char> = vars.iter().copied().filter(|v| !gvars.contains(v)).collect();
-        // TODO! do not do "unwrap_or(1)"
-        let outside_min = outside.iter().map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(1)).sum::<usize>();
-        let outside_max: Option<usize> = if has_star || outside.iter().any(|&v| bounds_map[&v].ui.is_none()) {
+
+        let outside_min = outside
+            .iter()
+            .map(|&v| get_weight(v) * bounds_map[&v].li)
+            .sum::<usize>();
+
+        let outside_max_opt: Option<usize> = if has_star
+            || outside
+            .iter()
+            .any(|&v| bounds_map[&v].ui == VarConstraint::DEFAULT_MAX)
+        {
             None
         } else {
-            Some(outside.iter().map(|&v| get_weight(v) * bounds_map[&v].ui.unwrap()).sum::<usize>())
+            Some(
+                outside
+                    .iter()
+                    .map(|&v| get_weight(v) * bounds_map[&v].ui)
+                    .sum::<usize>(),
+            )
         };
 
         if let Some(gmin) = gmin_w {
             weighted_min = weighted_min.map(|wm| wm.max(fixed_base + gmin + outside_min));
         }
-        // Compute a candidate upper bound from this group + outside.
-        let candidate_upper = match (gmax_w, outside_max) {
+
+        // Candidate upper bound from this group + outside
+        let candidate_upper = match (gmax_w, outside_max_opt) {
             (Some(gm), Some(om)) => Some(fixed_base + gm + om),
             _ => None,
         };
@@ -255,50 +373,35 @@ where
         // Combine with the running upper bound:
         weighted_max = match (weighted_max, candidate_upper) {
             (Some(cur), Some(cand)) => Some(cur.min(cand)),
-            (None, Some(cand))      => Some(cand),
-            (Some(cur), None)       => Some(cur),
-            (None, None)            => None,
+            (None, Some(cand)) => Some(cand),
+            (Some(cur), None) => Some(cur),
+            (None, None) => None,
         };
     }
 
-    PatternLenHints { min_len: weighted_min, max_len: weighted_max }
-}
-
-fn some_sums_if_somes(outside_form_extremum: Option<usize>, l: Option<usize>) -> Option<usize> {
-    match (outside_form_extremum, l) {
-        (Some(a), Some(b)) => Some(a + b),
-        _ => None, // unbounded outside ⇒ no finite lower bound for in-form part
+    PatternLenHints {
+        min_len: weighted_min,
+        max_len: weighted_max,
     }
 }
-
-/// Look up the `(min_length, max_length)` bounds for a variable.
-///
-/// - If the variable exists in `vcs`, return its stored bounds via [`VarConstraint::bounds`].
-/// - If not, fall back to the default `VarConstraint`'s bounds.
-fn var_bounds_from_vcs(vcs: &VarConstraints, var: char) -> (Option<usize>, Option<usize>) {
-    vcs.get(var).unwrap_or(&VarConstraint::default()).bounds()
-}
-
 
 /// Build the list of group constraints (as contiguous intervals) that are *scoped
 /// to this form*: every referenced variable must appear in the form.
 fn group_constraints_for_form(form: &ParsedForm, jcso: Option<&JointConstraints>) -> Vec<GroupLenConstraint> {
     let Some(jcs) = jcso else { return Vec::new(); };
 
-    // Collect variable set present in this form
-    let present: HashSet<char> = form.iter()
-        .filter_map(|p| match p {
-            FormPart::Var(v) | FormPart::RevVar(v) => Some(*v), // copy the char
-            _ => None,
-        })
-        .collect();
+    let present: std::collections::HashSet<char> = form.iter().filter_map(|p| match p {
+        FormPart::Var(v) | FormPart::RevVar(v) => Some(*v),
+        _ => None,
+    }).collect();
 
-    // Filter joint constraints to those whose vars ⊆ present, and convert to intervals
     jcs.as_vec.iter()
+        // ← revert to ANY overlap so constraints like |AB|=6 still inform A-only forms
         .filter(|jc| jc.vars.iter().any(|v| present.contains(v)))
         .filter_map(group_from_joint)
         .collect()
 }
+
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -310,21 +413,26 @@ mod tests {
 
     // Minimal helper ParsedForm for tests without pulling regex machinery.
     fn pf(parts: Vec<FormPart>) -> ParsedForm {
-        // We don’t care about the prefilter for these tests; build a dummy.
-        // ParsedForm::of requires a Regex; use a simple anchored ".*" via a helper
-        // from your parser module if available. If not, expose a test-only ctor.
-        // Here, we fake it by reusing ParsedForm::of through a small form_to_regex_str.
-        // If that’s not accessible, replace with a test-only constructor in your codebase.
-        ParsedForm { parts, prefilter: fancy_regex::Regex::new("^.*$").unwrap() }
+        ParsedForm {
+            parts,
+            prefilter: fancy_regex::Regex::new("^.*$").unwrap(),
+        }
     }
 
     #[test]
     fn no_vars_no_star_exact() {
-        let form = pf(vec![FormPart::Lit("AB".into()), FormPart::Dot, FormPart::Anagram("XY".into())]);
+        let form = pf(vec![
+            FormPart::Lit("AB".into()),
+            FormPart::Dot,
+            FormPart::Anagram("XY".into()),
+        ]);
         let vcs = VarConstraints::default();
         let hints = form_len_hints_pf(&form, &vcs, None);
 
-        let expected = PatternLenHints { min_len: Some(5), max_len: Some(5) };
+        let expected = PatternLenHints {
+            min_len: Some(5),
+            max_len: Some(5),
+        };
         assert_eq!(expected, hints);
         assert!(hints.is_word_len_possible(5));
         assert!(!hints.is_word_len_possible(4));
@@ -342,7 +450,10 @@ mod tests {
 
         let hints = form_len_hints_pf(&form, &vcs, None);
 
-        let expected = PatternLenHints { min_len: Some(5), max_len: None };
+        let expected = PatternLenHints {
+            min_len: Some(5),
+            max_len: None,
+        };
         assert_eq!(expected, hints);
     }
 
@@ -362,7 +473,10 @@ mod tests {
 
         let hints = form_len_hints_pf(&form, &vcs, None);
 
-        let expected = PatternLenHints { min_len: Some(4), max_len: Some(9) };
+        let expected = PatternLenHints {
+            min_len: Some(4),
+            max_len: Some(9),
+        };
         assert_eq!(expected, hints);
     }
 
@@ -373,32 +487,54 @@ mod tests {
         let vcs = VarConstraints::default();
 
         // Build a JointConstraints equivalent to |AB|=6
-        let jc = JointConstraint { vars: vec!['A','B'], target: 6, rel: RelMask::EQ };
+        let jc = JointConstraint {
+            vars: vec!['A', 'B'],
+            target: 6,
+            rel: RelMask::EQ,
+        };
         let jcs = JointConstraints { as_vec: vec![jc] };
 
         let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
-        // Min puts as much as possible on cheaper (B): |AB| + 1 = 6 + 1 = 7
-        // Max puts all on A: |AB| + A = 6 + 5 = 11
 
-        let expected = PatternLenHints { min_len: Some(7), max_len: Some(11) };
+        // Explanation:
+        // - base = 0
+        // - wA=2, wB=1
+        // At fixed |AB|=6, minimizing weighted length puts as much as possible on cheaper B,
+        // maximizing puts as much as possible on A.
+        let expected = PatternLenHints {
+            min_len: Some(7),
+            max_len: Some(11),
+        };
         assert_eq!(expected, hints);
     }
 
     #[test]
     fn group_eq_plus_unary_forces_exact() {
         // . A B . ; base=2 ; |AB|=6 ; |A| fixed to 2
-        let form = pf(vec![FormPart::Dot, FormPart::Var('A'), FormPart::Var('B'), FormPart::Dot]);
+        let form = pf(vec![
+            FormPart::Dot,
+            FormPart::Var('A'),
+            FormPart::Var('B'),
+            FormPart::Dot,
+        ]);
         let mut vcs = VarConstraints::default();
 
         let a = vcs.ensure('A');
         a.min_length = Some(2);
         a.max_length = Some(2);
 
-        let jc = JointConstraint { vars: vec!['A','B'], target: 6, rel: RelMask::EQ };
+        let jc = JointConstraint {
+            vars: vec!['A', 'B'],
+            target: 6,
+            rel: RelMask::EQ,
+        };
         let jcs = JointConstraints { as_vec: vec![jc] };
         let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
 
-        let expected = PatternLenHints { min_len: Some(8), max_len: Some(8) };
+        let expected = PatternLenHints {
+            min_len: Some(8),
+            max_len: Some(8),
+        };
         assert_eq!(expected, hints);
     }
 
@@ -416,13 +552,25 @@ mod tests {
         b.min_length = Some(0);
         b.max_length = Some(10);
 
-        let g1 = JointConstraint { vars: vec!['A','B'], target: 4, rel: RelMask::GE };
-        let g2 = JointConstraint { vars: vec!['A','B'], target: 6, rel: RelMask::LE };
-        let jcs = JointConstraints { as_vec: vec![g1, g2] };
+        let g1 = JointConstraint {
+            vars: vec!['A', 'B'],
+            target: 4,
+            rel: RelMask::GE,
+        };
+        let g2 = JointConstraint {
+            vars: vec!['A', 'B'],
+            target: 6,
+            rel: RelMask::LE,
+        };
+        let jcs = JointConstraints {
+            as_vec: vec![g1, g2],
+        };
         let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
 
-
-        let expected = PatternLenHints { min_len: Some(4), max_len: Some(6) };
+        let expected = PatternLenHints {
+            min_len: Some(4),
+            max_len: Some(6),
+        };
         assert_eq!(expected, hints);
     }
 
@@ -430,26 +578,44 @@ mod tests {
     fn star_blocks_exact_even_with_exact_groups() {
         // A*B ; |AB|=6
         let form = pf(vec![FormPart::Var('A'), FormPart::Star, FormPart::Var('B')]);
-        let jc = JointConstraint { vars: vec!['A','B'], target: 6, rel: RelMask::EQ };
+        let jc = JointConstraint {
+            vars: vec!['A', 'B'],
+            target: 6,
+            rel: RelMask::EQ,
+        };
         let jcs = JointConstraints { as_vec: vec![jc] };
         let vcs = VarConstraints::default();
         let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
 
         // star contributes 0 to min_len
-        let expected = PatternLenHints { min_len: Some(6), max_len: None };
+        let expected = PatternLenHints {
+            min_len: Some(6),
+            max_len: None,
+        };
         assert_eq!(expected, hints);
     }
 
     #[test]
     fn group_hints_apply_to_single_var() {
         let form = pf(vec![FormPart::Var('A')]);
-        let jc = JointConstraint { vars: vec!['A','B'], target: 6, rel: RelMask::EQ };
+        let jc = JointConstraint {
+            vars: vec!['A', 'B'],
+            target: 6,
+            rel: RelMask::EQ,
+        };
         let jcs = JointConstraints { as_vec: vec![jc] };
         let vcs = VarConstraints::default();
         let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
 
-        // TODO should this be Some(1) or None ?
-        let expected = PatternLenHints { min_len: Some(1), max_len: Some(5) };
+        // With |AB|=6 and only A present in this form:
+        // - outside_form_min = min(B)
+        // - outside_form_max may be ∞ (default), so tmin_eff becomes 0.
+        // Here the normalized defaults are A∈[1,∞], B∈[1,∞] → we get
+        // min_len = 1 (from A's min), and an effective upper bound of 5 (6 - min(B)).
+        let expected = PatternLenHints {
+            min_len: Some(VarConstraint::DEFAULT_MIN),
+            max_len: Some(5),
+        };
         assert_eq!(expected, hints);
     }
 }
