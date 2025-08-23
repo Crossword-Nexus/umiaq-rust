@@ -9,7 +9,7 @@ use umiaq_rust::solver;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// The pattern to solve (e.g. "AB;BA;|A|=2;|B|=2;!=AB")
+    /// The pattern to solve (e.g., "AB;BA;|A|=2;|B|=2;!=AB")
     pattern: String,
 
     /// Path to the word list file (word;score per line)

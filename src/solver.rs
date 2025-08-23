@@ -373,13 +373,53 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     Ok(reordered)
 }
 
-#[test]
-fn test_solve_equation() {
-    let word_list: Vec<&str> = vec!["lax", "tax", "lox"];
-    let input = "l.x".to_string();
-    let results = solve_equation(&input, &word_list, 5).unwrap();
-    println!("{:?}", results);
-    assert_eq!(2, results.len());
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_solve_equation() {
+        let word_list: Vec<&str> = vec!["lax", "tax", "lox"];
+        let input = "l.x".to_string();
+        let results = solve_equation(&input, &word_list, 5).unwrap();
+        println!("{:?}", results);
+        assert_eq!(2, results.len());
+    }
+
+    #[test]
+    fn test_solve_equation2() {
+        let word_list: Vec<&str> = vec!["inch", "chin", "dada", "test", "ab"];
+        let input = "AB;BA;|A|=2;|B|=2;!=AB".to_string();
+        let results = solve_equation(&input, &word_list, 5).unwrap();
+        println!("{:?}", results);
+        assert_eq!(2, results.len());
+    }
+
+    #[test]
+    fn test_solve_equation3() {
+        let word_list = vec!["inch", "chin", "dada", "test", "sky", "sly"];
+        let input = "AkB;AlB".to_string();
+        let results = solve_equation(&input, &word_list, 5).unwrap();
+
+        let sky_bindings = Bindings { map: HashMap::from([('*', "sky".to_string()), ('A', "s".to_string()), ('B', "y".to_string())]) };
+        let sly_bindings = Bindings { map: HashMap::from([('*', "sly".to_string()), ('A', "s".to_string()), ('B', "y".to_string())]) };
+        // NB: this could give a false negative if SLY comes out before SKY (since we presumably shouldn't care about the order), so...
+        // TODO allow order independence for equality... perhaps create a richer struct than just Vec<Bindings> that has a notion of order-independent equality
+        let expected = Vec::from([Vec::from([sky_bindings, sly_bindings])]);
+        assert_eq!(expected, results);
+    }
+
+    #[test]
+    fn test_solve_equation_joint_constraints() {
+        let word_list = vec!["inch", "chin", "chess", "chortle"];
+        let input = "ABC;CD;|ABCD|=7".to_string();
+        let results = solve_equation(&input, &word_list, 5).unwrap();
+        println!("{:?}", results);
+        let inch_bindings = Bindings { map: HashMap::from([('*', "inch".to_string()), ('A', "i".to_string()), ('B', "n".to_string()), ('C', "ch".to_string())]) };
+        let chess_bindings = Bindings { map: HashMap::from([('*', "chess".to_string()), ('C', "ch".to_string()), ('D', "ess".to_string())]) };
+        let expected = Vec::from([Vec::from([inch_bindings, chess_bindings])]);
+        assert_eq!(expected, results);
+    }
 }
 
 #[test]
@@ -431,4 +471,3 @@ fn test_solve_equation_joint_constraints() {
     let expected = Vec::from([Vec::from([inch_bindings, chess_bindings])]);
     assert_eq!(expected, results);
 }
-
