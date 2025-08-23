@@ -350,6 +350,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             any_progress = true;
         }
 
+        // Recursive join
         if results.len() < num_results_requested {
             let mut selected: Vec<Bindings> = Vec::new();
             let mut env: HashMap<char, String> = HashMap::new();
