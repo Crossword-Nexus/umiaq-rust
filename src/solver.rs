@@ -246,12 +246,12 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     // 4a. Get the joint constraints
     let joint_constraints = parse_joint_constraints(input);
 
-    // 4a.1 Tighten per-variable constraints from joint constraints
+    // 4b. Tighten per-variable constraints from joint constraints
     if let Some(jcs) = joint_constraints.as_ref() {
         propagate_joint_to_var_bounds(&mut var_constraints, jcs);
     }
 
-    // 4b. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
+    // 4c. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
     let scan_hints: Vec<PatternLenHints> = parsed_forms
         .iter()
         .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, joint_constraints.as_ref()))
