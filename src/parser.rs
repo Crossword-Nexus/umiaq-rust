@@ -258,7 +258,7 @@ fn match_equation_internal(
                     let mut full_result = hp.bindings.clone();
                     full_result.set_word(hp.word);
                     hp.results.push(full_result);
-                    return !hp.all_matches
+                    return !hp.all_matches;
                 }
             }
             return false;
