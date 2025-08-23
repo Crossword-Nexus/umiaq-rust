@@ -228,13 +228,8 @@ fn match_equation_internal(
     /// - Otherwise return false (dead end).
     ///
     /// Covers Dot (any char), Vowel, Consonant, Charset, etc.
-    fn take_if(chars: &[char], rest: &[FormPart], hp: &mut HelperParams, pred: impl Fn(char) -> bool) -> bool {
-        if let Some((&c, rest_chars)) = chars.split_first() {
-            if pred(c) {
-                return helper(rest_chars, rest, hp);
-            }
-        }
-        false
+    fn take_if(chars: &[char], rest: &[FormPart], hp: &mut HelperParams, pred: impl Fn(&char) -> bool) -> bool {
+        chars.split_first().is_some_and(|(c, rest_chars)| pred(c) && helper(rest_chars, rest, hp))
     }
 
 
@@ -277,9 +272,9 @@ fn match_equation_internal(
 
             // Combined vowel, consonant, charset, dot cases
             FormPart::Dot => take_if(chars, rest, hp, |_| true),
-            FormPart::Vowel => take_if(chars, rest, hp, |c| c.is_vowel()),
-            FormPart::Consonant => take_if(chars, rest, hp, |c| c.is_consonant()),
-            FormPart::Charset(s) => take_if(chars, rest, hp, |c| s.contains(&c)),
+            FormPart::Vowel => take_if(chars, rest, hp, char::is_vowel),
+            FormPart::Consonant => take_if(chars, rest, hp, char::is_consonant),
+            FormPart::Charset(s) => take_if(chars, rest, hp, |c| s.contains(c)),
 
             FormPart::Anagram(s) => {
                 // Match if the next len chars are an anagram of target
@@ -736,7 +731,7 @@ mod tests {
 
     #[test]
     fn test_parse_form_charset() {
-        assert_eq!(vec![FormPart::Charset(vec!['a','b','c'])], parse_form("[abc]").unwrap().parts);
+        assert_eq!(vec![FormPart::Charset(vec!['a', 'b', 'c'])], parse_form("[abc]").unwrap().parts);
     }
 
     #[test]
@@ -883,22 +878,22 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ParseError::ParseFailure { position: 0, remaining: _ }));
     }
-}
 
-#[test]
-fn test_var_vowel_var_no_panic_and_matches() {
-    let patt = parse_form("A@B").unwrap();
-    assert!(match_equation_exists("cab", &patt, None, None)); // 'A'='C', '@'='A', 'B'='B
-    assert!(!match_equation_exists("c", &patt, None, None));  // too short
-    assert!(!match_equation_exists("ca", &patt, None, None));  // too short
-}
+    #[test]
+    fn test_var_vowel_var_no_panic_and_matches() {
+        let patt = parse_form("A@B").unwrap();
+        assert!(match_equation_exists("cab", &patt, None, None)); // 'A'='C', '@'='A', 'B'='B
+        assert!(!match_equation_exists("c", &patt, None, None));  // too short
+        assert!(!match_equation_exists("ca", &patt, None, None));  // too short
+    }
 
-/// Test that a pattern with a star works
-#[test]
-fn test_star() {
-    // Pattern
-    let patt = parse_form("l*x").unwrap();
-    let matches = match_equation_all("lox", &patt, None, None);
-    println!("{matches:?}");
-    assert_eq!(1, matches.len());
+    /// Test that a pattern with a star works
+    #[test]
+    fn test_star() {
+        // Pattern
+        let patt = parse_form("l*x").unwrap();
+        let matches = match_equation_all("lox", &patt, None, None);
+        println!("{matches:?}");
+        assert_eq!(1, matches.len());
+    }
 }

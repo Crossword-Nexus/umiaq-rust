@@ -232,10 +232,12 @@ impl Patterns {
                 let len = cap[2].parse::<usize>().unwrap();
                 self.var_constraints.ensure(var).set_exact_len(len); // TODO avoid mutability?
             } else if let Some(cap) = NEQ_RE.captures(form).unwrap() {
-                // Extract all variables from inequality constraint (e.g., !=AB means A != B)
-                // Examples: !=AB means A != B
-                // !=ABC means A != B, A != C, B != C
-                // In general, it means all listed variables are distinct
+                // Extract all variables from inequality constraint
+                // !=α (where α is a string of at least 2 distinct variables) means that any pair of
+                //     variables in α are not equal
+                // Examples:
+                // * !=AB means A != B
+                // * !=ABC means A != B, A != C, B != C
                 let vars: Vec<char> = cap[1].chars().collect();
                 for &v in &vars {
                     let var_constraint = self.var_constraints.ensure(v);

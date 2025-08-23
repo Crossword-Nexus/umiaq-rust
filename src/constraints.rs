@@ -112,7 +112,7 @@ impl Eq for VarConstraint {}
 ///
 /// This is intended for debugging / logs, not for round-tripping.
 /// It summarizes:
-/// - the allowed length range (e.g. `[3–5]`, `[≥3]`, `[≤5]`, `[*]`)
+/// - the allowed length range (e.g., `[3–5]`, `[≥3]`, `[≤5]`, `[*]`)
 /// - the optional form string (or `*` if absent)
 /// - the set of variables it must not equal, in sorted order
 impl fmt::Display for VarConstraint {
@@ -120,9 +120,9 @@ impl fmt::Display for VarConstraint {
         // Format the length range nicely.
         // Handle each case: both bounds, only min, only max, or none.
         let len_str = match (self.min_length, self.max_length) {
-            (Some(min), Some(max)) => format!("[{}-{}]", min, max),
-            (Some(min), None)      => format!("[≥{}]", min),
-            (None, Some(max))      => format!("[≤{}]", max),
+            (Some(min), Some(max)) => format!("[{min}-{max}]"),
+            (Some(min), None)      => format!("[≥{min}]"),
+            (None, Some(max))      => format!("[≤{max}]"),
             (None, None)           => "[*]".to_string(), // unconstrained
         };
 
@@ -132,15 +132,15 @@ impl fmt::Display for VarConstraint {
         // Collect the `not_equal` set into a sorted Vec<char> for stable output
         let mut ne: Vec<char> = self.not_equal.iter().copied().collect();
         ne.sort_unstable();
-        // Turn it into a string: e.g. ['A','B','C'] → "ABC"
+        // Turn it into a string: e.g., ['A','B','C'] → "ABC"
         let ne_str = if ne.is_empty() {
-            "{}".to_string() // explicit empty set
+            "∅".to_string()
         } else {
             ne.into_iter().collect::<String>()
         };
 
         // Final compact output
-        write!(f, "len={}; form={}; not_equal={}", len_str, form_str, ne_str)
+        write!(f, "len={len_str}; form={form_str}; not_equal={ne_str}")
     }
 }
 
@@ -203,9 +203,9 @@ mod tests {
         let lines: Vec<&str> = s.lines().collect();
 
         let expected = vec![
-            "A: len=[≥1]; form=*; not_equal={}",
-            "B: len=[*]; form=*x*; not_equal={}",
-            "C: len=[≤2]; form=*; not_equal={}"
+            "A: len=[≥1]; form=*; not_equal=∅",
+            "B: len=[*]; form=*x*; not_equal=∅",
+            "C: len=[≤2]; form=*; not_equal=∅"
         ];
 
         assert_eq!(expected, lines);
