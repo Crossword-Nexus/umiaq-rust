@@ -6,8 +6,7 @@ pub(crate) const WORD_SENTINEL: char = '*';
 /// Special variable `'*'` is reserved for the bound word.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Bindings {
-    // TODO? make private (but still have tests work)
-    pub(crate) map: HashMap<char, String>,
+    map: HashMap<char, String>,
 }
 
 impl Bindings {
