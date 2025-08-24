@@ -1,6 +1,5 @@
 * populate this file (`TODO.md`) with TODOs found in code comments
 * organize this file (at least sort... somehow)
-* implement better prefilters for `Var`s with forms (e.g., `A;A=(x*a)` currently has a prefilter of `.+`)
 * consider adding a struct when faced with long argument lists (for methods) (e.g., recursive_join)
 * return `None` vs `Err`
 * avoid duplicating work (e.g., `parse_form` call in `make_list`)

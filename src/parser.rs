@@ -10,24 +10,25 @@ use nom::{
     Parser,
 };
 use std::cmp::min;
-
+use std::collections::HashMap;
 use crate::bindings::Bindings;
 use crate::constraints::{VarConstraint, VarConstraints};
 use crate::joint_constraints::JointConstraints;
 use fancy_regex::Regex;
 use std::fmt::Write as _;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
-static REGEX_CACHE: OnceLock<std::collections::HashMap<String, Regex>> = OnceLock::new();
+static REGEX_CACHE: OnceLock<Mutex<HashMap<String, Regex>>> = OnceLock::new();
 
-fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
-    let cache = REGEX_CACHE.get_or_init(std::collections::HashMap::new);
+pub(crate) fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
+    let cache = REGEX_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
 
-    if let Some(regex) = cache.get(pattern) {
-        Ok(regex.clone())
-    } else {
-        Regex::new(pattern)
+    if let Some(r) = cache.lock().unwrap().get(pattern).cloned() {
+        return Ok(r);
     }
+    let compiled = Regex::new(pattern)?;
+    cache.lock().unwrap().insert(pattern.to_string(), compiled.clone());
+    Ok(compiled)
 }
 
 /// Custom error type for parsing operations
@@ -434,6 +435,129 @@ fn form_to_regex_str(parts: &[FormPart]) -> String {
 
     regex_str
 }
+
+/// Convert a parsed `FormPart` sequence into a regex string,
+/// taking variable constraints into account when possible.
+///
+/// Differences from `form_to_regex_str`:
+/// - For the **first occurrence** of a variable with an attached
+///   simple form constraint (e.g., `A=(x*a)`), we inject a
+///   lookahead `(?=x.*a)` so that the regex prefilter enforces it
+///   early. This prunes the candidate list before recursion.
+/// - For **multi-use variables**, we still capture the first
+///   occurrence (`(.+)`) and backreference later ones (`\1`, etc.).
+///   The lookahead becomes `(?=x.*a)(.+)` so numbering is preserved.
+/// - For single-use variables, we emit `(?=x.*a).+` instead of just `.+`.
+///
+/// Notes:
+/// - Constraint forms are assumed to contain only literals and
+///   wildcards, never other variables. That guarantee makes it safe
+///   to inline them into regex directly.
+/// - Reversed variables (`~A`) are left unchanged: enforcing a
+///   reversed constraint at regex level would require reversing
+///   arbitrary sub-regexes, which isn’t practical here.
+/// - If no constraint exists for a variable, or no form is present,
+///   behavior falls back to the original `.++` / `(.+)` scheme.
+pub(crate) fn form_to_regex_str_with_constraints(
+    parts: &[FormPart],
+    constraints: Option<&VarConstraints>,
+) -> String {
+    use std::fmt::Write;
+
+    // Count how many times each var/revvar occurs in this form
+    let (var_counts, rev_var_counts) = get_var_and_rev_var_counts(parts);
+
+    // Track capture group assignment for vars and revvars
+    let mut var_to_backreference_num = [0; NUM_POSSIBLE_VARIABLES];
+    let mut rev_var_to_backreference_num = [0; NUM_POSSIBLE_VARIABLES];
+    let mut backreference_index = 0;
+
+    let mut regex_str = String::new();
+
+    for part in parts {
+        match part {
+            FormPart::Var(c) => {
+                let idx = char_to_num(*c);
+                let occurs_many = var_counts[idx] > 1;
+                let already_has_group = var_to_backreference_num[idx] != 0;
+
+                // Extract a simple nested regex if a constraint exists
+                let lookahead = constraints
+                    .and_then(|all| all.get(*c))
+                    .and_then(|vc| vc.get_parsed_form())
+                    .map(|pf| form_to_regex_str(&pf.parts));
+
+                if already_has_group {
+                    // Subsequent occurrence: always a backref (\1, \2, …)
+                    let _ = write!(regex_str, "\\{}", var_to_backreference_num[idx]);
+                } else if occurs_many {
+                    // First of multiple occurrences: capture group
+                    backreference_index += 1;
+                    var_to_backreference_num[idx] = backreference_index;
+
+                    if let Some(nested) = lookahead {
+                        // Add lookahead before the group to enforce constraint
+                        let _ = write!(regex_str, "(?={})(.+)", nested);
+                    } else {
+                        regex_str.push_str("(.+)");
+                    }
+                } else {
+                    // Single-use variable (no backrefs needed)
+                    if let Some(nested) = lookahead {
+                        let _ = write!(regex_str, "(?={}).+", nested);
+                    } else {
+                        regex_str.push_str(".+");
+                    }
+                }
+            }
+
+            FormPart::RevVar(c) => {
+                // Reverse vars behave as before (no lookahead injection)
+                let idx = char_to_num(*c);
+                let occurs_many = rev_var_counts[idx] > 1;
+                let already_has_group = rev_var_to_backreference_num[idx] != 0;
+
+                if already_has_group {
+                    let _ = write!(regex_str, "\\{}", rev_var_to_backreference_num[idx]);
+                } else if occurs_many {
+                    backreference_index += 1;
+                    rev_var_to_backreference_num[idx] = backreference_index;
+                    regex_str.push_str("(.+)");
+                } else {
+                    regex_str.push_str(".+");
+                }
+            }
+
+            // All other token types follow the original scheme
+            FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(s)),
+            FormPart::Dot => regex_str.push('.'),
+            FormPart::Star => regex_str.push_str(".*"),
+            FormPart::Vowel => { let _ = write!(regex_str, "[{}]", VOWELS); }
+            FormPart::Consonant => { let _ = write!(regex_str, "[{}]", CONSONANTS); }
+            FormPart::Charset(chars) => {
+                regex_str.push('[');
+                for c in chars { regex_str.push(*c); }
+                regex_str.push(']');
+            }
+            FormPart::Anagram(s) => {
+                let len = s.len();
+                let class = fancy_regex::escape(s);
+                let _ = write!(regex_str, "[{class}]{{{len}}}");
+            }
+        }
+    }
+
+    regex_str
+}
+
+// Tiny detector so we don’t build a fancy regex when it can’t help
+pub(crate) fn has_inlineable_var_form(parts: &[FormPart], constraints: &VarConstraints) -> bool {
+    parts.iter().any(|p| match p {
+        FormPart::Var(c) => constraints.get(*c).and_then(|vc| vc.get_parsed_form()).is_some(),
+        _ => false,
+    })
+}
+
 
 fn get_regex_str_segment(var_counts: [usize; NUM_POSSIBLE_VARIABLES], var_to_backreference_num: &mut [usize; NUM_POSSIBLE_VARIABLES], backreference_index: &mut usize, c: char) -> String {
     let char_as_num = char_to_num(c);
