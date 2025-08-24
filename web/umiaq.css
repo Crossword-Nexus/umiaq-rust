@@ -261,6 +261,7 @@ input[type="submit"]:hover,
 input[type="reset"]:hover,
 input[type="button"]:hover {
     background-color: #444;
+    color: #eee;
 }
 .button-primary,
 button.button-primary,
@@ -325,4 +326,11 @@ pre {
 hr {
     border: 0;
     border-top: 1px solid #555;
+}
+
+/* Input */
+.input {
+    width: 100%;         /* fills the container */
+    max-width: 40ch;     /* up to ~40 characters wide on larger screens */
+    box-sizing: border-box; /* includes padding in the width */
 }
