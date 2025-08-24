@@ -225,21 +225,19 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     // 2. Prepare storage for candidate buckets, one per pattern.
     //    `CandidateBuckets` tracks (a) the bindings bucketed by shared variable values, and
     //    (b) a count so we can stop early if a pattern gets too many matches.
-    let mut words: Vec<CandidateBuckets> = Vec::with_capacity(patterns.len()); // TODO why mutable?
+    // Mutable because we fill buckets/counts during the scan phase.
+    let mut words: Vec<CandidateBuckets> = Vec::with_capacity(patterns.len());
     for _ in &patterns {
         words.push(CandidateBuckets::default());
     }
 
     // 3. Parse each pattern's string form once into a vector of `FormPart`s.
     //    These are index-aligned with `patterns`.
-    // TODO inline parsed_forms_result
-    let parsed_forms_result: Result<Vec<_>, _> = patterns
+    let parsed_forms: Vec<_> = patterns
         .iter()
         .map(|p| parse_form(&p.raw_string))
-        .collect();
-    let parsed_forms = parsed_forms_result?;
-
-
+        .collect::<Result<_, _>>()?;
+    
     // 4. Pull out the per-variable constraints collected from the equation.
     let var_constraints = &patterns.var_constraints;
 
