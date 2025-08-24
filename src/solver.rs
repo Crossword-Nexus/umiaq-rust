@@ -239,7 +239,6 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         .collect();
     let parsed_forms = parsed_forms_result?;
 
-
     // 4. Pull out the per-variable constraints collected from the equation.
     let var_constraints = &patterns.var_constraints;
 
