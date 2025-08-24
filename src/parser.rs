@@ -20,14 +20,41 @@ use std::sync::{Mutex, OnceLock};
 
 static REGEX_CACHE: OnceLock<Mutex<HashMap<String, Regex>>> = OnceLock::new();
 
+/// Return a compiled `Regex` for `pattern`, caching the result.
+///
+/// Behavior:
+/// 1) Try to fetch a cached `Regex` under the `pattern` key.
+/// 2) If missing, compile it and insert into the cache.
+/// 3) Return a **clone** of the cached/compiled `Regex`. Cloning is cheap.
+///
+/// Locking strategy:
+/// - We hold the `Mutex` only while accessing the map (lookups/inserts).
+/// - We accept that two threads might compile the same pattern simultaneously
+///   in rare races; the second will simply overwrite the same value. This keeps
+///   the lock hold-time minimal. If you need to avoid duplicate compilation,
+///   see the “double-check” note below.
 pub(crate) fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
+    // Initialize the cache on first use.
     let cache = REGEX_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
 
-    if let Some(r) = cache.lock().unwrap().get(pattern).cloned() {
-        return Ok(r);
+    // Fast path: check if we already have it.
+    if let Some(re) = cache.lock().unwrap().get(pattern).cloned() {
+        return Ok(re);
     }
+
+    // Miss: compile outside the locked critical section to keep contention low.
     let compiled = Regex::new(pattern)?;
-    cache.lock().unwrap().insert(pattern.to_string(), compiled.clone());
+
+    // Insert the compiled regex, then return a clone.
+    let mut guard = cache.lock().unwrap();
+
+    // Optional “double-check” to avoid duplicate compilation:
+    // If another thread inserted while we were compiling, prefer the existing one.
+    if let Some(existing) = guard.get(pattern).cloned() {
+        return Ok(existing);
+    }
+
+    guard.insert(pattern.to_string(), compiled.clone());
     Ok(compiled)
 }
 
@@ -117,7 +144,7 @@ impl ParsedForm {
     /// Returns `None` if any required var is unbound or if a nondeterministic part is present.
     pub(crate) fn materialize_deterministic_with_env(
         &self,
-        env: &std::collections::HashMap<char, String>,
+        env: &HashMap<char, String>,
     ) -> Option<String> {
         self.iter().map(|part| {
             match part {
