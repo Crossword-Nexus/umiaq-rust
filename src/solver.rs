@@ -48,7 +48,7 @@ pub struct CandidateBuckets {
 /// - `idx`: which pattern we’re placing now (0-based).
 /// - `words`: per-pattern candidate buckets (what you built during scanning).
 /// - `lookup_keys`: for each pattern, which variables must agree with previously
-///   chosen patterns. `None` means “no lookup constraint” (use the `None` bucket).
+///   chosen patterns. `None` means "no lookup constraint" (use the `None` bucket).
 ///   `Some(vec)` means we must look up a concrete `Some(sorted_pairs)` key—even if
 ///   `vec` is empty.
 /// - `selected`: the partial solution (one chosen Binding per pattern so far).
@@ -181,7 +181,7 @@ fn recursive_join(
 
         // Extend `env` with any *new* bindings from this candidate (don’t overwrite).
         // Track what we added so we can backtrack cleanly.
-        let mut added_vars: Vec<char> = Vec::new();
+        let mut added_vars: Vec<char> = vec![];
         for (k, v) in cand.iter() {
             if *k == WORD_SENTINEL {
                 continue;
@@ -265,10 +265,11 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         }
     }
 
+    // TODO!!! which 4b belongs (or do both?)
     // 4b. Get the joint constraints
     let joint_constraints = parse_joint_constraints(input);
 
-    // TODO remove?
+    // TODO!!! which 4b belongs (or do both?)
     // 4b. Tighten per-variable constraints from joint constraints
     if let Some(jcs) = joint_constraints.as_ref() {
         propagate_joint_to_var_bounds(&mut var_constraints, jcs);
@@ -371,8 +372,8 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     // - `results`: finished solutions (Vec<Binding> per pattern)
     // - `selected`: the current partial solution down this branch
     // - `env`: running map of variable → concrete string, used to enforce joins
-    let mut results: Vec<Vec<Bindings>> = Vec::new();
-    let mut selected: Vec<Bindings> = Vec::new();
+    let mut results: Vec<Vec<Bindings>> = vec![];
+    let mut selected: Vec<Bindings> = vec![];
     let mut env: HashMap<char, String> = HashMap::new();
 
     // Kick off the depth-first join from pattern 0.
@@ -393,7 +394,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     // ---- Reorder solutions back to original form order ----
     let reordered = results.iter().map(|solution| {
         (0..solution.len()).map(|original_i| {
-            (solution.clone())[patterns.original_to_ordered[original_i]].clone()
+            solution.clone()[patterns.original_to_ordered[original_i]].clone()
         }).collect::<Vec<_>>()
     }).collect::<Vec<_>>();
 
@@ -440,7 +441,7 @@ mod tests {
         sly_bindings.set_word("sly".to_string().as_ref());
         // NB: this could give a false negative if SLY comes out before SKY (since we presumably shouldn't care about the order), so...
         // TODO allow order independence for equality... perhaps create a richer struct than just Vec<Bindings> that has a notion of order-independent equality
-        let expected = Vec::from([Vec::from([sky_bindings, sly_bindings])]);
+        let expected = vec![vec![sky_bindings, sly_bindings]];
         assert_eq!(expected, results);
     }
 
@@ -460,7 +461,7 @@ mod tests {
         chess_bindings.set('C', "ch".to_string());
         chess_bindings.set('D', "ess".to_string());
         chess_bindings.set_word("chess".to_string().as_ref());
-        let expected = Vec::from([Vec::from([inch_bindings, chess_bindings])]);
+        let expected = vec![vec![inch_bindings, chess_bindings]];
         assert_eq!(expected, results);
     }
 }

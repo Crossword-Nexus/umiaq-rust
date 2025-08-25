@@ -23,16 +23,16 @@ static REGEX_CACHE: OnceLock<Mutex<HashMap<String, Regex>>> = OnceLock::new();
 /// Return a compiled `Regex` for `pattern`, caching the result.
 ///
 /// Behavior:
-/// 1) Try to fetch a cached `Regex` under the `pattern` key.
-/// 2) If missing, compile it and insert into the cache.
-/// 3) Return a **clone** of the cached/compiled `Regex`. Cloning is cheap.
+/// 1. Try to fetch a cached `Regex` under the `pattern` key.
+/// 2. If missing, compile it and insert into the cache.
+/// 3. Return a **clone** of the cached/compiled `Regex`. Cloning is cheap.
 ///
 /// Locking strategy:
 /// - We hold the `Mutex` only while accessing the map (lookups/inserts).
 /// - We accept that two threads might compile the same pattern simultaneously
 ///   in rare races; the second will simply overwrite the same value. This keeps
 ///   the lock hold-time minimal. If you need to avoid duplicate compilation,
-///   see the “double-check” note below.
+///   see the "double-check" note below.
 pub(crate) fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
     // Initialize the cache on first use.
     let cache = REGEX_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
@@ -48,7 +48,7 @@ pub(crate) fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
     // Insert the compiled regex, then return a clone.
     let mut guard = cache.lock().unwrap();
 
-    // Optional “double-check” to avoid duplicate compilation:
+    // Optional "double-check" to avoid duplicate compilation:
     // If another thread inserted while we were compiling, prefer the existing one.
     if let Some(existing) = guard.get(pattern).cloned() {
         return Ok(existing);
@@ -195,7 +195,7 @@ fn match_equation_exists(
     constraints: Option<&VarConstraints>,
     joint_constraints: Option<&JointConstraints>,
 ) -> bool {
-    let mut results: Vec<Bindings> = Vec::new();
+    let mut results: Vec<Bindings> = vec![];
     match_equation_internal(word, parts, false, &mut results, constraints, joint_constraints);
     results.into_iter().next().is_some()
 }
@@ -208,9 +208,9 @@ pub(crate) fn match_equation_all(
     joint_constraints: Option<&JointConstraints>,
 ) -> Vec<Bindings> {
     // Using a mutable Vec here is intentional and idiomatic:
-    // - We accumulate matches in-place and pass `&mut results` down the recursion.
+    // - We accumulate matches in place and pass `&mut results` down the recursion.
     // - This avoids repeated allocations or copies.
-    let mut results: Vec<Bindings> = Vec::new();
+    let mut results: Vec<Bindings> = vec![];
     match_equation_internal(word, parts, true, &mut results, constraints, joint_constraints);
     results
 }
@@ -278,8 +278,8 @@ fn match_equation_internal(
         if parts.is_empty() {
             if chars.is_empty() {
                 // Joint constraint check here uses `all_satisfied` (not strict):
-                // - In the scan phase, we may only have a *partial* binding (e.g. ABC without D).
-                // - `all_satisfied` means “nothing inconsistent so far” — so we keep it.
+                // - In the scan phase, we may only have a *partial* binding (e.g., ABC without D).
+                // - `all_satisfied` means "nothing inconsistent so far" — so we keep it.
                 // - The *strict* check (`all_strictly_satisfied_for_parts`) runs later in
                 //   `recursive_join`, once all patterns are combined and every variable is bound.
                 if hp.joint_constraints.is_none_or(|jc| jc.all_satisfied(hp.bindings)) {
@@ -487,6 +487,7 @@ fn form_to_regex_str(parts: &[FormPart]) -> String {
     regex_str
 }
 
+// TODO DRY w/form_to_regex_str
 /// Convert a parsed `FormPart` sequence into a regex string,
 /// taking variable constraints into account when possible.
 ///
@@ -548,14 +549,14 @@ pub(crate) fn form_to_regex_str_with_constraints(
 
                     if let Some(nested) = lookahead {
                         // Add lookahead before the group to enforce constraint
-                        let _ = write!(regex_str, "(?={})(.+)", nested);
+                        let _ = write!(regex_str, "(?={nested})(.+)");
                     } else {
                         regex_str.push_str("(.+)");
                     }
                 } else {
                     // Single-use variable (no backrefs needed)
                     if let Some(nested) = lookahead {
-                        let _ = write!(regex_str, "(?={}).+", nested);
+                        let _ = write!(regex_str, "(?={nested}).+");
                     } else {
                         regex_str.push_str(".+");
                     }
@@ -583,8 +584,8 @@ pub(crate) fn form_to_regex_str_with_constraints(
             FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(s)),
             FormPart::Dot => regex_str.push('.'),
             FormPart::Star => regex_str.push_str(".*"),
-            FormPart::Vowel => { let _ = write!(regex_str, "[{}]", VOWELS); }
-            FormPart::Consonant => { let _ = write!(regex_str, "[{}]", CONSONANTS); }
+            FormPart::Vowel => { let _ = write!(regex_str, "[{VOWELS}]"); }
+            FormPart::Consonant => { let _ = write!(regex_str, "[{CONSONANTS}]"); }
             FormPart::Charset(chars) => {
                 regex_str.push('[');
                 for c in chars { regex_str.push(*c); }
@@ -628,7 +629,7 @@ fn get_regex_str_segment(var_counts: [usize; NUM_POSSIBLE_VARIABLES], var_to_bac
 /// Count the number of times each variable (and reversed variable) appears
 /// in a sequence of `FormPart`s.
 ///
-/// Returns two parallel arrays (length = NUM_POSSIBLE_VARIABLES):
+/// Returns two parallel arrays (length = `NUM_POSSIBLE_VARIABLES`):
 /// - `var_counts[i]`    = number of times variable 'A'+i appears
 /// - `rev_var_counts[i]` = number of times reversed variable '~(A+i)' appears
 ///
@@ -662,7 +663,7 @@ fn char_to_num(c: char) -> usize {
 pub(crate) fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
     let mut rest = raw_form;
     // this mutability isn't so bad -- it's local and efficient
-    let mut parts = Vec::new();
+    let mut parts = vec![];
 
     while !rest.is_empty() {
         match equation_part(rest) {
@@ -738,6 +739,7 @@ fn equation_part(input: &str) -> IResult<&str, FormPart> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use super::*;
 
     #[test]
@@ -989,7 +991,7 @@ mod tests {
         let results = match_equation_all("inch", &patt, None, None);
 
         // Collect the observed (A,B) pairs
-        let observed: std::collections::HashSet<(String, String)> = results
+        let observed: HashSet<(String, String)> = results
             .into_iter()
             .map(|b| {
                 (
@@ -1000,7 +1002,7 @@ mod tests {
             .collect();
 
         // All valid splits of "inch" into two nonempty pieces
-        let expected: std::collections::HashSet<(String, String)> = [
+        let expected: HashSet<(String, String)> = [
             ("i".to_string(), "nch".to_string()),
             ("in".to_string(), "ch".to_string()),
             ("inc".to_string(), "h".to_string()),
@@ -1106,9 +1108,7 @@ mod tests {
         let pf = parse_form("A.B").unwrap();
 
         // Supply values for A and B
-        let mut env = std::collections::HashMap::new();
-        env.insert('A', "x".to_string());
-        env.insert('B', "y".to_string());
+        let env = HashMap::from([('A', "x".to_string()), ('B', "y".to_string())]);
 
         // Because of the Dot, this form cannot be fully materialized → expect None
         assert!(pf.materialize_deterministic_with_env(&env).is_none());
@@ -1120,8 +1120,7 @@ mod tests {
         let pf = parse_form("AB").unwrap();
 
         // Only provide a value for A; leave B unbound
-        let mut env = std::collections::HashMap::new();
-        env.insert('A', "hi".to_string());
+        let env = HashMap::from([('A', "hi".to_string())]);
 
         // Since B is missing, materialization must fail → expect None
         assert!(pf.materialize_deterministic_with_env(&env).is_none());
@@ -1133,9 +1132,7 @@ mod tests {
         let pf = parse_form("preAB~Apost").unwrap();
 
         // Provide bindings for A and B
-        let mut env = std::collections::HashMap::new();
-        env.insert('A', "no".to_string());
-        env.insert('B', "de".to_string());
+        let env = HashMap::from([('A', "no".to_string()), ('B', "de".to_string())]);
 
         // Expect the literal "pre", then "B"="de", then "A"="no",
         // then "~A"="on", then the literal "post"
@@ -1144,5 +1141,4 @@ mod tests {
             pf.materialize_deterministic_with_env(&env)
         );
     }
-
 }

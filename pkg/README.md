@@ -41,7 +41,7 @@ Umiaq is designed for crossword constructors, wordplay enthusiasts, and puzzle m
 - `A~A` → palindromes like **NOON**, **REDDER**
 - `AB;|A|=2;|B|=2;!=AB` → 4-letters words made up of two concatenated distinct 2-letter substrings
 - `A@#A` → words with some string, then a vowel, then a consonant, then the original string again
-- `/triangle` → any anagram of “triangle”
+- `/triangle` → any anagram of "triangle"
 - `A;AB;|AB|=7;A=(3-4:g*)` → 7-letter words starting with a 3–4 letter string that begins with **g**
 
 ---

@@ -9,6 +9,7 @@ use crate::umiaq_char::UmiaqChar;
 /// The character that separates forms, in an equation
 pub const FORM_SEPARATOR: char = ';';
 
+// TODO? me stricter (e.g., than "\s*")
 /// Matches comparative length constraints like `|A|>4`, `|A|<=7`, etc.
 static LEN_CMP_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\|([A-Z])\|\s*(<=|>=|=|<|>)\s*(\d+)$").unwrap());
@@ -306,7 +307,7 @@ impl Patterns {
         ordered.push(first);
 
         while !patt_list.is_empty() {
-            // Vars already “seen”
+            // Vars already "seen"
             let found_vars: HashSet<char> = ordered
                 .iter()
                 .flat_map(|p| p.variables.iter().copied())
@@ -608,6 +609,7 @@ mod tests {
         let patterns = Patterns::of("|A|<4;A");
         let a = patterns.var_constraints.get('A').unwrap();
         // For <4, max becomes 3; <1 would become None via checked_sub
+        assert_eq!(a.min_length, None);
         assert_eq!(a.max_length, Some(3));
     }
 
@@ -615,6 +617,7 @@ mod tests {
     fn test_len_le() {
         let patterns = Patterns::of("|A|<=4;A");
         let a = patterns.var_constraints.get('A').unwrap();
+        assert_eq!(a.min_length, None);
         assert_eq!(a.max_length, Some(4));
     }
 
@@ -622,8 +625,8 @@ mod tests {
     fn test_len_equality_then_complex_form_only() {
         // Equality first, then a complex constraint that only specifies a form
         let patterns = Patterns::of("A;|A|=7;A=(x*a)");
-
         let a = patterns.var_constraints.get('A').unwrap().clone();
+
         let expected = VarConstraint {
             min_length: Some(7),
             max_length: Some(7),
