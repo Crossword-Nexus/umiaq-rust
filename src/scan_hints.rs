@@ -183,8 +183,6 @@ where
         /// where each row contributes `w * len_i`, and `len_i ∈ [li, ui]`.
         /// If `minimize` is true, distribute remaining length to cheaper weights first;
         /// otherwise to most expensive first.
-        ///
-        /// `sum_li` is Σ li; `sum_u
         fn weighted_extreme_for_t(
             rows: &[Row],
             sum_li: usize,
