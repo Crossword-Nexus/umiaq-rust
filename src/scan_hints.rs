@@ -246,6 +246,9 @@ where
                 (omin + li, omax + ui)
             });
 
+        // Effective totals for the in-form part of this group:
+        // - For the LOWER bound, outside takes as much as possible (use outside_form_max if finite).
+        // - For the UPPER bound, outside takes as little as possible (use outside_form_min).
         let tmin_eff = g.total_min.saturating_sub(outside_form_max);
         let tmax_eff_opt = g.total_max.map(|tmax| tmax.saturating_sub(outside_form_min));
 
