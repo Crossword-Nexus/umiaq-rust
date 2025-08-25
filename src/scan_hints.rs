@@ -252,6 +252,7 @@ where
         let tmin_eff = g.total_min.saturating_sub(outside_form_max);
         let tmax_eff_opt = g.total_max.map(|tmax| tmax.saturating_sub(outside_form_min));
 
+        // Evaluate endpoints of the adjusted interval for in-form vars.
         let gmin_w = weighted_min_for_t(tmin_eff);
         let gmax_w = tmax_eff_opt.and_then(weighted_max_for_t);
 
