@@ -265,17 +265,15 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         }
     }
 
-    // TODO!!! which 4b belongs (or do both?)
     // 4b. Get the joint constraints
     let joint_constraints = parse_joint_constraints(input);
 
-    // TODO!!! which 4b belongs (or do both?)
-    // 4b. Tighten per-variable constraints from joint constraints
+    // 4c. Tighten per-variable constraints from joint constraints
     if let Some(jcs) = joint_constraints.as_ref() {
         propagate_joint_to_var_bounds(&mut var_constraints, jcs);
     }
 
-    // 4c. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
+    // 4d. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
     let scan_hints: Vec<PatternLenHints> = parsed_forms
         .iter()
         .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, joint_constraints.as_ref()))
