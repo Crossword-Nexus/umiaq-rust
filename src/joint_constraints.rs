@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
-use crate::constraints::{VarConstraint, VarConstraints};
+use crate::constraints::VarConstraints;
 use crate::umiaq_char::UmiaqChar;
 
 /// Compact representation of the relation between (sum) and (target).
@@ -238,22 +238,14 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
 
         // Cache per-var (min,max) and aggregate sums
         let mut sum_min = 0usize;
-        let mut sum_max_opt: Option<usize> = Some(0);
-
+        let mut sum_max = 0usize;
         let mut mins: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
         let mut maxs: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
 
         for &v in &jc.vars {
             let (li, ui) = vcs.bounds(v);
             sum_min += li;
-
-            // Track finite sum of maxes; if any is ∞, the group max is unbounded.
-            if ui == VarConstraint::DEFAULT_MAX {
-                sum_max_opt = None; // TODO? feels dirty
-            } else {
-                sum_max_opt = sum_max_opt.map(|a| a + ui);
-            }
-
+            sum_max = sum_max.saturating_add(ui);
             mins.push((v, li));
             maxs.push((v, ui));
         }
@@ -266,8 +258,8 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
             continue;
         }
 
-        // Case 2: exact by finite maxes
-        if let Some(sum_max) = sum_max_opt && sum_max == jc.target {
+        // Case 2: exact by maxes
+        if sum_max == jc.target {
             for (v, ui) in maxs {
                 vcs.ensure_entry_mut(v).set_exact_len(ui);
             }
@@ -278,28 +270,20 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
         for &v in &jc.vars {
             let (li, ui) = vcs.bounds(v);
 
-            // Σ other mins
+            // Σ other mins and maxes
             let sum_other_min: usize = jc.vars
                 .iter()
                 .filter(|&&w| w != v)
                 .map(|&w| vcs.bounds(w).0)
                 .sum();
 
-            // Σ other finite maxes (None if any is ∞)
-            let mut sum_other_max_opt: Option<usize> = Some(0);
-            for &w in jc.vars.iter().filter(|&&w| w != v) {
-                let (_, w_ui) = vcs.bounds(w);
-                if w_ui == VarConstraint::DEFAULT_MAX {
-                    sum_other_max_opt = None;
-                    break;
-                }
-                sum_other_max_opt = sum_other_max_opt.map(|a| a + w_ui);
-            }
+            let sum_other_max: usize = jc.vars
+                .iter()
+                .filter(|&&w| w != v)
+                .map(|&w| vcs.bounds(w).1)
+                .sum();
 
-            let lower_from_joint = match sum_other_max_opt {
-                Some(s) => jc.target.saturating_sub(s),
-                None => 0, // others can stretch arbitrarily
-            };
+            let lower_from_joint = jc.target.saturating_sub(sum_other_max);
             let upper_from_joint = jc.target.saturating_sub(sum_other_min);
 
             // Tighten and store

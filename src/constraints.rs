@@ -93,7 +93,7 @@ pub struct VarConstraint {
 impl VarConstraint {
     /// Single source of truth for default bounds.
     pub const DEFAULT_MIN: usize = 1;
-    pub const DEFAULT_MAX: usize = usize::MAX;
+    pub const DEFAULT_MAX: usize = 1_000_000; // Big-M sentinel for ∞
     pub const DEFAULT_BOUNDS: (usize, usize) = (VarConstraint::DEFAULT_MIN, VarConstraint::DEFAULT_MAX);
 
     /// Set both min and max to the same exact length.
