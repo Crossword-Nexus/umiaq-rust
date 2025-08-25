@@ -1,6 +1,14 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
 use crate::joint_constraints::{parse_joint_constraints, propagate_joint_to_var_bounds, JointConstraints};
-use crate::parser::{match_equation_all, parse_form, ParseError, ParsedForm};
+use crate::parser::{
+    match_equation_all,
+    parse_form,
+    ParseError,
+    ParsedForm,
+    has_inlineable_var_form,
+    form_to_regex_str_with_constraints,
+    get_regex,
+};
 use crate::patterns::Patterns;
 use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
 
@@ -233,17 +241,34 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
     // 3. Parse each pattern's string form once into a vector of `FormPart`s.
     //    These are index-aligned with `patterns`.
-    let parsed_forms: Vec<_> = patterns
+    let mut parsed_forms: Vec<_> = patterns
         .iter()
         .map(|p| parse_form(&p.raw_string))
         .collect::<Result<_, _>>()?;
-    
+
     // 4. Pull out the per-variable constraints collected from the equation.
     let mut var_constraints = patterns.var_constraints.clone();
 
-    // 4a. Get the joint constraints
+    // 4a. Upgrade prefilters once per form (only if it helps)
+    for pf in &mut parsed_forms {
+        if has_inlineable_var_form(&pf.parts, &var_constraints) {
+            // Build the anchored, constraint-aware pattern string
+            let anchored = format!(
+                "^{}$",
+                form_to_regex_str_with_constraints(&pf.parts, Some(&var_constraints))
+            );
+
+            // Compile via the shared cache; fall back to the existing prefilter on error
+            if let Ok(re) = get_regex(&anchored) {
+                pf.prefilter = re;
+            }
+        }
+    }
+
+    // 4b. Get the joint constraints
     let joint_constraints = parse_joint_constraints(input);
 
+    // TODO remove?
     // 4b. Tighten per-variable constraints from joint constraints
     if let Some(jcs) = joint_constraints.as_ref() {
         propagate_joint_to_var_bounds(&mut var_constraints, jcs);
