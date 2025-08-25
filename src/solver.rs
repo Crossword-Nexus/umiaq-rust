@@ -251,11 +251,11 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
     // 4a. Upgrade prefilters once per form (only if it helps)
     for pf in &mut parsed_forms {
-        if has_inlineable_var_form(&pf.parts, var_constraints) {
+        if has_inlineable_var_form(&pf.parts, &var_constraints) {
             // Build the anchored, constraint-aware pattern string
             let anchored = format!(
                 "^{}$",
-                form_to_regex_str_with_constraints(&pf.parts, Some(var_constraints))
+                form_to_regex_str_with_constraints(&pf.parts, Some(&var_constraints))
             );
 
             // Compile via the shared cache; fall back to the existing prefilter on error
