@@ -1,6 +1,7 @@
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
+use crate::constraints::{VarConstraint, VarConstraints};
 use crate::umiaq_char::UmiaqChar;
 
 /// Compact representation of the relation between (sum) and (target).
@@ -207,6 +208,110 @@ pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints
         }
     }
     if v.is_empty() { None } else { Some(JointConstraints { as_vec: v }) }
+}
+
+/// Attempt to tighten per-variable length bounds using information from joint constraints.
+///
+/// This is a simple propagation step that converts some equalities over groups of variables
+/// into stronger individual bounds.  Example:
+///   • Joint constraint: `|ABCDEFGHIJKLMN| = 14`
+///   • Default per-var bounds: each ≥ 1
+///   • Since sum(mins) = 14, every variable must be exactly length 1.
+/// This allows the solver to avoid exploring longer assignments unnecessarily.
+///
+/// Algorithm outline:
+///   1. For each joint constraint with relation `= T`:
+///      - Collect current min/max bounds for the vars in the group.
+///      - If sum(mins) == T, then all vars are fixed at their minimum length.
+///      - Else if sum(maxes) == T (and all maxes are finite), then all vars are fixed at their maximum.
+///      - Else, perform generic interval tightening:
+///         • New min for Vi = max(current min, T - Σ other maxes)
+///         • New max for Vi = min(current max, T - Σ other mins)
+///
+/// This propagation is *sound* (never removes feasible solutions) and often
+/// eliminates huge amounts of search, especially for long chains of unconstrained vars.
+pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstraints) {
+    for jc in &jcs.as_vec {
+        if jc.rel != RelMask::EQ { continue; }
+
+        // Cache per-var (min,max) and aggregate sums
+        let mut sum_min = 0usize;
+        let mut sum_max_opt: Option<usize> = Some(0);
+
+        let mut mins: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
+        let mut maxs: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
+
+        for &v in &jc.vars {
+            let (li, ui) = vcs.bounds(v);
+            sum_min += li;
+
+            // Track finite sum of maxes; if any is ∞, the group max is unbounded.
+            if ui == VarConstraint::DEFAULT_MAX {
+                sum_max_opt = None;
+            } else {
+                sum_max_opt = sum_max_opt.map(|a| a + ui);
+            }
+
+            mins.push((v, li));
+            maxs.push((v, ui));
+        }
+
+        // Case 1: exact by mins
+        if sum_min == jc.target {
+            for (v, li) in mins {
+                vcs.ensure_entry_mut(v).set_exact_len(li);
+            }
+            continue;
+        }
+
+        // Case 2: exact by finite maxes
+        if let Some(sum_max) = sum_max_opt {
+            if sum_max == jc.target {
+                for (v, ui) in maxs {
+                    vcs.ensure_entry_mut(v).set_exact_len(ui);
+                }
+                continue;
+            }
+        }
+
+        // Case 3: generic tightening
+        for &v in &jc.vars {
+            let (li, ui) = vcs.bounds(v);
+
+            // Σ other mins
+            let sum_other_min: usize = jc.vars
+                .iter()
+                .filter(|&&w| w != v)
+                .map(|&w| vcs.bounds(w).0)
+                .sum();
+
+            // Σ other finite maxes (None if any is ∞)
+            let mut sum_other_max_opt: Option<usize> = Some(0);
+            for &w in jc.vars.iter().filter(|&&w| w != v) {
+                let (_, w_ui) = vcs.bounds(w);
+                if w_ui == VarConstraint::DEFAULT_MAX {
+                    sum_other_max_opt = None;
+                    break;
+                } else {
+                    sum_other_max_opt = sum_other_max_opt.map(|a| a + w_ui);
+                }
+            }
+
+            let lower_from_joint = match sum_other_max_opt {
+                Some(s) => jc.target.saturating_sub(s),
+                None => 0, // others can stretch arbitrarily
+            };
+            let upper_from_joint = jc.target.saturating_sub(sum_other_min);
+
+            // Tighten and store
+            let new_min = li.max(lower_from_joint);
+            let new_max = ui.min(upper_from_joint);
+
+            let e = vcs.ensure_entry_mut(v);
+            e.min_length = Some(new_min);
+            e.max_length = Some(new_max);
+        }
+    }
 }
 
 #[cfg(test)]

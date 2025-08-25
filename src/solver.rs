@@ -1,5 +1,5 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
-use crate::joint_constraints::{parse_joint_constraints, JointConstraints};
+use crate::joint_constraints::{parse_joint_constraints, propagate_joint_to_var_bounds, JointConstraints};
 use crate::parser::{match_equation_all, parse_form, ParseError, ParsedForm};
 use crate::patterns::Patterns;
 use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
@@ -239,12 +239,17 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         .collect::<Result<_, _>>()?;
     
     // 4. Pull out the per-variable constraints collected from the equation.
-    let var_constraints = &patterns.var_constraints;
+    let mut var_constraints = patterns.var_constraints.clone();
 
     // 4a. Get the joint constraints
     let joint_constraints = parse_joint_constraints(input);
 
-    // 4b. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
+    // 4b. Tighten per-variable constraints from joint constraints
+    if let Some(jcs) = joint_constraints.as_ref() {
+        propagate_joint_to_var_bounds(&mut var_constraints, jcs);
+    }
+
+    // 4c. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
     let scan_hints: Vec<PatternLenHints> = parsed_forms
         .iter()
         .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, joint_constraints.as_ref()))
@@ -274,7 +279,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             // Try matching the word against the parsed pattern.
             // `match_equation_all` returns a list of `Bindings` (variable→string maps)
             // that satisfy the pattern given the current constraints.
-            let matches = match_equation_all(word, &parsed_forms[i], Some(var_constraints), joint_constraints.as_ref());
+            let matches = match_equation_all(word, &parsed_forms[i], Some(&var_constraints), joint_constraints.as_ref());
 
             // 6. For each binding produced for this pattern/word:
             for binding in matches {
