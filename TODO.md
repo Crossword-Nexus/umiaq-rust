@@ -11,6 +11,5 @@
 * create a `struct` for parameters for certain methods \(e.g., `helper`\)?
 * "binding" vs. "bindings" in variable names, comments, etc.
 * use `Range`s for length ranges?
-* allow constraints like |A|<4, |B|>=5, etc.
 * throw exception if cannot parse form in `make_list` (else case)
 * Split out parser.rs into multiple smaller files

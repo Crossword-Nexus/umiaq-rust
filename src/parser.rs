@@ -106,16 +106,6 @@ impl FormPart {
     pub(crate) fn is_deterministic(&self) -> bool {
         matches!(self, FormPart::Var(_) | FormPart::RevVar(_) | FormPart::Lit(_))
     }
-
-    fn get_tag_string(&self) -> Option<&str> {
-        match self {
-            FormPart::Dot => Some("."),
-            FormPart::Star => Some("*"),
-            FormPart::Vowel => Some("@"),
-            FormPart::Consonant => Some("#"),
-            _ => None // TODO handle these cases differently? (i.e., at all...)
-        }
-    }
 }
 
 /// A `Vec` of `FormPart`s along with a compiled regex prefilter
@@ -146,15 +136,18 @@ impl ParsedForm {
         &self,
         env: &HashMap<char, String>,
     ) -> Option<String> {
-        self.iter().map(|part| {
+        let mut out = String::new();
+        for part in &self.parts {
             match part {
-                FormPart::Lit(s) => Some(s.clone()),
-                FormPart::Var(v) => Some(env.get(v)?.clone()),
-                FormPart::RevVar(v) => Some(env.get(v)?.chars().rev().collect()),
-                _ => None // TODO! test that this fails fast!
+                FormPart::Lit(s) => out.push_str(s),
+                FormPart::Var(v) => out.push_str(env.get(v)?),
+                FormPart::RevVar(v) => out.extend(env.get(v)?.chars().rev()),
+                _ => return None, // any nondeterministic token → not materializable
             }
-        }).collect::<Option<String>>()
+        }
+        Some(out)
     }
+
 }
 
 // Enable `for part in &parsed_form { ... }`
@@ -214,7 +207,10 @@ pub(crate) fn match_equation_all(
     constraints: Option<&VarConstraints>,
     joint_constraints: Option<&JointConstraints>,
 ) -> Vec<Bindings> {
-    let mut results: Vec<Bindings> = Vec::new(); // TODO avoid mutability? sim. elsewhere
+    // Using a mutable Vec here is intentional and idiomatic:
+    // - We accumulate matches in-place and pass `&mut results` down the recursion.
+    // - This avoids repeated allocations or copies.
+    let mut results: Vec<Bindings> = Vec::new();
     match_equation_internal(word, parts, true, &mut results, constraints, joint_constraints);
     results
 }
@@ -260,9 +256,6 @@ fn match_equation_internal(
         chars.split_first().is_some_and(|(c, rest_chars)| pred(c) && helper(rest_chars, rest, hp))
     }
 
-
-    // TODO WTF does return value do (also: perhaps it should (always) be used)...
-    // TODO maybe instead use a 3-way enum (e.g., can't continue, continue, done)
     /// Recursive matching helper.
     ///
     /// `chars`       – remaining characters of the word
@@ -270,16 +263,30 @@ fn match_equation_internal(
     /// `bindings`    – current variable assignments
     /// `results`     – collection of successful bindings
     /// `all_matches` – whether to collect all or stop at first
+    ///
+    /// Return value:
+    /// - `true`  → at least one successful match was found along this path
+    /// - `false` → no matches were found
+    ///
+    /// Note that the caller is responsible for interpreting this:
+    /// if `hp.all_matches` is `false` (stop at first match),
+    /// then the caller should short-circuit and bubble `true` up immediately.
+    /// Otherwise (`all_matches == true`), recursion will continue exploring
+    /// other possibilities even after one match succeeds.
     fn helper(chars: &[char], parts: &[FormPart], hp: &mut HelperParams) -> bool {
         // Base case: no parts left
         if parts.is_empty() {
             if chars.is_empty() {
-                // Check the joint constraints (if any)
+                // Joint constraint check here uses `all_satisfied` (not strict):
+                // - In the scan phase, we may only have a *partial* binding (e.g. ABC without D).
+                // - `all_satisfied` means “nothing inconsistent so far” — so we keep it.
+                // - The *strict* check (`all_strictly_satisfied_for_parts`) runs later in
+                //   `recursive_join`, once all patterns are combined and every variable is bound.
                 if hp.joint_constraints.is_none_or(|jc| jc.all_satisfied(hp.bindings)) {
                     let mut full_result = hp.bindings.clone();
                     full_result.set_word(hp.word);
                     hp.results.push(full_result);
-                    return !hp.all_matches; // Stop early if only one match needed
+                    return !hp.all_matches;
                 }
             }
             return false;
@@ -349,11 +356,20 @@ fn match_equation_internal(
 
                             if valid {
                                 hp.bindings.set(*var_name, bound_val);
-                                let retval = helper(&chars[l..], rest, hp) && !hp.all_matches;
-                                if !retval {
-                                    hp.bindings.remove(*var_name); // TODO! should these bindings be removed in the other (retval is true) case too?
+
+                                // Recurse to try this choice
+                                let found = helper(&chars[l..], rest, hp);
+
+                                // Always undo our tentative binding before returning/continuing
+                                hp.bindings.remove(*var_name);
+
+                                // If we only need one match and we found one, bubble up early.
+                                if found && !hp.all_matches {
+                                    return true;
                                 }
-                                retval
+
+                                // Otherwise continue searching other lengths.
+                                found
                             } else {
                                 false
                             }
@@ -375,8 +391,17 @@ fn match_equation_internal(
         }
     }
 
-    // TODO? support beyond 0-127 (i.e., beyond ASCII)? (at least document behavior (here and in general)!)
-    // TODO are we actually guaranteed to have lowercase_word be lowercase?
+    /// Returns `true` if `lowercase_word` is an anagram of `other_word`.
+    ///
+    /// Implementation details / limitations:
+    /// - Only ASCII characters in the range 0–127 are counted. Any character
+    ///   ≥128 is ignored in the frequency table, which may cause false positives.
+    /// - Intended use is for lowercase a–z inputs; callers should ensure both
+    ///   arguments are normalized (e.g., to lowercase) before calling.
+    /// - Runs in O(n) time with O(1) memory (fixed 128-entry table).
+    ///
+    /// If you need full Unicode or mixed-case support, replace this with a
+    /// `HashMap<char, usize>` count comparison.
     fn are_anagrams(lowercase_word: &[char], other_word: &str) -> bool {
         if lowercase_word.len() != other_word.len() {
             return false;
@@ -388,7 +413,6 @@ fn match_equation_internal(
             if (c as usize) < 128 {
                 char_counts[c as usize] += 1;
             }
-            // TODO? handle characters outside of 0-127 differently? (e.g., error vs. ignore, etc.)
         }
 
         for c in other_word.chars() {
@@ -601,8 +625,18 @@ fn get_regex_str_segment(var_counts: [usize; NUM_POSSIBLE_VARIABLES], var_to_bac
     pushed_str.to_string()
 }
 
-// TODO doesn't really need to count--really only need to the return values to distinguish between
-//      one and many (NB: in the zero case callers won't use what's returned here)
+/// Count the number of times each variable (and reversed variable) appears
+/// in a sequence of `FormPart`s.
+///
+/// Returns two parallel arrays (length = NUM_POSSIBLE_VARIABLES):
+/// - `var_counts[i]`    = number of times variable 'A'+i appears
+/// - `rev_var_counts[i]` = number of times reversed variable '~(A+i)' appears
+///
+/// Usage: in `form_to_regex_str`, we only care about distinguishing
+/// between "appears once" vs. "appears multiple times" in order to decide
+/// whether to emit a backreference. In the zero case, callers don't consult
+/// the arrays at all. So while the exact counts aren’t strictly necessary,
+/// tracking them is cheap and keeps the code simple/clear.
 fn get_var_and_rev_var_counts(parts: &[FormPart]) -> ([usize; NUM_POSSIBLE_VARIABLES], [usize; NUM_POSSIBLE_VARIABLES]) {
     let mut var_counts = [0; NUM_POSSIBLE_VARIABLES];
     let mut rev_var_counts = [0; NUM_POSSIBLE_VARIABLES];
@@ -627,11 +661,15 @@ fn char_to_num(c: char) -> usize {
 /// Walks the input, consuming tokens one at a time with `equation_part`.
 pub(crate) fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
     let mut rest = raw_form;
-    let mut parts = Vec::new(); // TODO? avoid mutability
+    // this mutability isn't so bad -- it's local and efficient
+    let mut parts = Vec::new();
 
     while !rest.is_empty() {
         match equation_part(rest) {
-            Ok((next, part)) => { // TODO why not just replace "next" with "rest"
+            // Note: we can't write `Ok((rest, part))` here because that would
+            // shadow the outer `rest` instead of updating it. We bind to a new
+            // name (`next`) and then assign it back to the outer `rest`.
+            Ok((next, part)) => {
                 parts.push(part);
                 rest = next;
             }
@@ -664,24 +702,19 @@ fn literal(input: &str) -> IResult<&str, FormPart> {
 }
 
 fn dot(input: &str) -> IResult<&str, FormPart> {
-    parser_one_char_inner(input, &FormPart::Dot)
+    map(tag("."), |_| FormPart::Dot).parse(input)
 }
 
 fn star(input: &str) -> IResult<&str, FormPart> {
-    parser_one_char_inner(input, &FormPart::Star)
+    map(tag("*"), |_| FormPart::Star).parse(input)
 }
 
 fn vowel(input: &str) -> IResult<&str, FormPart> {
-    parser_one_char_inner(input, &FormPart::Vowel)
+    map(tag("@"), |_| FormPart::Vowel).parse(input)
 }
 
 fn consonant(input: &str) -> IResult<&str, FormPart> {
-    parser_one_char_inner(input, &FormPart::Consonant)
-}
-
-// TODO? avoid clone
-fn parser_one_char_inner<'a>(input: &'a str, form_part: &FormPart) -> IResult<&'a str, FormPart> {
-    map(tag(form_part.get_tag_string().unwrap()), |_| form_part.clone()).parse(input)
+    map(tag("#"), |_| FormPart::Consonant).parse(input)
 }
 
 fn charset(input: &str) -> IResult<&str, FormPart> {
@@ -953,10 +986,29 @@ mod tests {
     #[test]
     fn test_variable_binding() {
         let patt = parse_form("AB").unwrap();
-        let binding = match_equation_all("inch", &patt, None, None).into_iter().next().unwrap();
-        // TODO allow for IN/CH or INC/H
-        assert_eq!(Some(&"i".to_string()), binding.get('A'));
-        assert_eq!(Some(&"nch".to_string()), binding.get('B'));
+        let results = match_equation_all("inch", &patt, None, None);
+
+        // Collect the observed (A,B) pairs
+        let observed: std::collections::HashSet<(String, String)> = results
+            .into_iter()
+            .map(|b| {
+                (
+                    b.get('A').unwrap().clone(),
+                    b.get('B').unwrap().clone(),
+                )
+            })
+            .collect();
+
+        // All valid splits of "inch" into two nonempty pieces
+        let expected: std::collections::HashSet<(String, String)> = [
+            ("i".to_string(), "nch".to_string()),
+            ("in".to_string(), "ch".to_string()),
+            ("inc".to_string(), "h".to_string()),
+        ]
+            .into_iter()
+            .collect();
+
+        assert_eq!(observed, expected);
     }
 
     #[test]
@@ -1047,4 +1099,50 @@ mod tests {
         println!("{matches:?}");
         assert_eq!(1, matches.len());
     }
+
+    #[test]
+    fn materialize_deterministic_rejects_nondeterministic_parts() {
+        // Pattern has a Dot (.) → nondeterministic
+        let pf = parse_form("A.B").unwrap();
+
+        // Supply values for A and B
+        let mut env = std::collections::HashMap::new();
+        env.insert('A', "x".to_string());
+        env.insert('B', "y".to_string());
+
+        // Because of the Dot, this form cannot be fully materialized → expect None
+        assert!(pf.materialize_deterministic_with_env(&env).is_none());
+    }
+
+    #[test]
+    fn materialize_deterministic_requires_all_vars_bound() {
+        // Pattern has two variables
+        let pf = parse_form("AB").unwrap();
+
+        // Only provide a value for A; leave B unbound
+        let mut env = std::collections::HashMap::new();
+        env.insert('A', "hi".to_string());
+
+        // Since B is missing, materialization must fail → expect None
+        assert!(pf.materialize_deterministic_with_env(&env).is_none());
+    }
+
+    #[test]
+    fn materialize_deterministic_succeeds_with_only_lits_and_vars() {
+        // Pattern is fully deterministic: literals + vars + a reversed var
+        let pf = parse_form("preAB~Apost").unwrap();
+
+        // Provide bindings for A and B
+        let mut env = std::collections::HashMap::new();
+        env.insert('A', "no".to_string());
+        env.insert('B', "de".to_string());
+
+        // Expect the literal "pre", then "B"="de", then "A"="no",
+        // then "~A"="on", then the literal "post"
+        assert_eq!(
+            Some("prenodeonpost".to_string()),
+            pf.materialize_deterministic_with_env(&env)
+        );
+    }
+
 }

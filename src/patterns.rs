@@ -9,8 +9,9 @@ use crate::umiaq_char::UmiaqChar;
 /// The character that separates forms, in an equation
 pub const FORM_SEPARATOR: char = ';';
 
-/// Matches exact length constraints like `|A|=5`
-static LEN_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\|([A-Z])\|=(\d+)$").unwrap());
+/// Matches comparative length constraints like `|A|>4`, `|A|<=7`, etc.
+static LEN_CMP_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\|([A-Z])\|\s*(<=|>=|=|<|>)\s*(\d+)$").unwrap());
 
 /// Matches inequality constraints like `!=AB`
 static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
@@ -226,11 +227,20 @@ impl Patterns {
         let mut next_form_ix = 0; // counts only *forms* we accept
 
         for form in &forms {
-            if let Some(cap) = LEN_RE.captures(form).unwrap() {
-                // Extract the variable (e.g., A) and its required length
+            if let Some(cap) = LEN_CMP_RE.captures(form).unwrap() {
                 let var = cap[1].chars().next().unwrap();
-                let len = cap[2].parse::<usize>().unwrap();
-                self.var_constraints.ensure(var).set_exact_len(len); // TODO avoid mutability?
+                let op  = &cap[2];
+                let n   = cap[3].parse::<usize>().unwrap();
+                let vc  = self.var_constraints.ensure(var);
+
+                match op {
+                    "="  => vc.set_exact_len(n),
+                    ">=" => vc.min_length = Some(n),
+                    ">"  => vc.min_length = n.checked_add(1),   // n+1
+                    "<=" => vc.max_length = Some(n),
+                    "<"  => vc.max_length = n.checked_sub(1),   // n-1 (None if n==0)
+                    _    => {}
+                }
             } else if let Some(cap) = NEQ_RE.captures(form).unwrap() {
                 // Extract all variables from inequality constraint
                 // !=α (where α is a string of at least 2 distinct variables) means that any pair of
@@ -246,10 +256,16 @@ impl Patterns {
             } else if let Ok((var, cc_vc)) = get_complex_constraint(form) {
                 let var_constraint = self.var_constraints.ensure(var);
 
-                // TODO is there a better way to do this?
-                var_constraint.min_length = cc_vc.min_length;
-                var_constraint.max_length = cc_vc.max_length;
-                var_constraint.form = cc_vc.form;
+                // only set what the constraint explicitly provides
+                if let Some(min) = cc_vc.min_length {
+                    var_constraint.min_length = Some(min);
+                }
+                if let Some(max) = cc_vc.max_length {
+                    var_constraint.max_length = Some(max);
+                }
+                if let Some(f) = cc_vc.form {
+                    var_constraint.form = Some(f);
+                }
             } else { // TODO? avoid swallowing error?
                 // We only want to add a form if it is parseable
                 // Specifically, things like |AB|=7 should not be picked up here
@@ -569,5 +585,52 @@ mod tests {
         // TODO replace "_" with a more specific check (next two lines--and elsewhere... as appropriate)
         assert!(matches!(parse_length_range("").unwrap_err(), ParseError::InvalidLengthRange { input: _ }));
         assert!(matches!(parse_length_range("1-2-3").unwrap_err(), ParseError::InvalidLengthRange { input: _ }));
+    }
+
+    #[test]
+    fn test_len_gt() {
+        let patterns = Patterns::of("|A|>4;A");
+        let a = patterns.var_constraints.get('A').unwrap();
+        assert_eq!(a.min_length, Some(5));
+        assert_eq!(a.max_length, None);
+    }
+
+    #[test]
+    fn test_len_ge() {
+        let patterns = Patterns::of("|A|>=4;A");
+        let a = patterns.var_constraints.get('A').unwrap();
+        assert_eq!(a.min_length, Some(4));
+        assert_eq!(a.max_length, None);
+    }
+
+    #[test]
+    fn test_len_lt() {
+        let patterns = Patterns::of("|A|<4;A");
+        let a = patterns.var_constraints.get('A').unwrap();
+        // For <4, max becomes 3; <1 would become None via checked_sub
+        assert_eq!(a.max_length, Some(3));
+    }
+
+    #[test]
+    fn test_len_le() {
+        let patterns = Patterns::of("|A|<=4;A");
+        let a = patterns.var_constraints.get('A').unwrap();
+        assert_eq!(a.max_length, Some(4));
+    }
+
+    #[test]
+    fn test_len_equality_then_complex_form_only() {
+        // Equality first, then a complex constraint that only specifies a form
+        let patterns = Patterns::of("A;|A|=7;A=(x*a)");
+
+        let a = patterns.var_constraints.get('A').unwrap().clone();
+        let expected = VarConstraint {
+            min_length: Some(7),
+            max_length: Some(7),
+            form: Some("x*a".to_string()),
+            ..Default::default()
+        };
+
+        assert_eq!(expected, a);
     }
 }
