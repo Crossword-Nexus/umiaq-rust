@@ -30,11 +30,10 @@ impl VarConstraints {
         self.inner.entry(var).or_default()
     }
 
-    /// Get normalized bounds for variable `v`. If missing, use VarConstraint defaults.
+    /// Get normalized bounds for variable `v`. If missing, use `VarConstraint` defaults.
     pub fn bounds(&self, v: char) -> (usize, usize) {
         self.get(v)
-            .map(VarConstraint::bounds)
-            .unwrap_or((VarConstraint::DEFAULT_MIN, VarConstraint::DEFAULT_MAX))
+            .map_or(VarConstraint::DEFAULT_BOUNDS, VarConstraint::bounds)
     }
 
     /// Ensure an entry exists and return it mutably.
@@ -95,6 +94,7 @@ impl VarConstraint {
     /// Single source of truth for default bounds.
     pub const DEFAULT_MIN: usize = 1;
     pub const DEFAULT_MAX: usize = usize::MAX;
+    pub const DEFAULT_BOUNDS: (usize, usize) = (VarConstraint::DEFAULT_MIN, VarConstraint::DEFAULT_MAX);
 
     /// Set both min and max to the same exact length.
     pub(crate) fn set_exact_len(&mut self, len: usize) {
@@ -107,7 +107,7 @@ impl VarConstraint {
     }
 
     /// Normalize this constraint into concrete bounds.
-    /// Unset min → DEFAULT_MIN; unset max → DEFAULT_MAX (∞).
+    /// Unset min → `DEFAULT_MIN`; unset max → `DEFAULT_MAX` (∞).
     pub fn bounds(&self) -> (usize, usize) {
         (
             self.min_length.unwrap_or(Self::DEFAULT_MIN),

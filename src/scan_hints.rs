@@ -24,7 +24,7 @@
 //   an arbitrary number of extra characters.
 // -----------------------------------------------------------------------------
 
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 
 use crate::constraints::{VarConstraint, VarConstraints};
 use crate::joint_constraints::{JointConstraint, JointConstraints, RelMask};
@@ -84,10 +84,8 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
     };
 
     // Basic sanity: empty interval ⇒ None
-    if let Some(tmax) = tmax_opt {
-        if tmin > tmax {
-            return None;
-        }
+    if let Some(tmax) = tmax_opt && tmin > tmax {
+        return None;
     }
 
     Some(GroupLenConstraint {
@@ -100,8 +98,7 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
 /// Compute per-form hints from a `ParsedForm` *and* the equation’s constraints.
 ///
 /// - `vcs`: the full equation’s `VarConstraints` (we’ll only read vars present in form);
-///          its `bounds(v)` must return normalized `(usize, usize)`
-///          where `usize::MAX` encodes ∞.
+///   its `bounds(v)` must return normalized `(usize, usize)`, where `usize::MAX` encodes ∞.
 /// - `jcs`: the equation’s `JointConstraints` (we’ll filter to constraints whose
 ///   variable set is a subset of the form’s variables)
 pub(crate) fn form_len_hints_pf(
@@ -178,7 +175,7 @@ where
     let get_weight = |v: char| *var_frequency.get(&v).unwrap_or(&0);
 
     // Baseline min/max ignoring groups
-    let weighted_min = {
+    let mut weighted_min = {
         let sum = vars
             .iter()
             .map(|&v| get_weight(v) * bounds_map[&v].li)
@@ -186,7 +183,7 @@ where
         Some(fixed_base + sum)
     };
 
-    let weighted_max = if has_star
+    let mut weighted_max = if has_star
         || vars
         .iter()
         .any(|&v| bounds_map[&v].ui == VarConstraint::DEFAULT_MAX)
@@ -199,9 +196,6 @@ where
             .sum::<usize>();
         Some(fixed_base + sum)
     };
-
-    let mut weighted_min = weighted_min;
-    let mut weighted_max = weighted_max;
 
     // 3. Tighten with group constraints valid for this form
     for g in form_groups {
@@ -223,15 +217,13 @@ where
             sum_li: usize,
             sum_ui_opt: Option<usize>,
             t: usize,
-            minimize: bool,
+            minimize: bool, // TODO replace with enum
         ) -> Option<usize> {
             if t < sum_li {
                 return None;
             }
-            if let Some(su) = sum_ui_opt {
-                if t > su {
-                    return None;
-                }
+            if let Some(su) = sum_ui_opt && t > su {
+                return None;
             }
 
             let base = rows.iter().map(|r| r.w * r.li).sum::<usize>();
@@ -325,16 +317,14 @@ where
         // Effective totals for the in-form part of this group:
         // - For the LOWER bound, outside takes as much as possible (use outside_form_max if finite).
         // - For the UPPER bound, outside takes as little as possible (use outside_form_min).
-        let tmin_eff_opt = match outside_form_max_opt {
-            Some(of_max) => Some(g.total_min.saturating_sub(of_max)),
-            None => Some(0), // if outside can be arbitrarily large, in-form lower could be 0
-        };
+        // re 0: if outside can be arbitrarily large, in-form lower could be 0
+        let tmin_eff = outside_form_max_opt.map_or(0, |of_max| g.total_min.saturating_sub(of_max));
         let tmax_eff_opt = g
             .total_max
             .map(|tmax| tmax.saturating_sub(outside_form_min));
 
         // Evaluate endpoints of the adjusted interval for in-form vars.
-        let gmin_w = tmin_eff_opt.and_then(weighted_min_for_t);
+        let gmin_w = weighted_min_for_t(tmin_eff);
         let gmax_w = tmax_eff_opt.and_then(weighted_max_for_t);
 
         // Combine with outside-of-group contributions (vars in this form but not in this group)
@@ -388,9 +378,9 @@ where
 /// Build the list of group constraints (as contiguous intervals) that are *scoped
 /// to this form*: every referenced variable must appear in the form.
 fn group_constraints_for_form(form: &ParsedForm, jcso: Option<&JointConstraints>) -> Vec<GroupLenConstraint> {
-    let Some(jcs) = jcso else { return Vec::new(); };
+    let Some(jcs) = jcso else { return vec![]; };
 
-    let present: std::collections::HashSet<char> = form.iter().filter_map(|p| match p {
+    let present: HashSet<char> = form.iter().filter_map(|p| match p {
         FormPart::Var(v) | FormPart::RevVar(v) => Some(*v),
         _ => None,
     }).collect();
@@ -610,7 +600,7 @@ mod tests {
         // With |AB|=6 and only A present in this form:
         // - outside_form_min = min(B)
         // - outside_form_max may be ∞ (default), so tmin_eff becomes 0.
-        // Here the normalized defaults are A∈[1,∞], B∈[1,∞] → we get
+        // Here the normalized defaults are A∈[1,∞), B∈[1,∞) → we get
         // min_len = 1 (from A's min), and an effective upper bound of 5 (6 - min(B)).
         let expected = PatternLenHints {
             min_len: Some(VarConstraint::DEFAULT_MIN),

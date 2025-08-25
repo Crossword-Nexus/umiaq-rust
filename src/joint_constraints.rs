@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
@@ -102,12 +103,13 @@ impl JointConstraint {
     // --- Test-only convenience for asserting behavior without needing real `Bindings`.
     //     This keeps tests independent of crate::bindings internals.
     #[cfg(test)]
-    fn is_satisfied_by_map(&self, map: &std::collections::HashMap<char, String>) -> bool {
+    fn is_satisfied_by_map(&self, map: &HashMap<char, String>) -> bool {
         if !self.vars.iter().all(|v| map.contains_key(v)) {
-            return true;
+            true
+        } else {
+            let total: usize = self.vars.iter().map(|v| map.get(v).unwrap().len()).sum();
+            self.rel.allows(total.cmp(&self.target))
         }
-        let total: usize = self.vars.iter().map(|v| map.get(v).unwrap().len()).sum();
-        self.rel.allows(total.cmp(&self.target))
     }
 }
 
@@ -180,7 +182,7 @@ impl JointConstraints {
         self.as_vec.iter().all(|jc| jc.is_satisfied_by(bindings))
     }
 
-    /// True iff **every** joint constraint is satisfied w.r.t. a slice of Bindings.
+    /// True iff **every** joint constraint is satisfied w.r.t. a slice of `Bindings`.
     /// Requires all referenced variables to be bound.
     pub fn all_strictly_satisfied_for_parts(&self, parts: &[Bindings]) -> bool {
         self.as_vec.iter().all(|jc| jc.is_strictly_satisfied_by_parts(parts))
@@ -190,7 +192,7 @@ impl JointConstraints {
     #[cfg(test)]
     fn all_satisfied_map(
         &self,
-        map: &std::collections::HashMap<char, String>
+        map: &HashMap<char, String>
     ) -> bool {
         self.as_vec.iter().all(|jc| jc.is_satisfied_by_map(map))
     }
@@ -201,7 +203,7 @@ impl JointConstraints {
 ///
 /// Returns `None` if no joint constraints are found.
 pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints> {
-    let mut v = Vec::new();
+    let mut v = vec![];
     for part in equation.split(FORM_SEPARATOR) {
         if let Some(jc) = parse_joint_len(part.trim()) {
             v.push(jc);
@@ -225,8 +227,8 @@ pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints
 ///      - If sum(mins) == T, then all vars are fixed at their minimum length.
 ///      - Else if sum(maxes) == T (and all maxes are finite), then all vars are fixed at their maximum.
 ///      - Else, perform generic interval tightening:
-///         • New min for Vi = max(current min, T - Σ other maxes)
-///         • New max for Vi = min(current max, T - Σ other mins)
+///        • New min for Vi = max(current min, T - Σ other maxes)
+///        • New max for Vi = min(current max, T - Σ other mins)
 ///
 /// This propagation is *sound* (never removes feasible solutions) and often
 /// eliminates huge amounts of search, especially for long chains of unconstrained vars.
@@ -247,7 +249,7 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
 
             // Track finite sum of maxes; if any is ∞, the group max is unbounded.
             if ui == VarConstraint::DEFAULT_MAX {
-                sum_max_opt = None;
+                sum_max_opt = None; // TODO? feels dirty
             } else {
                 sum_max_opt = sum_max_opt.map(|a| a + ui);
             }
@@ -265,13 +267,11 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
         }
 
         // Case 2: exact by finite maxes
-        if let Some(sum_max) = sum_max_opt {
-            if sum_max == jc.target {
-                for (v, ui) in maxs {
-                    vcs.ensure_entry_mut(v).set_exact_len(ui);
-                }
-                continue;
+        if let Some(sum_max) = sum_max_opt && sum_max == jc.target {
+            for (v, ui) in maxs {
+                vcs.ensure_entry_mut(v).set_exact_len(ui);
             }
+            continue;
         }
 
         // Case 3: generic tightening
@@ -292,9 +292,8 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
                 if w_ui == VarConstraint::DEFAULT_MAX {
                     sum_other_max_opt = None;
                     break;
-                } else {
-                    sum_other_max_opt = sum_other_max_opt.map(|a| a + w_ui);
                 }
+                sum_other_max_opt = sum_other_max_opt.map(|a| a + w_ui);
             }
 
             let lower_from_joint = match sum_other_max_opt {
@@ -317,11 +316,10 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use crate::patterns::FORM_SEPARATOR;
 
     #[test]
-    fn relmask_from_str_and_allows() {
+    fn rel_mask_from_str_and_allows() {
         assert_eq!(RelMask::from_str("="),  Some(RelMask::EQ));
         assert_eq!(RelMask::from_str("=="), Some(RelMask::EQ));
         assert_eq!(RelMask::from_str("<="), Some(RelMask::LE));
@@ -385,8 +383,7 @@ mod tests {
         // |AB| = 5
         let jc = JointConstraint { vars: vec!['A','B'], target: 5, rel: RelMask::EQ };
 
-        let mut map = HashMap::new();
-        map.insert('A', "HI".to_string()); // len 2
+        let mut map = HashMap::from([('A', "HI".to_string())]); // len 2
         // 'B' unbound -> should return true (skip mid-search)
         assert!(jc.is_satisfied_by_map(&map));
 
@@ -400,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn jointconstraints_all_satisfied_map_variant() {
+    fn joint_constraints_all_satisfied_map_variant() {
         let jcs = JointConstraints {
             as_vec: vec![
                 JointConstraint { vars: vec!['A', 'B'], target: 6, rel: RelMask::LE }, // len(A)+len(B) <= 6
@@ -408,10 +405,11 @@ mod tests {
             ]
         };
 
-        let mut map = HashMap::new();
-        map.insert('A', "NO".to_string());     // 2
-        map.insert('B', "YES".to_string());    // 3
-        map.insert('C', "X".to_string());      // 1
+        let mut map = HashMap::from([
+            ('A', "NO".to_string()), // 2
+            ('B', "YES".to_string()), // 3
+            ('C', "X".to_string())] // 1
+        );
 
         // (2+3) <= 6  AND  (3+1) >= 3  => true
         assert!(jcs.all_satisfied_map(&map));
