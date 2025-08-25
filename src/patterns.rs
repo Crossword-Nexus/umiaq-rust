@@ -9,7 +9,7 @@ use crate::umiaq_char::UmiaqChar;
 /// The character that separates forms, in an equation
 pub const FORM_SEPARATOR: char = ';';
 
-// TODO? me stricter (e.g., than "\s*")
+// TODO? be stricter (e.g., than "\s*")
 /// Matches comparative length constraints like `|A|>4`, `|A|<=7`, etc.
 static LEN_CMP_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\|([A-Z])\|\s*(<=|>=|=|<|>)\s*(\d+)$").unwrap());
@@ -257,6 +257,7 @@ impl Patterns {
             } else if let Ok((var, cc_vc)) = get_complex_constraint(form) {
                 let var_constraint = self.var_constraints.ensure(var);
 
+                // TODO? don't override old mins/maxes
                 // only set what the constraint explicitly provides
                 if let Some(min) = cc_vc.min_length {
                     var_constraint.min_length = Some(min);
