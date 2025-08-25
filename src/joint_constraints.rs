@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
@@ -103,7 +102,7 @@ impl JointConstraint {
     // --- Test-only convenience for asserting behavior without needing real `Bindings`.
     //     This keeps tests independent of crate::bindings internals.
     #[cfg(test)]
-    fn is_satisfied_by_map(&self, map: &HashMap<char, String>) -> bool {
+    fn is_satisfied_by_map(&self, map: &std::collections::HashMap<char, String>) -> bool {
         if !self.vars.iter().all(|v| map.contains_key(v)) {
             true
         } else {
@@ -192,7 +191,7 @@ impl JointConstraints {
     #[cfg(test)]
     fn all_satisfied_map(
         &self,
-        map: &HashMap<char, String>
+        map: &std::collections::HashMap<char, String>
     ) -> bool {
         self.as_vec.iter().all(|jc| jc.is_satisfied_by_map(map))
     }
@@ -383,7 +382,7 @@ mod tests {
         // |AB| = 5
         let jc = JointConstraint { vars: vec!['A','B'], target: 5, rel: RelMask::EQ };
 
-        let mut map = HashMap::from([('A', "HI".to_string())]); // len 2
+        let mut map = std::collections::HashMap::from([('A', "HI".to_string())]); // len 2
         // 'B' unbound -> should return true (skip mid-search)
         assert!(jc.is_satisfied_by_map(&map));
 
@@ -405,7 +404,7 @@ mod tests {
             ]
         };
 
-        let mut map = HashMap::from([
+        let mut map = std::collections::HashMap::from([
             ('A', "NO".to_string()), // 2
             ('B', "YES".to_string()), // 3
             ('C', "X".to_string())] // 1
