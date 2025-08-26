@@ -13,9 +13,12 @@ use crate::patterns::Patterns;
 use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
 
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
+use std::time::{Duration, Instant};
 
-/// The max number of matches to grab during our initial pass through the word list
-const MAX_INITIAL_MATCHES: usize = 500_000;
+// The amount of time (in seconds) we allow the query to run
+const TIME_BUDGET: u64 = 30;
 
 /// Bucket key for indexing candidates by the subset of variables that must agree.
 /// - `None` means "no lookup constraints for this pattern" (Python's `words[i][None]`).
@@ -37,6 +40,161 @@ pub struct CandidateBuckets {
     /// Total number of bindings added for this pattern (across all keys)
     pub count: usize,
 }
+
+/// Build a stable key for a full solution (bindings in **pattern order**).
+/// Prefer the whole word if present (WORD_SENTINEL). Fall back to sorted (var,val) pairs.
+fn solution_key(solution: &[Bindings]) -> u64 {
+    let mut hasher = DefaultHasher::new();
+
+    for b in solution {
+        // Try whole-word first (fast + canonical)
+        if let Some(w) = b.get(WORD_SENTINEL) {
+            w.hash(&mut hasher);
+        } else {
+            // Fall back: hash all (var,val) pairs sorted by var
+            let mut pairs: Vec<(char, String)> =
+                b.iter().map(|(k, v)| (*k, v.clone())).collect();
+            pairs.sort_unstable_by_key(|(k, _)| *k);
+            for (k, v) in pairs {
+                k.hash(&mut hasher);
+                v.hash(&mut hasher);
+            }
+        }
+        // Separator between patterns to avoid ambiguity like ["ab","c"] vs ["a","bc"]
+        0xFFFFu16.hash(&mut hasher);
+    }
+
+    hasher.finish()
+}
+
+/// Simple helper to enforce a wall-clock time limit.
+///
+/// Usage:
+///   let budget = TimeBudget::new(Duration::from_secs(30));
+///   while !budget.expired() {
+///       // do some work
+///   }
+///
+/// You can also query how much time is left (`remaining()`).
+struct TimeBudget {
+    start: Instant,   // when the budget began
+    limit: Duration,  // maximum allowed elapsed time
+}
+
+impl TimeBudget {
+    /// Create a new budget that lasts for `limit` (e.g., 30 seconds).
+    fn new(limit: Duration) -> Self {
+        Self { start: Instant::now(), limit }
+    }
+
+    /// Returns true if the allowed time has fully elapsed.
+    fn expired(&self) -> bool {
+        self.start.elapsed() >= self.limit
+    }
+
+    // Returns the remaining time before expiration, or zero if the budget is already used up.
+    // Unused for now but it may be useful later
+    // fn remaining(&self) -> Duration {self.limit.saturating_sub(self.start.elapsed())}
+}
+
+
+/// Build the deterministic lookup key for a binding given the pattern's lookup vars.
+fn lookup_key_for_binding(binding: &Bindings, keys_opt: &Option<HashSet<char>>) -> LookupKey {
+    match keys_opt {
+        None => None, // pattern has no lookup constraints
+        Some(keys) => {
+            // Collect (var, value) only for vars present in this binding.
+            let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
+            for &var in keys {
+                if let Some(val) = binding.get(var) {
+                    pairs.push((var, val.clone()));
+                } else {
+                    // Missing a required key → this binding is unusable for join
+                    pairs.clear();
+                    break;
+                }
+            }
+            if pairs.is_empty() && !keys.is_empty() {
+                // Some key was missing: return a key that will never match
+                // (caller will just skip pushing in this case)
+                return Some(Vec::new()); // sentinel "impossible" key
+            }
+            pairs.sort_unstable_by_key(|(c, _)| *c);
+            Some(pairs)
+        }
+    }
+}
+
+/// Push a binding into the appropriate bucket and bump the count.
+fn push_binding(words: &mut [CandidateBuckets], i: usize, key: LookupKey, binding: Bindings) {
+    words[i].buckets.entry(key).or_default().push(binding);
+    words[i].count += 1;
+}
+
+/// Scan a slice of the word list and incrementally fill candidate buckets.
+/// Returns whether we hit the per-pattern cap and the last index scanned (exclusive).
+/// Scan a slice of the word list and incrementally fill candidate buckets.
+/// Returns (new_scan_pos, time_up).
+fn scan_batch(
+    word_list: &[&str],
+    start_idx: usize,
+    batch_size: usize,
+    patterns: &Patterns,
+    parsed_forms: &[ParsedForm],
+    scan_hints: &[PatternLenHints],
+    var_constraints: &crate::constraints::VarConstraints,
+    joint_constraints: Option<&JointConstraints>,
+    words: &mut [CandidateBuckets],
+    budget: Option<&TimeBudget>,
+) -> (usize, bool) {
+    let mut i_word = start_idx;
+    let end = start_idx.saturating_add(batch_size).min(word_list.len());
+
+    while i_word < end {
+        if let Some(b) = budget {
+            if b.expired() { return (i_word, true); }
+        }
+
+        let word = word_list[i_word];
+
+        for (i, patt) in patterns.iter().enumerate() {
+            // No per-pattern cap anymore
+
+            // Skip deterministic fully-keyed forms
+            if patt.is_deterministic && patt.all_vars_in_lookup_keys() {
+                continue;
+            }
+            // Cheap length prefilter
+            if !scan_hints[i].is_word_len_possible(word.len()) {
+                continue;
+            }
+
+            let matches = match_equation_all(
+                word,
+                &parsed_forms[i],
+                Some(var_constraints),
+                joint_constraints,
+            );
+
+            for binding in matches {
+                let key = lookup_key_for_binding(&binding, &patt.lookup_keys);
+
+                // If a required key is missing, skip
+                if key.as_ref().is_some_and(|v| v.is_empty() && patt.lookup_keys.as_ref().is_some_and(|ks| !ks.is_empty())) {
+                    continue;
+                }
+
+                push_binding(words, i, key, binding.clone());
+            }
+        }
+
+        i_word += 1;
+    }
+
+    (i_word, false)
+}
+
+
 
 /// Depth-first recursive join of per-pattern candidate buckets into full solutions.
 ///
@@ -70,6 +228,7 @@ fn recursive_join(
     parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
     word_list_as_set: &HashSet<&str>,
     joint_constraints: Option<&JointConstraints>,
+    seen: &mut HashSet<u64>,
 ) {
     // Stop if we’ve met the requested quota of full solutions.
     if results.len() >= num_results_requested {
@@ -78,12 +237,14 @@ fn recursive_join(
 
     // Base case: if we’ve placed all patterns, `selected` is a full solution.
     if idx == words.len() {
-        // Check the joint constraints
         if joint_constraints
             .as_ref()
             .is_none_or(|jcs| jcs.all_strictly_satisfied_for_parts(selected))
         {
-            results.push(selected.clone());
+            let key = solution_key(selected);
+            if seen.insert(key) {
+                results.push(selected.clone());
+            }
         }
         return;
     }
@@ -114,7 +275,7 @@ fn recursive_join(
             selected.push(binding);
             recursive_join(
                 idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                patterns, parsed_forms, word_list_as_set, joint_constraints
+                patterns, parsed_forms, word_list_as_set, joint_constraints, seen,
             );
             selected.pop();
             return; // IMPORTANT: skip normal enumeration path
@@ -195,7 +356,7 @@ fn recursive_join(
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
         recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                       patterns, parsed_forms, word_list_as_set, joint_constraints);
+                       patterns, parsed_forms, word_list_as_set, joint_constraints, seen,);
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -229,6 +390,10 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let patterns = Patterns::of(input);
+
+    // 1.5 Build per-pattern lookup key specs (shared vars) for the join
+    let lookup_keys: Vec<Option<HashSet<char>>> =
+        patterns.iter().map(|p| p.lookup_keys.clone()).collect();
 
     // 2. Prepare storage for candidate buckets, one per pattern.
     //    `CandidateBuckets` tracks (a) the bindings bucketed by shared variable values, and
@@ -280,114 +445,92 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         .collect();
 
     // 5. Iterate through every candidate word.
-    'words_loop: for &word in word_list {
-        // Check each pattern against this word
-        for (i, patt) in patterns.iter().enumerate() {
-            // Skip this pattern if we already have too many matches for it
-            if words[i].count >= MAX_INITIAL_MATCHES { // TODO is there a better way to handle this? could lead to 0 final outputs when there are some...
-                continue;
-            }
+    let budget = TimeBudget::new(Duration::from_secs(TIME_BUDGET));
 
-            // Skip this pattern if it is deterministic and fully bound
-            if patt.is_deterministic && patt.all_vars_in_lookup_keys() {
-                continue;
-            }
-
-            // ---- Cheap prefilter by length (skip calling the matcher if impossible) ----
-            let hint = &scan_hints[i];
-            if !hint.is_word_len_possible(word.len()) {
-                continue; // length can't possibly fit this form; skip
-            }
-
-
-            // Try matching the word against the parsed pattern.
-            // `match_equation_all` returns a list of `Bindings` (variable→string maps)
-            // that satisfy the pattern given the current constraints.
-            let matches = match_equation_all(word, &parsed_forms[i], Some(&var_constraints), joint_constraints.as_ref());
-
-            // 6. For each binding produced for this pattern/word:
-            for binding in matches {
-                // ---- Build the lookup key for bucketing ----
-                // `LookupKey` is:
-                //   None => no shared variables with previous patterns
-                //   Some(Vec<(char, String)>) => specific values for shared variables,
-                //                                sorted for deterministic equality/hash.
-                let key: LookupKey = match patt.lookup_keys.as_ref() {
-                    None => None, // TODO? use map or and_then
-                    Some(keys) => {
-                        let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
-                        for &var in keys {
-                            if let Some(val) = binding.get(var) {
-                                pairs.push((var, val.clone()));
-                            } else {
-                                // If any shared var is missing, this binding can't be used
-                                pairs.clear();
-                                break;
-                            }
-                        }
-                        if pairs.is_empty() && !keys.is_empty() {
-                            continue; // skip binding entirely
-                        }
-                        // Sort by variable name so the key is deterministic
-                        pairs.sort_unstable_by_key(|(c, _)| *c);
-                        Some(pairs)
-                    }
-                };
-
-                // ---- Store the binding in the correct bucket ----
-                // Clone the "Bindings"
-                let this_binding: Bindings = binding.clone();
-
-                // Insert into the appropriate bucket (creating a new Vec if needed)
-                words[i].buckets.entry(key).or_default().push(this_binding);
-
-                // Track how many bindings we've stored for this pattern
-                words[i].count += 1;
-
-                // Stop scanning more words entirely if this pattern hit the cap
-                if words[i].count >= MAX_INITIAL_MATCHES {
-                    continue 'words_loop;
-                }
-            }
-        }
-    }
-
-    // ---- Recursive join (like umiaq.py’s recursive_filter) ----
-    //
-    // Build an index-aligned vector of `lookup_keys` (one per pattern). Each entry:
-    //   - None  → this pattern contributes to the `None` bucket (no shared vars)
-    //   - Some(vec_of_vars) → this pattern is bucketed by a deterministic
-    //                         `Some(sorted (var,value) pairs)` key
-    //
-    // NOTE: We clone since `p.lookup_keys` is an Option<Vec<char>>. If you’d rather
-    // borrow, you can restructure `recursive_join` to accept slices instead.
-    let lookup_keys: Vec<Option<HashSet<char>>> = patterns
-        .iter()
-        .map(|p| p.lookup_keys.clone())
-        .collect();
-
-    // Accumulators for the DFS:
-    // - `results`: finished solutions (Vec<Binding> per pattern)
-    // - `selected`: the current partial solution down this branch
-    // - `env`: running map of variable → concrete string, used to enforce joins
     let mut results: Vec<Vec<Bindings>> = vec![];
     let mut selected: Vec<Bindings> = vec![];
     let mut env: HashMap<char, String> = HashMap::new();
 
-    // Kick off the depth-first join from pattern 0.
-    recursive_join(
-        0,              // start at first pattern
-        &words,         // per-pattern buckets you built above
-        &lookup_keys,   // which variables must agree with previous choices
-        &mut selected,  // current partial solution (initially empty)
-        &mut env,       // current variable environment (initially empty)
-        &mut results,   // collect final solutions here
-        num_results_requested,    // stop once we have this many solutions
-        &patterns,
-        &parsed_forms,
-        &word_list_as_set,
-        joint_constraints.as_ref(),
-    );
+    // scan_pos tracks how far we've scanned into the word list.
+    let mut scan_pos: usize = 0;
+    // stalled_join_rounds counts consecutive join rounds with no new results,
+    // so we can detect "plateaus".
+    let mut stalled_join_rounds: usize = 0;
+
+    // Global set of fingerprints for already-emitted solutions.
+    // Ensures we don't return duplicate solutions across scan/join rounds.
+    let mut seen: HashSet<u64> = HashSet::new();
+
+    // batch_size controls how many words to scan this round (adaptive).
+    let mut batch_size: usize = 10_000;
+
+    // High-level solver driver. Alternates between:
+    //   (1) scanning more words from the dictionary into candidate buckets
+    //   (2) recursively joining those buckets into full solutions
+    // Continues until either we have enough results, the word list is exhausted,
+    // or the time budget expires.
+    while results.len() < num_results_requested
+        && scan_pos < word_list.len()
+        && !budget.expired()
+    {
+        // 1) Scan the next batch_size words into candidate buckets.
+        // Each candidate binding is grouped by its lookup key so later joins are fast.
+        let (new_pos, _time_up) = scan_batch(
+            word_list,
+            scan_pos,
+            batch_size,
+            &patterns,
+            &parsed_forms,
+            &scan_hints,
+            &var_constraints,
+            joint_constraints.as_ref(),
+            &mut words,
+            Some(&budget),
+        );
+        scan_pos = new_pos;
+
+        // Respect the TimeBudget
+        if budget.expired() { break; }
+
+        // 2) Attempt to build full solutions from the candidates accumulated so far.
+        // This may rediscover old partials, so we use `seen` at the base case
+        // to ensure only truly new solutions are added to `results`.
+        let before = results.len();
+        recursive_join(
+            0,
+            &words,
+            &lookup_keys,
+            &mut selected,
+            &mut env,
+            &mut results,
+            num_results_requested,
+            &patterns,
+            &parsed_forms,
+            &word_list_as_set,
+            joint_constraints.as_ref(),
+            &mut seen,
+        );
+
+        if results.len() >= num_results_requested || budget.expired() {
+            break;
+        }
+
+        // Track whether this join round made progress
+        if results.len() == before {
+            stalled_join_rounds += 1;
+        } else {
+            stalled_join_rounds = 0;
+        }
+
+        // Optional early-exit when we’re out of input and not progressing
+        if scan_pos >= word_list.len() && stalled_join_rounds >= 1 {
+            break;
+        }
+
+        // Grow the batch size for the next round
+        // TODO: magic number, maybe adaptive resizing?
+        batch_size = batch_size.saturating_mul(5);
+    }
 
     // ---- Reorder solutions back to original form order ----
     let reordered = results.iter().map(|solution| {
