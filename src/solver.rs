@@ -523,8 +523,8 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         }
 
         // Optional early-exit when we’re out of input or not progressing
-        // TODO: magic number. Maybe this should be 2?
-        if scan_pos >= word_list.len() || stalled_join_rounds >= 1 {
+        // TODO: magic number
+        if scan_pos >= word_list.len() || stalled_join_rounds >= 2 {
             break;
         }
 
