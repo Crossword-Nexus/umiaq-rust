@@ -1,9 +1,10 @@
 use crate::constraints::{VarConstraint, VarConstraints};
-use crate::parser::{parse_form, ParseError};
+use crate::parser::parse_form;
 use fancy_regex::Regex;
 use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::sync::LazyLock;
+use crate::errors::ParseError;
 use crate::umiaq_char::UmiaqChar;
 
 /// The character that separates forms, in an equation
