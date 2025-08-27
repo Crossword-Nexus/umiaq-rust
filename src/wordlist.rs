@@ -43,6 +43,8 @@ impl WordList {
     /// This is **WASM-safe** because it doesn’t touch the filesystem —
     /// you can pass the contents of a file fetched via JavaScript `fetch()` or read
     /// from the File API directly into this function.
+    /// That said, we're not using this function in WASM at the moment.
+    /// TODO: maybe we should?
     ///
     /// # Arguments
     /// * `contents`  — The raw file contents as a `&str`. Each line should be `word;score`.
