@@ -407,7 +407,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     let lookup_keys: Vec<Option<HashSet<char>>> =
         patterns.iter().map(|p| p.lookup_keys.clone()).collect();
 
-    // 2. Prepare storage for candidate buckets, one per pattern.
+    // 3. Prepare storage for candidate buckets, one per pattern.
     //    `CandidateBuckets` tracks (a) the bindings bucketed by shared variable values, and
     //    (b) a count so we can stop early if a pattern gets too many matches.
     // Mutable because we fill buckets/counts during the scan phase.
@@ -416,17 +416,17 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         words.push(CandidateBuckets::default());
     }
 
-    // 3. Parse each pattern's string form once into a vector of `FormPart`s.
+    // 4. Parse each pattern's string form once into a vector of `FormPart`s.
     //    These are index-aligned with `patterns`.
     let mut parsed_forms: Vec<_> = patterns
         .iter()
         .map(|p| parse_form(&p.raw_string))
         .collect::<Result<_, _>>()?;
 
-    // 4. Pull out the per-variable constraints collected from the equation.
+    // 5. Pull out the per-variable constraints collected from the equation.
     let mut var_constraints = patterns.var_constraints.clone();
 
-    // 4a. Upgrade prefilters once per form (only if it helps)
+    // 6. Upgrade prefilters once per form (only if it helps)
     for pf in &mut parsed_forms {
         if has_inlineable_var_form(&pf.parts, &var_constraints) {
             // Build the anchored, constraint-aware pattern string
@@ -442,21 +442,21 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         }
     }
 
-    // 4b. Get the joint constraints
+
+    // 7. Get the joint constraints and use them to tighten per-variable constraints
     let joint_constraints = parse_joint_constraints(input);
 
-    // 4c. Tighten per-variable constraints from joint constraints
     if let Some(jcs) = joint_constraints.as_ref() {
         propagate_joint_to_var_bounds(&mut var_constraints, jcs);
     }
 
-    // 4d. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
+    // 8. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
     let scan_hints: Vec<PatternLenHints> = parsed_forms
         .iter()
         .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, joint_constraints.as_ref()))
         .collect();
 
-    // 5. Iterate through every candidate word.
+    // 9. Iterate through every candidate word.
     let budget = TimeBudget::new(Duration::from_secs(TIME_BUDGET));
 
     let mut results: Vec<Vec<Bindings>> = vec![];
@@ -531,7 +531,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
         // Grow the batch size for the next round
         // TODO: magic number, maybe adaptive resizing?
-        batch_size = batch_size.saturating_mul(5);
+        batch_size = batch_size.saturating_mul(2);
     }
 
     // ---- Reorder solutions back to original form order ----
