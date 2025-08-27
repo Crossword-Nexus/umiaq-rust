@@ -22,6 +22,8 @@ use std::time::Duration;
 const TIME_BUDGET: u64 = 30;
 // The initial number of words from the word list we look through
 const BATCH_SIZE: usize = 10_000;
+// A constant to split up items in our hashes
+const HASH_SPLIT: u16 = 0xFFFFu16;
 
 /// Bucket key for indexing candidates by the subset of variables that must agree.
 /// - `None` means "no lookup constraints for this pattern" (Python's `words[i][None]`).
@@ -67,7 +69,7 @@ fn solution_key(solution: &[Bindings]) -> u64 {
             */
         }
         // Separator between patterns to avoid ambiguity like ["ab","c"] vs ["a","bc"]
-        0xFFFFu16.hash(&mut hasher);
+        HASH_SPLIT.hash(&mut hasher);
     }
 
     hasher.finish()
@@ -82,6 +84,7 @@ fn solution_key(solution: &[Bindings]) -> u64 {
 ///   }
 ///
 /// You can also query how much time is left (`remaining()`).
+/// TODO: consider using a countdown timer with one "time left" parameter
 struct TimeBudget {
     start: Instant,   // when the budget began
     limit: Duration,  // maximum allowed elapsed time
@@ -105,31 +108,33 @@ impl TimeBudget {
 
 
 /// Build the deterministic lookup key for a binding given the pattern's lookup vars.
-fn lookup_key_for_binding(binding: &Bindings, keys_opt: &Option<HashSet<char>>) -> LookupKey {
-    match keys_opt {
-        None => None, // pattern has no lookup constraints
-        Some(keys) => {
-            // Collect (var, value) only for vars present in this binding.
-            let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
-            for &var in keys {
-                if let Some(val) = binding.get(var) {
-                    pairs.push((var, val.clone()));
-                } else {
-                    // Missing a required key → this binding is unusable for join
-                    pairs.clear();
-                    break;
-                }
-            }
-            if pairs.is_empty() && !keys.is_empty() {
-                // Some key was missing: return a key that will never match
-                // (caller will just skip pushing in this case)
-                return Some(Vec::new()); // sentinel "impossible" key
-            }
-            pairs.sort_unstable_by_key(|(c, _)| *c);
-            Some(pairs)
+/// Returns:
+///   - None: pattern has no lookup constraints (unkeyed bucket)
+///   - Some(vec): concrete key (sorted by var char)
+///   - Some(empty vec): sentinel meaning "required key missing" → caller should skip
+fn lookup_key_for_binding(
+    binding: &Bindings,
+    keys_opt: Option<&HashSet<char>>,
+) -> LookupKey {
+    let keys = match keys_opt {
+        None => return None, // unkeyed
+        Some(k) => k,
+    };
+
+    // Collect (var, value) for all required keys; bail out immediately if any is missing.
+    let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
+    for &var in keys {
+        match binding.get(var) {
+            Some(val) => pairs.push((var, val.clone())),
+            None => return Some(Vec::new()), // "impossible" sentinel; caller will skip
         }
     }
+
+    // Normalize key order for stable hashing/equality
+    pairs.sort_unstable_by_key(|(c, _)| *c);
+    Some(pairs)
 }
+
 
 /// Push a binding into the appropriate bucket and bump the count.
 fn push_binding(words: &mut [CandidateBuckets], i: usize, key: LookupKey, binding: Bindings) {
@@ -184,7 +189,7 @@ fn scan_batch(
             );
 
             for binding in matches {
-                let key = lookup_key_for_binding(&binding, &patt.lookup_keys);
+                let key = lookup_key_for_binding(&binding, patt.lookup_keys.as_ref());
 
                 // If a required key is missing, skip
                 if key.as_ref().is_some_and(|v| v.is_empty() && patt.lookup_keys.as_ref().is_some_and(|ks| !ks.is_empty())) {
@@ -398,7 +403,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
     let patterns = Patterns::of(input);
 
-    // 1.5 Build per-pattern lookup key specs (shared vars) for the join
+    // 2. Build per-pattern lookup key specs (shared vars) for the join
     let lookup_keys: Vec<Option<HashSet<char>>> =
         patterns.iter().map(|p| p.lookup_keys.clone()).collect();
 
