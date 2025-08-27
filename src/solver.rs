@@ -15,7 +15,8 @@ use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
-use std::time::{Duration, Instant};
+use instant::Instant;
+use std::time::Duration;
 
 // The amount of time (in seconds) we allow the query to run
 const TIME_BUDGET: u64 = 30;
