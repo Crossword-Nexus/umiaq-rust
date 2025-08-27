@@ -507,12 +507,13 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &mut seen,
         );
 
-        if results.len() >= num_results_requested || budget.expired() {
-            break;
-        }
-
-        // Optional early-exit when we’re out of input
-        if scan_pos >= word_list.len() {
+        // We exit early in three cases
+        // 1. We've hit the number of results requested
+        // 2. The time is up
+        // 3. We have no more words to scan
+        if results.len() >= num_results_requested ||
+            budget.expired() ||
+            scan_pos >= word_list.len() {
             break;
         }
 
