@@ -19,6 +19,8 @@ use std::time::{Duration, Instant};
 
 // The amount of time (in seconds) we allow the query to run
 const TIME_BUDGET: u64 = 30;
+// The initial number of words from the word list we look through
+const BATCH_SIZE: usize = 10_000;
 
 /// Bucket key for indexing candidates by the subset of variables that must agree.
 /// - `None` means "no lookup constraints for this pattern" (Python's `words[i][None]`).
@@ -48,9 +50,11 @@ fn solution_key(solution: &[Bindings]) -> u64 {
 
     for b in solution {
         // Try whole-word first (fast + canonical)
-        if let Some(w) = b.get(WORD_SENTINEL) {
+        if let Some(w) = b.get_word() {
             w.hash(&mut hasher);
         } else {
+            // this should never happen
+            /*
             // Fall back: hash all (var,val) pairs sorted by var
             let mut pairs: Vec<(char, String)> =
                 b.iter().map(|(k, v)| (*k, v.clone())).collect();
@@ -59,6 +63,7 @@ fn solution_key(solution: &[Bindings]) -> u64 {
                 k.hash(&mut hasher);
                 v.hash(&mut hasher);
             }
+            */
         }
         // Separator between patterns to avoid ambiguity like ["ab","c"] vs ["a","bc"]
         0xFFFFu16.hash(&mut hasher);
@@ -152,6 +157,7 @@ fn scan_batch(
 
     while i_word < end {
         if let Some(b) = budget {
+            // TODO: have this timeout bubble all the way up
             if b.expired() { return (i_word, true); }
         }
 
@@ -453,16 +459,13 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
     // scan_pos tracks how far we've scanned into the word list.
     let mut scan_pos: usize = 0;
-    // stalled_join_rounds counts consecutive join rounds with no new results,
-    // so we can detect "plateaus".
-    let mut stalled_join_rounds: usize = 0;
 
     // Global set of fingerprints for already-emitted solutions.
     // Ensures we don't return duplicate solutions across scan/join rounds.
     let mut seen: HashSet<u64> = HashSet::new();
 
     // batch_size controls how many words to scan this round (adaptive).
-    let mut batch_size: usize = 10_000;
+    let mut batch_size: usize = BATCH_SIZE;
 
     // High-level solver driver. Alternates between:
     //   (1) scanning more words from the dictionary into candidate buckets
@@ -495,7 +498,6 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         // 2) Attempt to build full solutions from the candidates accumulated so far.
         // This may rediscover old partials, so we use `seen` at the base case
         // to ensure only truly new solutions are added to `results`.
-        let before = results.len();
         recursive_join(
             0,
             &words,
@@ -515,16 +517,9 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             break;
         }
 
-        // Track whether this join round made progress
-        if results.len() == before {
-            stalled_join_rounds += 1;
-        } else {
-            stalled_join_rounds = 0;
-        }
-
         // Optional early-exit when we’re out of input or not progressing
         // TODO: magic number
-        if scan_pos >= word_list.len() || stalled_join_rounds >= 2 {
+        if scan_pos >= word_list.len() {
             break;
         }
 
