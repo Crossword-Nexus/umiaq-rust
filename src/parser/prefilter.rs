@@ -194,16 +194,14 @@ pub(crate) fn form_to_regex_str_with_constraints(
                     backreference_index += 1;
                     var_to_backreference_num[idx] = backreference_index;
                     if let Some(nested) = lookahead {
-                        let _ = write!(regex_str, "(?={})(.+)", nested);
+                        let _ = write!(regex_str, "(?={nested})(.+)");
                     } else {
                         regex_str.push_str("(.+)");
                     }
+                } else if let Some(nested) = lookahead {
+                    let _ = write!(regex_str, "(?={nested}).+");
                 } else {
-                    if let Some(nested) = lookahead {
-                        let _ = write!(regex_str, "(?={}).+", nested);
-                    } else {
-                        regex_str.push_str(".+");
-                    }
+                    regex_str.push_str(".+");
                 }
             }
 
@@ -227,8 +225,8 @@ pub(crate) fn form_to_regex_str_with_constraints(
             FormPart::Lit(s) => regex_str.push_str(&fancy_regex::escape(s)),
             FormPart::Dot => regex_str.push('.'),
             FormPart::Star => regex_str.push_str(".*"),
-            FormPart::Vowel => { let _ = write!(regex_str, "[{}]", VOWELS); }
-            FormPart::Consonant => { let _ = write!(regex_str, "[{}]", CONSONANTS); }
+            FormPart::Vowel => { let _ = write!(regex_str, "[{VOWELS}]"); }
+            FormPart::Consonant => { let _ = write!(regex_str, "[{CONSONANTS}]"); }
             FormPart::Charset(chars) => {
                 regex_str.push('[');
                 for c in chars { regex_str.push(*c); }
