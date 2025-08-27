@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 use crate::bindings::Bindings;
-use crate::parser::ParseError;
+use crate::errors::ParseError;
 use crate::solver::solve_equation;
 /// Implement ParseError for `JsValue`s
 impl From<ParseError> for JsValue {
