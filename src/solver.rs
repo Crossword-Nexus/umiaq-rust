@@ -1,14 +1,12 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
+use crate::errors::ParseError;
 use crate::joint_constraints::{parse_joint_constraints, propagate_joint_to_var_bounds, JointConstraints};
 use crate::parser::{
     match_equation_all,
     parse_form,
-    ParseError,
     ParsedForm,
-    has_inlineable_var_form,
-    form_to_regex_str_with_constraints,
-    get_regex,
 };
+use crate::parser::prefilter::build_prefilter_regex;
 use crate::patterns::Patterns;
 use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
 
@@ -427,21 +425,11 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     let mut var_constraints = patterns.var_constraints.clone();
 
     // 6. Upgrade prefilters once per form (only if it helps)
+    // parsed_forms is mutable
     for pf in &mut parsed_forms {
-        if has_inlineable_var_form(&pf.parts, &var_constraints) {
-            // Build the anchored, constraint-aware pattern string
-            let anchored = format!(
-                "^{}$",
-                form_to_regex_str_with_constraints(&pf.parts, Some(&var_constraints))
-            );
-
-            // Compile via the shared cache; fall back to the existing prefilter on error
-            if let Ok(re) = get_regex(&anchored) {
-                pf.prefilter = re;
-            }
-        }
+        let upgraded = build_prefilter_regex(pf, Some(&var_constraints));
+        pf.prefilter = upgraded;
     }
-
 
     // 7. Get the joint constraints and use them to tighten per-variable constraints
     let joint_constraints = parse_joint_constraints(input);
