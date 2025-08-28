@@ -221,7 +221,7 @@ where
             sum_li: usize,
             sum_ui_opt: Option<usize>, // Some(sum_ui) if ALL ui are finite; None if ANY ui is "unbounded"
             t: usize,
-            which: Extreme,
+            extreme: Extreme,
         ) -> Option<usize> {
             // Feasibility checks
             if t < sum_li {
@@ -242,7 +242,7 @@ where
             // We still honor each row's individual capacity (ui - li). A row is “unbounded”
             // iff r.ui == VarConstraint::DEFAULT_MAX.
             let mut order: Vec<&Row> = rows.iter().collect();
-            match which {
+            match extreme {
                 Extreme::Min => order.sort_unstable_by_key(|r| r.w),              // cheapest first
                 Extreme::Max => order.sort_unstable_by_key(|r| std::cmp::Reverse(r.w)),     // priciest first
             }
@@ -259,6 +259,7 @@ where
                 if cap > 0 {
                     extra = extra.saturating_add(r.w.saturating_mul(cap));
                     rem -= cap;
+                    // TODO: can rem ever go negative? Should we add a test for it?
                     if rem == 0 {
                         break;
                     }
@@ -266,6 +267,7 @@ where
             }
 
             // If we reach here with rem != 0, `t` wasn’t feasible to begin with.
+            // TODO: throw an error?
             if rem != 0 {
                 return None;
             }
