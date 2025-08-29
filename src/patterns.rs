@@ -261,16 +261,18 @@ impl Patterns {
             } else if let Ok((var, cc_vc)) = get_complex_constraint(form) {
                 let var_constraint = self.var_constraints.ensure(var);
 
-                // TODO? don't override old mins/maxes
+                // TODO! test instances where neither min_length is none and where neither max_length is none
                 // only set what the constraint explicitly provides
-                if let Some(min) = cc_vc.min_length {
-                    var_constraint.min_length = Some(min);
-                }
-                if let Some(max) = cc_vc.max_length {
-                    var_constraint.max_length = Some(max);
-                }
+                var_constraint.min_length = var_constraint.min_length.max(cc_vc.min_length);
+                var_constraint.max_length = var_constraint.max_length.min(cc_vc.max_length).or(var_constraint.max_length).or(cc_vc.max_length);
                 if let Some(f) = cc_vc.form {
-                    var_constraint.form = Some(f);
+                    if let Some(old_form) = &var_constraint.form {
+                        if *old_form != f {
+                            // TODO error? somehow combine forms?
+                        }
+                    } else {
+                        var_constraint.form = Some(f);
+                    }
                 }
             } else { // TODO? avoid swallowing error?
                 // We only want to add a form if it is parseable
