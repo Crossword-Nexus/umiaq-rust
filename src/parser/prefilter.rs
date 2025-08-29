@@ -8,7 +8,7 @@ use crate::umiaq_char::{CONSONANTS, NUM_POSSIBLE_VARIABLES, VOWELS};
 
 use super::form::{FormPart, ParsedForm};
 
-/// Global, lazily-initialized cache of compiled regexes.
+/// Global, lazily initialized cache of compiled regexes.
 ///
 /// - `OnceLock` ensures the cache is created at most once, on first use.
 /// - We wrap the `HashMap` in a `Mutex` to provide **interior mutability** and
@@ -90,9 +90,9 @@ pub(crate) fn form_to_regex_str(parts: &[FormPart]) -> String {
                 regex_str.push(']');
             }
             FormPart::Anagram(s) => {
+                use std::fmt::Write;
                 let len = s.len();
                 let class = fancy_regex::escape(s);
-                use std::fmt::Write;
                 let _ = write!(regex_str, "[{class}]{{{len}}}");
             }
         }
@@ -258,11 +258,9 @@ pub(crate) fn build_prefilter_regex(
     parsed_form: &ParsedForm,
     constraints: Option<&VarConstraints>,
 ) -> Regex {
-    if let Some(vcs) = constraints {
-        if has_inlineable_var_form(&parsed_form.parts, vcs) {
-            let anchored = format!("^{}$", form_to_regex_str_with_constraints(&parsed_form.parts, Some(vcs)));
-            return get_regex(&anchored).unwrap_or_else(|_| parsed_form.prefilter.clone());
-        }
+    if let Some(vcs) = constraints && has_inlineable_var_form(&parsed_form.parts, vcs) {
+        let anchored = format!("^{}$", form_to_regex_str_with_constraints(&parsed_form.parts, Some(vcs)));
+        return get_regex(&anchored).unwrap_or_else(|_| parsed_form.prefilter.clone());
     }
     parsed_form.prefilter.clone()
 }

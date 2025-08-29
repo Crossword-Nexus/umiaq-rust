@@ -24,6 +24,7 @@
 //   an arbitrary number of extra characters.
 // -----------------------------------------------------------------------------
 
+use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 
 use crate::constraints::{VarConstraint, VarConstraints};
@@ -65,38 +66,25 @@ pub struct GroupLenConstraint {
 fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
     // Map RelMask to [min,max] on the target.
     // Note: For LT/GT we avoid underflow/overflow.
-    let (tmin, tmax_opt) = if jc.rel == RelMask::EQ {
-        (jc.target, Some(jc.target))
-    } else if jc.rel == RelMask::LE {
-        (0, Some(jc.target))
-    } else if jc.rel == RelMask::LT {
-        if jc.target == 0 {
-            return Some(GroupLenConstraint {
-                vars: jc.vars.clone(),
-                total_min: 0,
-                total_max: Some(0),
-            });
-        }
-        (0, Some(jc.target - 1))
-    } else if jc.rel == RelMask::GE {
-        (jc.target, None)
-    } else if jc.rel == RelMask::GT {
-        (jc.target.saturating_add(1), None)
-    } else {
-        // NE (or unusual mask combos) don't give a single interval — skip tightening.
-        return None;
+    let (tmin, tmax_opt) = match jc.rel {
+        RelMask::EQ => (jc.target, Some(jc.target)),
+        RelMask::LE => (0, Some(jc.target)),
+        RelMask::LT => (0, Some(max(0, jc.target - 1))),
+        RelMask::GE => (jc.target, None),
+        RelMask::GT => (jc.target.saturating_add(1), None),
+        _ => return None // NE (or unusual mask combos) don't give a single interval — skip tightening.
     };
 
     // Basic sanity: empty interval ⇒ None
     if let Some(tmax) = tmax_opt && tmin > tmax {
-        return None;
+        None
+    } else {
+        Some(GroupLenConstraint {
+            vars: jc.vars.clone(),
+            total_min: tmin,
+            total_max: tmax_opt,
+        })
     }
-
-    Some(GroupLenConstraint {
-        vars: jc.vars.clone(),
-        total_min: tmin,
-        total_max: tmax_opt,
-    })
 }
 
 /// Compute per-form hints from a `ParsedForm` *and* the equation’s constraints.
@@ -109,8 +97,7 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
 pub(crate) fn form_len_hints_pf(
     form: &ParsedForm,
     vcs: &VarConstraints,
-    // TODO: why is this an Option?
-    jcs: Option<&JointConstraints>,
+    jcs: &JointConstraints,
 ) -> PatternLenHints {
     form_len_hints_iter(
         form,
@@ -143,18 +130,10 @@ where
 
     for p in parts {
         match p {
-            FormPart::Star => {
-                has_star = true;
-            }
-            FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => {
-                fixed_base += 1;
-            }
-            FormPart::Lit(s) | FormPart::Anagram(s) => {
-                fixed_base += s.len();
-            }
-            FormPart::Var(v) | FormPart::RevVar(v) => {
-                *var_frequency.entry(*v).or_insert(0) += VarConstraint::DEFAULT_MIN;
-            }
+            FormPart::Star => has_star = true,
+            FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => fixed_base += 1,
+            FormPart::Lit(s) | FormPart::Anagram(s) => fixed_base += s.len(),
+            FormPart::Var(v) | FormPart::RevVar(v) => *var_frequency.entry(*v).or_insert(0) += VarConstraint::DEFAULT_MIN,
         }
     }
 
@@ -400,19 +379,21 @@ where
 
 /// Build the list of group constraints (as contiguous intervals) that are *scoped
 /// to this form*: every referenced variable must appear in the form.
-fn group_constraints_for_form(form: &ParsedForm, jcso: Option<&JointConstraints>) -> Vec<GroupLenConstraint> {
-    let Some(jcs) = jcso else { return vec![]; };
+fn group_constraints_for_form(form: &ParsedForm, jcs: &JointConstraints) -> Vec<GroupLenConstraint> {
+    if jcs.is_empty() {
+        vec![]
+    } else {
+        let present: HashSet<char> = form.iter().filter_map(|p| match p {
+            FormPart::Var(v) | FormPart::RevVar(v) => Some(*v),
+            _ => None,
+        }).collect();
 
-    let present: HashSet<char> = form.iter().filter_map(|p| match p {
-        FormPart::Var(v) | FormPart::RevVar(v) => Some(*v),
-        _ => None,
-    }).collect();
-
-    jcs.as_vec.iter()
-        // ← revert to ANY overlap so constraints like |AB|=6 still inform A-only forms
-        .filter(|jc| jc.vars.iter().any(|v| present.contains(v)))
-        .filter_map(group_from_joint)
-        .collect()
+        jcs.clone().into_iter()
+            // ← revert to ANY overlap so constraints like |AB|=6 still inform A-only forms
+            .filter(|jc| jc.vars.iter().any(|v| present.contains(v)))
+            .filter_map(|jc: JointConstraint| group_from_joint(&jc))
+            .collect()
+    }
 }
 
 
@@ -440,7 +421,7 @@ mod tests {
             FormPart::Anagram("XY".into()),
         ]);
         let vcs = VarConstraints::default();
-        let hints = form_len_hints_pf(&form, &vcs, None);
+        let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
 
         let expected = PatternLenHints {
             min_len: Some(5),
@@ -461,7 +442,7 @@ mod tests {
         a.min_length = Some(2);
         a.max_length = Some(4);
 
-        let hints = form_len_hints_pf(&form, &vcs, None);
+        let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
 
         let expected = PatternLenHints {
             min_len: Some(5),
@@ -484,7 +465,7 @@ mod tests {
         b.min_length = Some(1);
         b.max_length = Some(5);
 
-        let hints = form_len_hints_pf(&form, &vcs, None);
+        let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
 
         let expected = PatternLenHints {
             min_len: Some(4),
@@ -505,9 +486,9 @@ mod tests {
             target: 6,
             rel: RelMask::EQ,
         };
-        let jcs = JointConstraints { as_vec: vec![jc] };
+        let jcs = JointConstraints::of(vec![jc]);
 
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         // Explanation:
         // - base = 0
@@ -541,8 +522,8 @@ mod tests {
             target: 6,
             rel: RelMask::EQ,
         };
-        let jcs = JointConstraints { as_vec: vec![jc] };
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let jcs = JointConstraints::of(vec![jc]);
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         let expected = PatternLenHints {
             min_len: Some(8),
@@ -575,10 +556,8 @@ mod tests {
             target: 6,
             rel: RelMask::LE,
         };
-        let jcs = JointConstraints {
-            as_vec: vec![g1, g2],
-        };
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let jcs = JointConstraints::of(vec![g1, g2]);
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         let expected = PatternLenHints {
             min_len: Some(4),
@@ -596,9 +575,9 @@ mod tests {
             target: 6,
             rel: RelMask::EQ,
         };
-        let jcs = JointConstraints { as_vec: vec![jc] };
+        let jcs = JointConstraints::of(vec![jc]);
         let vcs = VarConstraints::default();
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         // star contributes 0 to min_len
         let expected = PatternLenHints {
@@ -616,9 +595,9 @@ mod tests {
             target: 6,
             rel: RelMask::EQ,
         };
-        let jcs = JointConstraints { as_vec: vec![jc] };
+        let jcs = JointConstraints::of(vec![jc]);
         let vcs = VarConstraints::default();
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         // With |AB|=6 and only A present in this form:
         // - outside_form_min = min(B)

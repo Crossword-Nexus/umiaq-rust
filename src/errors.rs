@@ -13,6 +13,8 @@ pub enum ParseError {
     InvalidLengthRange { input: String },
     #[error("{str}")]
     InvalidComplexConstraint { str: String },
+    #[error("int-parsing error: {0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
 }
 
 impl From<ParseError> for io::Error {

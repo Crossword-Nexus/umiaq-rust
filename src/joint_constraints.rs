@@ -1,12 +1,15 @@
+use crate::errors::ParseError;
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
 use crate::constraints::{VarConstraint, VarConstraints};
+use crate::errors;
+use crate::errors::ParseError::ParseFailure;
 use crate::umiaq_char::UmiaqChar;
 
 /// Compact representation of the relation between (sum) and (target).
 ///
-/// We encode three mutually-exclusive outcomes as bits:
+/// We encode three mutually exclusive outcomes as bits:
 /// - LT (sum < target)  -> 0b001
 /// - EQ (sum == target) -> 0b010
 /// - GT (sum > target)  -> 0b100
@@ -40,16 +43,21 @@ impl RelMask {
 
     /// Parse an operator token into a mask.
     /// Accepted: "==", "=", "!=", "<=", ">=", "<", ">".
-    pub(crate) fn from_str(op: &str) -> Option<Self> {
+    pub(crate) fn from_str(op: &str) -> Result<Self, ParseError> {
         match op {
             // TODO: Jeremy's OCD
-            "==" | "=" => Some(Self::EQ),
-            "!=" => Some(Self::NE),
-            "<=" => Some(Self::LE),
-            ">=" => Some(Self::GE),
-            "<" => Some(Self::LT),
-            ">" => Some(Self::GT),
-            _ => None,
+            "==" | "=" => Ok(Self::EQ),
+            "!=" => Ok(Self::NE),
+            "<=" => Ok(Self::LE),
+            ">=" => Ok(Self::GE),
+            "<" => Ok(Self::LT),
+            ">" => Ok(Self::GT),
+            _ => Err(
+                ParseFailure {
+                    position: 0,
+                    remaining: op.to_string(),
+                }
+            ),
         }
     }
 }
@@ -130,38 +138,63 @@ fn resolve_var_len(parts: &[Bindings], v: char) -> Option<usize> {
 /// Notes:
 ///  - Any trailing content after the number is currently **ignored**. If you need
 ///    strictness here, add a trailing-whitespace check and reject junk.
-fn parse_joint_len(expr: &str) -> Option<JointConstraint> {
+fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
     let s = expr.trim();
-    if !s.starts_with('|') { return None; }
+    if !s.starts_with('|') { return Err(
+        ParseFailure {
+            position: 0,
+            remaining: s.to_string()
+        }
+    ); }
 
     // Locate the closing bar.
-    let end_bar_rel = s[1..].find('|')?;
+    let end_bar_rel = s[1..].find('|').ok_or(
+        ParseFailure {
+            position: 1,
+            remaining: s[1..].to_string()
+        }
+    )?;
     let end_bar_idx = 1 + end_bar_rel;
     let vars_str = &s[1..end_bar_idx];
 
     // Enforce A–Z only and at least two variables (true "joint" constraint).
     if !vars_str.chars().all(|c| c.is_variable()) || vars_str.chars().count() < 2 {
-        None
+        Err(
+            ParseFailure {
+                position: 1, // TODO find where actual failure is
+                remaining: s[1..].to_string()
+            }
+        )
     } else {
         // Remainder like "=7", "<= 10", etc.
         let rhs = s[end_bar_idx + 1..].trim_start();
 
         // Recognize operators (two-char first to avoid "<" grabbing from "<=").
-        let (op_tok, rest) = ["<=", ">=", "==", "!=", "<", ">", "="]
+        let (op_tok, rest) = ["<=", ">=", "==", "!=", "<", ">", "="] // TODO have these in one place
             .iter()
-            .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start())))?;
+            .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start()))).ok_or(Err::<(&str, &str), errors::ParseError>(
+            ParseFailure {
+                position: 1, // TODO find where actual failure is
+                remaining: s[1..].to_string()
+            }
+        )).unwrap();
 
         // Parse integer (digits only).
         let digits_len = rest.chars().take_while(char::is_ascii_digit).count();
         if digits_len == 0 {
-            None
+            Err(
+                ParseFailure {
+                    position: 1 + op_tok.len(), // TODO find where actual failure is
+                    remaining: rest.to_string()
+                }
+            )
         } else {
-            let target: usize = rest[..digits_len].parse().ok()?;
+            let target = rest[..digits_len].parse::<usize>()?;
 
             let rel = RelMask::from_str(op_tok)?;
             let vars = vars_str.chars().collect::<Vec<char>>(); // duplicates are kept
 
-            Some(JointConstraint { vars, target, rel })
+            Ok(JointConstraint { vars, target, rel })
         }
     }
 }
@@ -169,10 +202,33 @@ fn parse_joint_len(expr: &str) -> Option<JointConstraint> {
 /// Container for many joint constraints (useful as a field on your puzzle/parse).
 #[derive(Debug, Default, Clone)]
 pub struct JointConstraints {
-    pub as_vec: Vec<JointConstraint>, // TODO? avoid using this directly
+    as_vec: Vec<JointConstraint>
+}
+
+impl IntoIterator for JointConstraints {
+    type Item = JointConstraint;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.as_vec.into_iter()
+    }
 }
 
 impl JointConstraints {
+    /// Parse all joint constraints from an equation string by splitting on your
+    /// `FORM_SEPARATOR` (i.e., ';'), feeding each part through `parse_joint_len`.
+    pub(crate) fn parse_equation(equation: &str) -> JointConstraints {
+        let jc_vec = equation.split(FORM_SEPARATOR).filter_map(|part| {
+            parse_joint_len(part.trim()).ok() // TODO? check error details (type, etc.)
+        }).collect();
+
+        JointConstraints { as_vec: jc_vec }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.as_vec.is_empty()
+    }
+
     /// Return true iff **every** joint constraint is satisfied w.r.t. `bindings`.
     ///
     /// Mid-search semantics: a constraint with unbound vars returns `true`
@@ -194,22 +250,13 @@ impl JointConstraints {
         &self,
         map: &std::collections::HashMap<char, String>
     ) -> bool {
-        self.as_vec.iter().all(|jc| jc.is_satisfied_by_map(map))
+        self.clone().into_iter().all(|jc| jc.is_satisfied_by_map(map))
     }
-}
 
-/// Parse all joint constraints from an equation string by splitting on your
-/// `FORM_SEPARATOR` (i.e., ';'), feeding each part through `parse_joint_len`.
-///
-/// Returns `None` if no joint constraints are found.
-pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints> {
-    let mut v = vec![];
-    for part in equation.split(FORM_SEPARATOR) {
-        if let Some(jc) = parse_joint_len(part.trim()) {
-            v.push(jc);
-        }
+    #[cfg(test)]
+    pub(crate) fn of(as_vec: Vec<JointConstraint>) -> JointConstraints {
+        JointConstraints { as_vec }
     }
-    if v.is_empty() { None } else { Some(JointConstraints { as_vec: v }) }
 }
 
 /// Attempt to tighten per-variable length bounds using information from joint constraints.
@@ -234,7 +281,7 @@ pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints
 /// eliminates huge amounts of search, especially for long chains of unconstrained vars.
 /// TODO: does this optimally account for, e.g., |AB|=3; |BC|=6?
 pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstraints) {
-    for jc in &jcs.as_vec {
+    for jc in jcs.clone() {
         if jc.rel != RelMask::EQ { continue; }
 
         // Cache per-var (min,max) and aggregate sums
@@ -321,13 +368,14 @@ mod tests {
 
     #[test]
     fn rel_mask_from_str_and_allows() {
-        assert_eq!(RelMask::from_str("="),  Some(RelMask::EQ));
-        assert_eq!(RelMask::from_str("=="), Some(RelMask::EQ));
-        assert_eq!(RelMask::from_str("<="), Some(RelMask::LE));
-        assert_eq!(RelMask::from_str(">="), Some(RelMask::GE));
-        assert_eq!(RelMask::from_str("!="), Some(RelMask::NE));
-        assert_eq!(RelMask::from_str("<"),  Some(RelMask::LT));
-        assert_eq!(RelMask::from_str(">"),  Some(RelMask::GT));
+        assert_eq!(RelMask::EQ, RelMask::from_str("=").unwrap());
+        assert_eq!(RelMask::EQ, RelMask::from_str("==").unwrap());
+        assert_eq!(RelMask::LE, RelMask::from_str("<=").unwrap());
+        assert_eq!(RelMask::GE, RelMask::from_str(">=").unwrap());
+        assert_eq!(RelMask::NE, RelMask::from_str("!=").unwrap());
+        assert_eq!(RelMask::LT, RelMask::from_str("<").unwrap());
+        assert_eq!(RelMask::GT, RelMask::from_str(">").unwrap());
+        assert!(RelMask::from_str("INVALID123").is_err());
         assert!(RelMask::LE.allows(Ordering::Less));
         assert!(RelMask::LE.allows(Ordering::Equal));
         assert!(!RelMask::LE.allows(Ordering::Greater));
@@ -351,13 +399,13 @@ mod tests {
         assert_eq!(jc2.rel, RelMask::LE);
 
         // Reject single-var
-        assert!(parse_joint_len("|A|=3").is_none());
+        assert!(parse_joint_len("|A|=3").is_err()); // TODO? check error in more detail
 
         // Reject lowercase
-        assert!(parse_joint_len("|Ab|=3").is_none());
+        assert!(parse_joint_len("|Ab|=3").is_err()); // TODO? check error in more detail
 
         // Must start at '|' (strict)
-        assert!(parse_joint_len("foo |AB|=3").is_none());
+        assert!(parse_joint_len("foo |AB|=3").is_err()); // TODO? check error in more detail
     }
 
     #[test]
@@ -367,16 +415,17 @@ mod tests {
         // Build an equation with two constraints and a non-constraint chunk.
         let equation = format!("|AB|=3{sep}foo{sep}|BC|<=5");
 
-        let parsed = parse_joint_constraints(&equation).expect("should find constraints");
-        assert_eq!(parsed.as_vec.len(), 2);
+        let jc_vec = JointConstraints::parse_equation(&equation).into_iter().collect::<Vec<_>>();
 
-        assert_eq!(parsed.as_vec[0].vars, vec!['A', 'B']);
-        assert_eq!(parsed.as_vec[0].target, 3);
-        assert_eq!(parsed.as_vec[0].rel, RelMask::EQ);
+        assert_eq!(jc_vec.len(), 2);
 
-        assert_eq!(parsed.as_vec[1].vars, vec!['B', 'C']);
-        assert_eq!(parsed.as_vec[1].target, 5);
-        assert_eq!(parsed.as_vec[1].rel, RelMask::LE);
+        assert_eq!(jc_vec[0].vars, vec!['A', 'B']);
+        assert_eq!(jc_vec[0].target, 3);
+        assert_eq!(jc_vec[0].rel, RelMask::EQ);
+
+        assert_eq!(jc_vec[1].vars, vec!['B', 'C']);
+        assert_eq!(jc_vec[1].target, 5);
+        assert_eq!(jc_vec[1].rel, RelMask::LE);
     }
 
     #[test]
@@ -392,19 +441,19 @@ mod tests {
         map.insert('B', "YOU".to_string());
         assert!(jc.is_satisfied_by_map(&map));
 
-        // Change B to length 4 => total 6 -> violates
+        // Change B to length 4 => total 6 -> violated
         map.insert('B', "YOUR".to_string());
         assert!(!jc.is_satisfied_by_map(&map));
     }
 
     #[test]
     fn joint_constraints_all_satisfied_map_variant() {
-        let jcs = JointConstraints {
-            as_vec: vec![
+        let jcs = JointConstraints::of(
+            vec![
                 JointConstraint { vars: vec!['A', 'B'], target: 6, rel: RelMask::LE }, // len(A)+len(B) <= 6
                 JointConstraint { vars: vec!['B', 'C'], target: 3, rel: RelMask::GE }, // len(B)+len(C) >= 3
             ]
-        };
+        );
 
         let mut map = std::collections::HashMap::from([
             ('A', "NO".to_string()), // 2
@@ -416,7 +465,7 @@ mod tests {
         assert!(jcs.all_satisfied_map(&map));
 
         // Make B longer → first constraint fails
-        map.insert('B', "LONGER".to_string()); // 4
+        map.insert('B', "LONGER".to_string()); // 6
         // (2+6) <= 6  is false  → overall false
         assert!(!jcs.all_satisfied_map(&map));
     }

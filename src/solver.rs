@@ -1,6 +1,6 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
 use crate::errors::ParseError;
-use crate::joint_constraints::{parse_joint_constraints, propagate_joint_to_var_bounds, JointConstraints};
+use crate::joint_constraints::{propagate_joint_to_var_bounds, JointConstraints};
 use crate::parser::{
     match_equation_all,
     parse_form,
@@ -45,7 +45,7 @@ pub struct CandidateBuckets {
 }
 
 /// Build a stable key for a full solution (bindings in **pattern order**).
-/// Prefer the whole word if present (WORD_SENTINEL). Fall back to sorted (var,val) pairs.
+/// Prefer the whole word if present (`WORD_SENTINEL`). Fall back to sorted (var,val) pairs.
 fn solution_key(solution: &[Bindings]) -> u64 {
     let mut hasher = DefaultHasher::new();
 
@@ -115,10 +115,7 @@ fn lookup_key_for_binding(
     binding: &Bindings,
     keys_opt: Option<&HashSet<char>>,
 ) -> LookupKey {
-    let keys = match keys_opt {
-        None => return None, // unkeyed
-        Some(k) => k,
-    };
+    let keys = keys_opt?; // returning None means unkeyed
 
     // Collect (var, value) for all required keys; bail out immediately if any is missing.
     let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
@@ -153,7 +150,7 @@ fn scan_batch(
     parsed_forms: &[ParsedForm],
     scan_hints: &[PatternLenHints],
     var_constraints: &crate::constraints::VarConstraints,
-    joint_constraints: Option<&JointConstraints>,
+    joint_constraints: &JointConstraints,
     words: &mut [CandidateBuckets],
     budget: Option<&TimeBudget>,
 ) -> (usize, bool) {
@@ -171,7 +168,7 @@ fn scan_batch(
         for (i, patt) in patterns.iter().enumerate() {
             // No per-pattern cap anymore
 
-            // Skip deterministic fully-keyed forms
+            // Skip deterministic fully keyed forms
             if patt.is_deterministic && patt.all_vars_in_lookup_keys() {
                 continue;
             }
@@ -184,7 +181,7 @@ fn scan_batch(
                 word,
                 &parsed_forms[i],
                 Some(var_constraints),
-                joint_constraints,
+                joint_constraints.clone(),
             );
 
             for binding in matches {
@@ -238,7 +235,7 @@ fn recursive_join(
     patterns: &Patterns,                 // for patt.deterministic / vars / lookup_keys
     parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
     word_list_as_set: &HashSet<&str>,
-    joint_constraints: Option<&JointConstraints>,
+    joint_constraints: JointConstraints,
     seen: &mut HashSet<u64>,
 ) {
     // Stop if we’ve met the requested quota of full solutions.
@@ -248,14 +245,8 @@ fn recursive_join(
 
     // Base case: if we’ve placed all patterns, `selected` is a full solution.
     if idx == words.len() {
-        if joint_constraints
-            .as_ref()
-            .is_none_or(|jcs| jcs.all_strictly_satisfied_for_parts(selected))
-        {
-            let key = solution_key(selected);
-            if seen.insert(key) {
-                results.push(selected.clone());
-            }
+        if joint_constraints.all_strictly_satisfied_for_parts(selected) && seen.insert(solution_key(selected)) {
+            results.push(selected.clone());
         }
         return;
     }
@@ -367,7 +358,7 @@ fn recursive_join(
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
         recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                       patterns, parsed_forms, word_list_as_set, joint_constraints, seen,);
+                       patterns, parsed_forms, word_list_as_set, joint_constraints.clone(), seen);
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -436,17 +427,15 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
     // 7. Get the joint constraints and use them to tighten per-variable constraints
     // This gets length bounds on variables (from the joint constraints)
-    let joint_constraints = parse_joint_constraints(input);
+    let joint_constraints = JointConstraints::parse_equation(input);
 
-    if let Some(jcs) = joint_constraints.as_ref() {
-        propagate_joint_to_var_bounds(&mut var_constraints, jcs);
-    }
+    propagate_joint_to_var_bounds(&mut var_constraints, &joint_constraints);
 
     // 8. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
     // The hints are length bounds for each form
     let scan_hints: Vec<PatternLenHints> = parsed_forms
         .iter()
-        .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, joint_constraints.as_ref()))
+        .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, &joint_constraints.clone()))
         .collect();
 
     // 9. Iterate through every candidate word.
@@ -467,15 +456,15 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     let mut batch_size: usize = DEFAULT_BATCH_SIZE;
 
     // High-level solver driver. Alternates between:
-    //   (1) scanning more words from the dictionary into candidate buckets
-    //   (2) recursively joining those buckets into full solutions
+    //   1. scanning more words from the dictionary into candidate buckets
+    //   2. recursively joining those buckets into full solutions
     // Continues until either we have enough results, the word list is exhausted,
     // or the time budget expires.
     while results.len() < num_results_requested
         && scan_pos < word_list.len()
         && !budget.expired()
     {
-        // 1) Scan the next batch_size words into candidate buckets.
+        // 1. Scan the next batch_size words into candidate buckets.
         // Each candidate binding is grouped by its lookup key so later joins are fast.
         let (new_pos, _time_up) = scan_batch(
             word_list,
@@ -485,7 +474,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &parsed_forms,
             &scan_hints,
             &var_constraints,
-            joint_constraints.as_ref(),
+            &joint_constraints,
             &mut words,
             Some(&budget),
         );
@@ -494,7 +483,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         // Respect the TimeBudget
         if budget.expired() { break; }
 
-        // 2) Attempt to build full solutions from the candidates accumulated so far.
+        // 2. Attempt to build full solutions from the candidates accumulated so far.
         // This may rediscover old partials, so we use `seen` at the base case
         // to ensure only truly new solutions are added to `results`.
         recursive_join(
@@ -508,7 +497,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &patterns,
             &parsed_forms,
             &word_list_as_set,
-            joint_constraints.as_ref(),
+            joint_constraints.clone(),
             &mut seen,
         );
 

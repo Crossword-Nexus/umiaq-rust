@@ -176,7 +176,8 @@ impl Pattern {
 ///   earlier and subsequent forms maximize overlap with already-chosen variables.
 ///   As part of this step, each later form's `lookup_keys` is set to the overlap
 ///   with the variables seen so far (its *join key*).
-/// TODO: change this name
+///
+/// TODO change the name of this struct (since it contains (a list of) `Pattern`s... but also more)
 pub struct Patterns {
     /// List of patterns directly extracted from the input string (not constraints)
     // TODO should we keep Vec<Pattern> for each order or just one (likely ordered_list) and use map
@@ -236,6 +237,7 @@ impl Patterns {
                 let n   = cap[3].parse::<usize>().unwrap();
                 let vc  = self.var_constraints.ensure(var);
 
+                // TODO DRY w/RelMask
                 match op {
                     "="  => vc.set_exact_len(n),
                     ">=" => vc.min_length = Some(n),

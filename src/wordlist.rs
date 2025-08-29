@@ -44,7 +44,7 @@ impl WordList {
     /// you can pass the contents of a file fetched via JavaScript `fetch()` or read
     /// from the File API directly into this function.
     /// That said, we're not using this function in WASM at the moment.
-    /// TODO: use this in JS instead of re-writing this logic?
+    /// TODO: use this in JS instead of rewriting this logic?
     ///
     /// # Arguments
     /// * `contents`  — The raw file contents as a `&str`. Each line should be `word;score`.
