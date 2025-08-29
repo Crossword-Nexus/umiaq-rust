@@ -55,6 +55,7 @@ fn solution_key(solution: &[Bindings]) -> u64 {
             w.hash(&mut hasher);
         } else {
             // this should never happen
+            // TODO: throw an error if it does
             /*
             // Fall back: hash all (var,val) pairs sorted by var
             let mut pairs: Vec<(char, String)> =
