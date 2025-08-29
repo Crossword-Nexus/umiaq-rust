@@ -45,7 +45,7 @@ pub struct CandidateBuckets {
 }
 
 /// Build a stable key for a full solution (bindings in **pattern order**).
-/// Prefer the whole word if present (WORD_SENTINEL). Fall back to sorted (var,val) pairs.
+/// Prefer the whole word if present (`WORD_SENTINEL`). Fall back to sorted (var,val) pairs.
 fn solution_key(solution: &[Bindings]) -> u64 {
     let mut hasher = DefaultHasher::new();
 
@@ -115,10 +115,7 @@ fn lookup_key_for_binding(
     binding: &Bindings,
     keys_opt: Option<&HashSet<char>>,
 ) -> LookupKey {
-    let keys = match keys_opt {
-        None => return None, // unkeyed
-        Some(k) => k,
-    };
+    let keys = keys_opt?; // returning None means unkeyed
 
     // Collect (var, value) for all required keys; bail out immediately if any is missing.
     let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
@@ -467,15 +464,15 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     let mut batch_size: usize = DEFAULT_BATCH_SIZE;
 
     // High-level solver driver. Alternates between:
-    //   (1) scanning more words from the dictionary into candidate buckets
-    //   (2) recursively joining those buckets into full solutions
+    //   1. scanning more words from the dictionary into candidate buckets
+    //   2. recursively joining those buckets into full solutions
     // Continues until either we have enough results, the word list is exhausted,
     // or the time budget expires.
     while results.len() < num_results_requested
         && scan_pos < word_list.len()
         && !budget.expired()
     {
-        // 1) Scan the next batch_size words into candidate buckets.
+        // 1. Scan the next batch_size words into candidate buckets.
         // Each candidate binding is grouped by its lookup key so later joins are fast.
         let (new_pos, _time_up) = scan_batch(
             word_list,
@@ -494,7 +491,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         // Respect the TimeBudget
         if budget.expired() { break; }
 
-        // 2) Attempt to build full solutions from the candidates accumulated so far.
+        // 2. Attempt to build full solutions from the candidates accumulated so far.
         // This may rediscover old partials, so we use `seen` at the base case
         // to ensure only truly new solutions are added to `results`.
         recursive_join(
