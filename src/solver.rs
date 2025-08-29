@@ -19,7 +19,7 @@ use std::time::Duration;
 // The amount of time (in seconds) we allow the query to run
 const TIME_BUDGET: u64 = 30;
 // The initial number of words from the word list we look through
-const BATCH_SIZE: usize = 10_000;
+const DEFAULT_BATCH_SIZE: usize = 10_000;
 // A constant to split up items in our hashes
 const HASH_SPLIT: u16 = 0xFFFFu16;
 
@@ -459,7 +459,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     let mut seen: HashSet<u64> = HashSet::new();
 
     // batch_size controls how many words to scan this round (adaptive).
-    let mut batch_size: usize = BATCH_SIZE;
+    let mut batch_size: usize = DEFAULT_BATCH_SIZE;
 
     // High-level solver driver. Alternates between:
     //   (1) scanning more words from the dictionary into candidate buckets
