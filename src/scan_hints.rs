@@ -100,6 +100,7 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
 }
 
 /// Compute per-form hints from a `ParsedForm` *and* the equation’s constraints.
+/// These are just length bounds for a parsed form
 ///
 /// - `vcs`: the full equation’s `VarConstraints` (we’ll only read vars present in form);
 ///   its `bounds(v)` must return normalized `(usize, usize)`, where `usize::MAX` encodes ∞.
@@ -108,6 +109,7 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
 pub(crate) fn form_len_hints_pf(
     form: &ParsedForm,
     vcs: &VarConstraints,
+    // TODO: why is this an Option?
     jcs: Option<&JointConstraints>,
 ) -> PatternLenHints {
     form_len_hints_iter(

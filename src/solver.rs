@@ -426,13 +426,16 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     let mut var_constraints = patterns.var_constraints.clone();
 
     // 6. Upgrade prefilters once per form (only if it helps)
-    // parsed_forms is mutable
+    // Specifically, if a variable has a "form" (like `g*`) we upgrade its prefilter
+    // from `.+` to `g.*`
+    // TODO: why not do this when constructing Patterns?
     for pf in &mut parsed_forms {
         let upgraded = build_prefilter_regex(pf, Some(&var_constraints));
         pf.prefilter = upgraded;
     }
 
     // 7. Get the joint constraints and use them to tighten per-variable constraints
+    // This gets length bounds on variables (from the joint constraints)
     let joint_constraints = parse_joint_constraints(input);
 
     if let Some(jcs) = joint_constraints.as_ref() {
@@ -440,6 +443,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     }
 
     // 8. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
+    // The hints are length bounds for each form
     let scan_hints: Vec<PatternLenHints> = parsed_forms
         .iter()
         .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, joint_constraints.as_ref()))

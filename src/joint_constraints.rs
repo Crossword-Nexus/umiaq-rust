@@ -42,6 +42,7 @@ impl RelMask {
     /// Accepted: "==", "=", "!=", "<=", ">=", "<", ">".
     pub(crate) fn from_str(op: &str) -> Option<Self> {
         match op {
+            // TODO: Jeremy's OCD
             "==" | "=" => Some(Self::EQ),
             "!=" => Some(Self::NE),
             "<=" => Some(Self::LE),
@@ -231,6 +232,7 @@ pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints
 ///
 /// This propagation is *sound* (never removes feasible solutions) and often
 /// eliminates huge amounts of search, especially for long chains of unconstrained vars.
+/// TODO: does this optimally account for, e.g., |AB|=3; |BC|=6?
 pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstraints) {
     for jc in &jcs.as_vec {
         if jc.rel != RelMask::EQ { continue; }
