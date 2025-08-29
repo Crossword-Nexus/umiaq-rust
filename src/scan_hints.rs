@@ -24,6 +24,7 @@
 //   an arbitrary number of extra characters.
 // -----------------------------------------------------------------------------
 
+use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 
 use crate::constraints::{VarConstraint, VarConstraints};
@@ -65,38 +66,25 @@ pub struct GroupLenConstraint {
 fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
     // Map RelMask to [min,max] on the target.
     // Note: For LT/GT we avoid underflow/overflow.
-    let (tmin, tmax_opt) = if jc.rel == RelMask::EQ {
-        (jc.target, Some(jc.target))
-    } else if jc.rel == RelMask::LE {
-        (0, Some(jc.target))
-    } else if jc.rel == RelMask::LT {
-        if jc.target == 0 {
-            return Some(GroupLenConstraint {
-                vars: jc.vars.clone(),
-                total_min: 0,
-                total_max: Some(0),
-            });
-        }
-        (0, Some(jc.target - 1))
-    } else if jc.rel == RelMask::GE {
-        (jc.target, None)
-    } else if jc.rel == RelMask::GT {
-        (jc.target.saturating_add(1), None)
-    } else {
-        // NE (or unusual mask combos) don't give a single interval — skip tightening.
-        return None;
+    let (tmin, tmax_opt) = match jc.rel {
+        RelMask::EQ => (jc.target, Some(jc.target)),
+        RelMask::LE => (0, Some(jc.target)),
+        RelMask::LT => (0, Some(max(0, jc.target - 1))),
+        RelMask::GE => (jc.target, None),
+        RelMask::GT => (jc.target.saturating_add(1), None),
+        _ => return None // NE (or unusual mask combos) don't give a single interval — skip tightening.
     };
 
     // Basic sanity: empty interval ⇒ None
     if let Some(tmax) = tmax_opt && tmin > tmax {
-        return None;
+        None
+    } else {
+        Some(GroupLenConstraint {
+            vars: jc.vars.clone(),
+            total_min: tmin,
+            total_max: tmax_opt,
+        })
     }
-
-    Some(GroupLenConstraint {
-        vars: jc.vars.clone(),
-        total_min: tmin,
-        total_max: tmax_opt,
-    })
 }
 
 /// Compute per-form hints from a `ParsedForm` *and* the equation’s constraints.
@@ -143,18 +131,10 @@ where
 
     for p in parts {
         match p {
-            FormPart::Star => {
-                has_star = true;
-            }
-            FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => {
-                fixed_base += 1;
-            }
-            FormPart::Lit(s) | FormPart::Anagram(s) => {
-                fixed_base += s.len();
-            }
-            FormPart::Var(v) | FormPart::RevVar(v) => {
-                *var_frequency.entry(*v).or_insert(0) += VarConstraint::DEFAULT_MIN;
-            }
+            FormPart::Star => has_star = true,
+            FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => fixed_base += 1,
+            FormPart::Lit(s) | FormPart::Anagram(s) => fixed_base += s.len(),
+            FormPart::Var(v) | FormPart::RevVar(v) => *var_frequency.entry(*v).or_insert(0) += VarConstraint::DEFAULT_MIN,
         }
     }
 

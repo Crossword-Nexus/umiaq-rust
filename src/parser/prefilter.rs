@@ -8,7 +8,7 @@ use crate::umiaq_char::{CONSONANTS, NUM_POSSIBLE_VARIABLES, VOWELS};
 
 use super::form::{FormPart, ParsedForm};
 
-/// Global, lazily-initialized cache of compiled regexes.
+/// Global, lazily initialized cache of compiled regexes.
 ///
 /// - `OnceLock` ensures the cache is created at most once, on first use.
 /// - We wrap the `HashMap` in a `Mutex` to provide **interior mutability** and

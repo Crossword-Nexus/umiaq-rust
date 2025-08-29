@@ -6,7 +6,7 @@ use crate::umiaq_char::UmiaqChar;
 
 /// Compact representation of the relation between (sum) and (target).
 ///
-/// We encode three mutually-exclusive outcomes as bits:
+/// We encode three mutually exclusive outcomes as bits:
 /// - LT (sum < target)  -> 0b001
 /// - EQ (sum == target) -> 0b010
 /// - GT (sum > target)  -> 0b100
@@ -392,7 +392,7 @@ mod tests {
         map.insert('B', "YOU".to_string());
         assert!(jc.is_satisfied_by_map(&map));
 
-        // Change B to length 4 => total 6 -> violates
+        // Change B to length 4 => total 6 -> violated
         map.insert('B', "YOUR".to_string());
         assert!(!jc.is_satisfied_by_map(&map));
     }
@@ -416,7 +416,7 @@ mod tests {
         assert!(jcs.all_satisfied_map(&map));
 
         // Make B longer → first constraint fails
-        map.insert('B', "LONGER".to_string()); // 4
+        map.insert('B', "LONGER".to_string()); // 6
         // (2+6) <= 6  is false  → overall false
         assert!(!jcs.all_satisfied_map(&map));
     }

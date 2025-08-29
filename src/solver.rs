@@ -168,7 +168,7 @@ fn scan_batch(
         for (i, patt) in patterns.iter().enumerate() {
             // No per-pattern cap anymore
 
-            // Skip deterministic fully-keyed forms
+            // Skip deterministic fully keyed forms
             if patt.is_deterministic && patt.all_vars_in_lookup_keys() {
                 continue;
             }

@@ -237,6 +237,7 @@ impl Patterns {
                 let n   = cap[3].parse::<usize>().unwrap();
                 let vc  = self.var_constraints.ensure(var);
 
+                // TODO DRY w/RelMask
                 match op {
                     "="  => vc.set_exact_len(n),
                     ">=" => vc.min_length = Some(n),
