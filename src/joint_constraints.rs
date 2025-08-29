@@ -202,10 +202,29 @@ fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
 /// Container for many joint constraints (useful as a field on your puzzle/parse).
 #[derive(Debug, Default, Clone)]
 pub struct JointConstraints {
-    pub as_vec: Vec<JointConstraint>, // TODO? avoid using this directly
+    as_vec: Vec<JointConstraint>
+}
+
+impl IntoIterator for JointConstraints {
+    type Item = JointConstraint;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.as_vec.into_iter()
+    }
 }
 
 impl JointConstraints {
+    /// Parse all joint constraints from an equation string by splitting on your
+    /// `FORM_SEPARATOR` (i.e., ';'), feeding each part through `parse_joint_len`.
+    pub(crate) fn parse_equation(equation: &str) -> JointConstraints {
+        let jc_vec = equation.split(FORM_SEPARATOR).filter_map(|part| {
+            parse_joint_len(part.trim()).ok() // TODO? check error details (type, etc.)
+        }).collect();
+
+        JointConstraints { as_vec: jc_vec }
+    }
+
     pub(crate) fn is_empty(&self) -> bool {
         self.as_vec.is_empty()
     }
@@ -231,18 +250,13 @@ impl JointConstraints {
         &self,
         map: &std::collections::HashMap<char, String>
     ) -> bool {
-        self.as_vec.iter().all(|jc| jc.is_satisfied_by_map(map))
+        self.clone().into_iter().all(|jc| jc.is_satisfied_by_map(map))
     }
-}
 
-/// Parse all joint constraints from an equation string by splitting on your
-/// `FORM_SEPARATOR` (i.e., ';'), feeding each part through `parse_joint_len`.
-pub(crate) fn parse_joint_constraints(equation: &str) -> JointConstraints {
-    let jc_vec = equation.split(FORM_SEPARATOR).filter_map(|part| {
-        parse_joint_len(part.trim()).ok() // TODO? check error details (type, etc.)
-    }).collect();
-
-    JointConstraints { as_vec: jc_vec }
+    #[cfg(test)]
+    pub(crate) fn of(as_vec: Vec<JointConstraint>) -> JointConstraints {
+        JointConstraints { as_vec }
+    }
 }
 
 /// Attempt to tighten per-variable length bounds using information from joint constraints.
@@ -267,7 +281,7 @@ pub(crate) fn parse_joint_constraints(equation: &str) -> JointConstraints {
 /// eliminates huge amounts of search, especially for long chains of unconstrained vars.
 /// TODO: does this optimally account for, e.g., |AB|=3; |BC|=6?
 pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstraints) {
-    for jc in &jcs.as_vec {
+    for jc in jcs.clone() {
         if jc.rel != RelMask::EQ { continue; }
 
         // Cache per-var (min,max) and aggregate sums
@@ -401,7 +415,7 @@ mod tests {
         // Build an equation with two constraints and a non-constraint chunk.
         let equation = format!("|AB|=3{sep}foo{sep}|BC|<=5");
 
-        let jc_vec = parse_joint_constraints(&equation).as_vec;
+        let jc_vec = JointConstraints::parse_equation(&equation).into_iter().collect::<Vec<_>>();
 
         assert_eq!(jc_vec.len(), 2);
 
@@ -434,12 +448,12 @@ mod tests {
 
     #[test]
     fn joint_constraints_all_satisfied_map_variant() {
-        let jcs = JointConstraints {
-            as_vec: vec![
+        let jcs = JointConstraints::of(
+            vec![
                 JointConstraint { vars: vec!['A', 'B'], target: 6, rel: RelMask::LE }, // len(A)+len(B) <= 6
                 JointConstraint { vars: vec!['B', 'C'], target: 3, rel: RelMask::GE }, // len(B)+len(C) >= 3
             ]
-        };
+        );
 
         let mut map = std::collections::HashMap::from([
             ('A', "NO".to_string()), // 2

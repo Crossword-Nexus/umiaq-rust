@@ -1,6 +1,6 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
 use crate::errors::ParseError;
-use crate::joint_constraints::{parse_joint_constraints, propagate_joint_to_var_bounds, JointConstraints};
+use crate::joint_constraints::{propagate_joint_to_var_bounds, JointConstraints};
 use crate::parser::{
     match_equation_all,
     parse_form,
@@ -427,7 +427,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
     // 7. Get the joint constraints and use them to tighten per-variable constraints
     // This gets length bounds on variables (from the joint constraints)
-    let joint_constraints = parse_joint_constraints(input);
+    let joint_constraints = JointConstraints::parse_equation(input);
 
     propagate_joint_to_var_bounds(&mut var_constraints, &joint_constraints);
 

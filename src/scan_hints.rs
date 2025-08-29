@@ -388,10 +388,10 @@ fn group_constraints_for_form(form: &ParsedForm, jcs: &JointConstraints) -> Vec<
             _ => None,
         }).collect();
 
-        jcs.as_vec.iter()
+        jcs.clone().into_iter()
             // ← revert to ANY overlap so constraints like |AB|=6 still inform A-only forms
             .filter(|jc| jc.vars.iter().any(|v| present.contains(v)))
-            .filter_map(group_from_joint)
+            .filter_map(|jc: JointConstraint| group_from_joint(&jc))
             .collect()
     }
 }
@@ -486,7 +486,7 @@ mod tests {
             target: 6,
             rel: RelMask::EQ,
         };
-        let jcs = JointConstraints { as_vec: vec![jc] };
+        let jcs = JointConstraints::of(vec![jc]);
 
         let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
@@ -522,7 +522,7 @@ mod tests {
             target: 6,
             rel: RelMask::EQ,
         };
-        let jcs = JointConstraints { as_vec: vec![jc] };
+        let jcs = JointConstraints::of(vec![jc]);
         let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         let expected = PatternLenHints {
@@ -556,9 +556,7 @@ mod tests {
             target: 6,
             rel: RelMask::LE,
         };
-        let jcs = JointConstraints {
-            as_vec: vec![g1, g2],
-        };
+        let jcs = JointConstraints::of(vec![g1, g2]);
         let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         let expected = PatternLenHints {
@@ -577,7 +575,7 @@ mod tests {
             target: 6,
             rel: RelMask::EQ,
         };
-        let jcs = JointConstraints { as_vec: vec![jc] };
+        let jcs = JointConstraints::of(vec![jc]);
         let vcs = VarConstraints::default();
         let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
@@ -597,7 +595,7 @@ mod tests {
             target: 6,
             rel: RelMask::EQ,
         };
-        let jcs = JointConstraints { as_vec: vec![jc] };
+        let jcs = JointConstraints::of(vec![jc]);
         let vcs = VarConstraints::default();
         let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
