@@ -245,12 +245,8 @@ fn recursive_join(
 
     // Base case: if we’ve placed all patterns, `selected` is a full solution.
     if idx == words.len() {
-        if joint_constraints.is_empty() || joint_constraints.all_strictly_satisfied_for_parts(selected) // TODO redundant 1st operand?
-        {
-            let key = solution_key(selected);
-            if seen.insert(key) {
-                results.push(selected.clone());
-            }
+        if joint_constraints.all_strictly_satisfied_for_parts(selected) && seen.insert(solution_key(selected)) {
+            results.push(selected.clone());
         }
         return;
     }

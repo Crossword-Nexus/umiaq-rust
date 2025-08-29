@@ -97,7 +97,6 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
 pub(crate) fn form_len_hints_pf(
     form: &ParsedForm,
     vcs: &VarConstraints,
-    // TODO: why is this an Option?
     jcs: &JointConstraints,
 ) -> PatternLenHints {
     form_len_hints_iter(
