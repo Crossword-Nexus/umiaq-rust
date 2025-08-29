@@ -1,7 +1,10 @@
+use crate::errors::ParseError;
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
 use crate::constraints::{VarConstraint, VarConstraints};
+use crate::errors;
+use crate::errors::ParseError::ParseFailure;
 use crate::umiaq_char::UmiaqChar;
 
 /// Compact representation of the relation between (sum) and (target).
@@ -40,16 +43,21 @@ impl RelMask {
 
     /// Parse an operator token into a mask.
     /// Accepted: "==", "=", "!=", "<=", ">=", "<", ">".
-    pub(crate) fn from_str(op: &str) -> Option<Self> {
+    pub(crate) fn from_str(op: &str) -> Result<Self, ParseError> {
         match op {
             // TODO: Jeremy's OCD
-            "==" | "=" => Some(Self::EQ),
-            "!=" => Some(Self::NE),
-            "<=" => Some(Self::LE),
-            ">=" => Some(Self::GE),
-            "<" => Some(Self::LT),
-            ">" => Some(Self::GT),
-            _ => None,
+            "==" | "=" => Ok(Self::EQ),
+            "!=" => Ok(Self::NE),
+            "<=" => Ok(Self::LE),
+            ">=" => Ok(Self::GE),
+            "<" => Ok(Self::LT),
+            ">" => Ok(Self::GT),
+            _ => Err(
+                ParseFailure {
+                    position: 0,
+                    remaining: op.to_string(),
+                }
+            ),
         }
     }
 }
@@ -130,38 +138,63 @@ fn resolve_var_len(parts: &[Bindings], v: char) -> Option<usize> {
 /// Notes:
 ///  - Any trailing content after the number is currently **ignored**. If you need
 ///    strictness here, add a trailing-whitespace check and reject junk.
-fn parse_joint_len(expr: &str) -> Option<JointConstraint> {
+fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
     let s = expr.trim();
-    if !s.starts_with('|') { return None; }
+    if !s.starts_with('|') { return Err(
+        ParseFailure {
+            position: 0,
+            remaining: s.to_string()
+        }
+    ); }
 
     // Locate the closing bar.
-    let end_bar_rel = s[1..].find('|')?;
+    let end_bar_rel = s[1..].find('|').ok_or(
+        ParseFailure {
+            position: 1,
+            remaining: s[1..].to_string()
+        }
+    )?;
     let end_bar_idx = 1 + end_bar_rel;
     let vars_str = &s[1..end_bar_idx];
 
     // Enforce A–Z only and at least two variables (true "joint" constraint).
     if !vars_str.chars().all(|c| c.is_variable()) || vars_str.chars().count() < 2 {
-        None
+        Err(
+            ParseFailure {
+                position: 1, // TODO find where actual failure is
+                remaining: s[1..].to_string()
+            }
+        )
     } else {
         // Remainder like "=7", "<= 10", etc.
         let rhs = s[end_bar_idx + 1..].trim_start();
 
         // Recognize operators (two-char first to avoid "<" grabbing from "<=").
-        let (op_tok, rest) = ["<=", ">=", "==", "!=", "<", ">", "="]
+        let (op_tok, rest) = ["<=", ">=", "==", "!=", "<", ">", "="] // TODO have these in one place
             .iter()
-            .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start())))?;
+            .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start()))).ok_or(Err::<(&str, &str), errors::ParseError>(
+            ParseFailure {
+                position: 1, // TODO find where actual failure is
+                remaining: s[1..].to_string()
+            }
+        )).unwrap();
 
         // Parse integer (digits only).
         let digits_len = rest.chars().take_while(char::is_ascii_digit).count();
         if digits_len == 0 {
-            None
+            Err(
+                ParseFailure {
+                    position: 1 + op_tok.len(), // TODO find where actual failure is
+                    remaining: rest.to_string()
+                }
+            )
         } else {
-            let target: usize = rest[..digits_len].parse().ok()?;
+            let target = rest[..digits_len].parse::<usize>()?;
 
             let rel = RelMask::from_str(op_tok)?;
             let vars = vars_str.chars().collect::<Vec<char>>(); // duplicates are kept
 
-            Some(JointConstraint { vars, target, rel })
+            Ok(JointConstraint { vars, target, rel })
         }
     }
 }
@@ -205,13 +238,11 @@ impl JointConstraints {
 /// Parse all joint constraints from an equation string by splitting on your
 /// `FORM_SEPARATOR` (i.e., ';'), feeding each part through `parse_joint_len`.
 pub(crate) fn parse_joint_constraints(equation: &str) -> JointConstraints {
-    let mut v = vec![];
-    for part in equation.split(FORM_SEPARATOR) {
-        if let Some(jc) = parse_joint_len(part.trim()) {
-            v.push(jc);
-        }
-    }
-    JointConstraints { as_vec: v }
+    let jc_vec = equation.split(FORM_SEPARATOR).filter_map(|part| {
+        parse_joint_len(part.trim()).ok() // TODO? check error details (type, etc.)
+    }).collect();
+
+    JointConstraints { as_vec: jc_vec }
 }
 
 /// Attempt to tighten per-variable length bounds using information from joint constraints.
@@ -323,13 +354,14 @@ mod tests {
 
     #[test]
     fn rel_mask_from_str_and_allows() {
-        assert_eq!(RelMask::from_str("="),  Some(RelMask::EQ));
-        assert_eq!(RelMask::from_str("=="), Some(RelMask::EQ));
-        assert_eq!(RelMask::from_str("<="), Some(RelMask::LE));
-        assert_eq!(RelMask::from_str(">="), Some(RelMask::GE));
-        assert_eq!(RelMask::from_str("!="), Some(RelMask::NE));
-        assert_eq!(RelMask::from_str("<"),  Some(RelMask::LT));
-        assert_eq!(RelMask::from_str(">"),  Some(RelMask::GT));
+        assert_eq!(RelMask::EQ, RelMask::from_str("=").unwrap());
+        assert_eq!(RelMask::EQ, RelMask::from_str("==").unwrap());
+        assert_eq!(RelMask::LE, RelMask::from_str("<=").unwrap());
+        assert_eq!(RelMask::GE, RelMask::from_str(">=").unwrap());
+        assert_eq!(RelMask::NE, RelMask::from_str("!=").unwrap());
+        assert_eq!(RelMask::LT, RelMask::from_str("<").unwrap());
+        assert_eq!(RelMask::GT, RelMask::from_str(">").unwrap());
+        assert!(RelMask::from_str("INVALID123").is_err());
         assert!(RelMask::LE.allows(Ordering::Less));
         assert!(RelMask::LE.allows(Ordering::Equal));
         assert!(!RelMask::LE.allows(Ordering::Greater));
@@ -353,13 +385,13 @@ mod tests {
         assert_eq!(jc2.rel, RelMask::LE);
 
         // Reject single-var
-        assert!(parse_joint_len("|A|=3").is_none());
+        assert!(parse_joint_len("|A|=3").is_err()); // TODO? check error in more detail
 
         // Reject lowercase
-        assert!(parse_joint_len("|Ab|=3").is_none());
+        assert!(parse_joint_len("|Ab|=3").is_err()); // TODO? check error in more detail
 
         // Must start at '|' (strict)
-        assert!(parse_joint_len("foo |AB|=3").is_none());
+        assert!(parse_joint_len("foo |AB|=3").is_err()); // TODO? check error in more detail
     }
 
     #[test]
@@ -369,16 +401,17 @@ mod tests {
         // Build an equation with two constraints and a non-constraint chunk.
         let equation = format!("|AB|=3{sep}foo{sep}|BC|<=5");
 
-        let parsed = parse_joint_constraints(&equation);
-        assert_eq!(parsed.as_vec.len(), 2);
+        let jc_vec = parse_joint_constraints(&equation).as_vec;
 
-        assert_eq!(parsed.as_vec[0].vars, vec!['A', 'B']);
-        assert_eq!(parsed.as_vec[0].target, 3);
-        assert_eq!(parsed.as_vec[0].rel, RelMask::EQ);
+        assert_eq!(jc_vec.len(), 2);
 
-        assert_eq!(parsed.as_vec[1].vars, vec!['B', 'C']);
-        assert_eq!(parsed.as_vec[1].target, 5);
-        assert_eq!(parsed.as_vec[1].rel, RelMask::LE);
+        assert_eq!(jc_vec[0].vars, vec!['A', 'B']);
+        assert_eq!(jc_vec[0].target, 3);
+        assert_eq!(jc_vec[0].rel, RelMask::EQ);
+
+        assert_eq!(jc_vec[1].vars, vec!['B', 'C']);
+        assert_eq!(jc_vec[1].target, 5);
+        assert_eq!(jc_vec[1].rel, RelMask::LE);
     }
 
     #[test]
