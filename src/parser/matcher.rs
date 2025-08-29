@@ -25,7 +25,7 @@ fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings)
 
     // 2. Apply nested-form constraint if present (use cached parse)
     if let Some(parsed) = constraints.get_parsed_form()
-        && !match_equation_exists(val, parsed, None, None)
+        && !match_equation_exists(val, parsed, None, JointConstraints::default())
     {
         return false;
     }
@@ -45,7 +45,7 @@ pub fn match_equation_exists(
     word: &str,
     parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
-    joint_constraints: Option<&JointConstraints>,
+    joint_constraints: JointConstraints,
 ) -> bool {
     let mut results: Vec<Bindings> = Vec::new();
     match_equation_internal(word, parts, false, &mut results, constraints, joint_constraints);
@@ -57,7 +57,7 @@ pub fn match_equation_all(
     word: &str,
     parts: &ParsedForm,
     constraints: Option<&VarConstraints>,
-    joint_constraints: Option<&JointConstraints>,
+    joint_constraints: JointConstraints,
 ) -> Vec<Bindings> {
     let mut results: Vec<Bindings> = Vec::new();
     match_equation_internal(word, parts, true, &mut results, constraints, joint_constraints);
@@ -75,7 +75,7 @@ fn match_equation_internal(
     all_matches: bool,
     results: &mut Vec<Bindings>,
     constraints: Option<&VarConstraints>,
-    joint_constraints: Option<&JointConstraints>,
+    joint_constraints: JointConstraints,
 ) {
     /// Helper to reverse a bound value if the part is `RevVar`.
     fn get_reversed_or_not(first: &FormPart, val: &str) -> String {
@@ -108,7 +108,7 @@ fn match_equation_internal(
         if parts.is_empty() {
             if chars.is_empty() {
                 // Check the joint constraints (if any)
-                if hp.joint_constraints.is_none_or(|jc| jc.all_satisfied(hp.bindings)) {
+                if hp.joint_constraints.all_satisfied(hp.bindings) {
                     let mut full_result = hp.bindings.clone();
                     full_result.set_word(hp.word);
                     hp.results.push(full_result);
@@ -275,7 +275,7 @@ struct HelperParams<'a> {
     all_matches: bool,
     word: &'a str,
     constraints: Option<&'a VarConstraints>,
-    joint_constraints: Option<&'a JointConstraints>,
+    joint_constraints: JointConstraints,
 }
 
 #[cfg(test)]
@@ -286,15 +286,15 @@ mod tests {
     #[test]
     fn test_palindrome_matching() {
         let patt = parse_form("A~A").unwrap();
-        assert!(match_equation_exists("noon", &patt, None, None));
-        assert!(!match_equation_exists("radar", &patt, None, None));
-        assert!(!match_equation_exists("test", &patt, None, None));
+        assert!(match_equation_exists("noon", &patt, None, JointConstraints::default()));
+        assert!(!match_equation_exists("radar", &patt, None, JointConstraints::default()));
+        assert!(!match_equation_exists("test", &patt, None, JointConstraints::default()));
     }
 
     #[test]
     fn test_literal_matching() {
         let patt = parse_form("abc").unwrap();
-        assert!(match_equation_exists("abc", &patt, None, None));
-        assert!(!match_equation_exists("xyz", &patt, None, None));
+        assert!(match_equation_exists("abc", &patt, None, JointConstraints::default()));
+        assert!(!match_equation_exists("xyz", &patt, None, JointConstraints::default()));
     }
 }

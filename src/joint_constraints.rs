@@ -173,6 +173,10 @@ pub struct JointConstraints {
 }
 
 impl JointConstraints {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.as_vec.is_empty()
+    }
+
     /// Return true iff **every** joint constraint is satisfied w.r.t. `bindings`.
     ///
     /// Mid-search semantics: a constraint with unbound vars returns `true`
@@ -200,16 +204,14 @@ impl JointConstraints {
 
 /// Parse all joint constraints from an equation string by splitting on your
 /// `FORM_SEPARATOR` (i.e., ';'), feeding each part through `parse_joint_len`.
-///
-/// Returns `None` if no joint constraints are found.
-pub(crate) fn parse_joint_constraints(equation: &str) -> Option<JointConstraints> {
+pub(crate) fn parse_joint_constraints(equation: &str) -> JointConstraints {
     let mut v = vec![];
     for part in equation.split(FORM_SEPARATOR) {
         if let Some(jc) = parse_joint_len(part.trim()) {
             v.push(jc);
         }
     }
-    if v.is_empty() { None } else { Some(JointConstraints { as_vec: v }) }
+    JointConstraints { as_vec: v }
 }
 
 /// Attempt to tighten per-variable length bounds using information from joint constraints.
@@ -367,7 +369,7 @@ mod tests {
         // Build an equation with two constraints and a non-constraint chunk.
         let equation = format!("|AB|=3{sep}foo{sep}|BC|<=5");
 
-        let parsed = parse_joint_constraints(&equation).expect("should find constraints");
+        let parsed = parse_joint_constraints(&equation);
         assert_eq!(parsed.as_vec.len(), 2);
 
         assert_eq!(parsed.as_vec[0].vars, vec!['A', 'B']);

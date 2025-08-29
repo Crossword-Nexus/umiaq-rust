@@ -150,7 +150,7 @@ fn scan_batch(
     parsed_forms: &[ParsedForm],
     scan_hints: &[PatternLenHints],
     var_constraints: &crate::constraints::VarConstraints,
-    joint_constraints: Option<&JointConstraints>,
+    joint_constraints: &JointConstraints,
     words: &mut [CandidateBuckets],
     budget: Option<&TimeBudget>,
 ) -> (usize, bool) {
@@ -181,7 +181,7 @@ fn scan_batch(
                 word,
                 &parsed_forms[i],
                 Some(var_constraints),
-                joint_constraints,
+                joint_constraints.clone(),
             );
 
             for binding in matches {
@@ -235,7 +235,7 @@ fn recursive_join(
     patterns: &Patterns,                 // for patt.deterministic / vars / lookup_keys
     parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
     word_list_as_set: &HashSet<&str>,
-    joint_constraints: Option<&JointConstraints>,
+    joint_constraints: JointConstraints,
     seen: &mut HashSet<u64>,
 ) {
     // Stop if we’ve met the requested quota of full solutions.
@@ -245,9 +245,7 @@ fn recursive_join(
 
     // Base case: if we’ve placed all patterns, `selected` is a full solution.
     if idx == words.len() {
-        if joint_constraints
-            .as_ref()
-            .is_none_or(|jcs| jcs.all_strictly_satisfied_for_parts(selected))
+        if joint_constraints.is_empty() || joint_constraints.all_strictly_satisfied_for_parts(selected) // TODO redundant 1st operand?
         {
             let key = solution_key(selected);
             if seen.insert(key) {
@@ -364,7 +362,7 @@ fn recursive_join(
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
         recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                       patterns, parsed_forms, word_list_as_set, joint_constraints, seen,);
+                       patterns, parsed_forms, word_list_as_set, joint_constraints.clone(), seen);
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -435,15 +433,13 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     // This gets length bounds on variables (from the joint constraints)
     let joint_constraints = parse_joint_constraints(input);
 
-    if let Some(jcs) = joint_constraints.as_ref() {
-        propagate_joint_to_var_bounds(&mut var_constraints, jcs);
-    }
+    propagate_joint_to_var_bounds(&mut var_constraints, &joint_constraints);
 
     // 8. Build cheap, per-form length hints once (index-aligned with patterns/parsed_forms)
     // The hints are length bounds for each form
     let scan_hints: Vec<PatternLenHints> = parsed_forms
         .iter()
-        .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, joint_constraints.as_ref()))
+        .map(|pf| form_len_hints_pf(pf, &patterns.var_constraints, &joint_constraints.clone()))
         .collect();
 
     // 9. Iterate through every candidate word.
@@ -482,7 +478,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &parsed_forms,
             &scan_hints,
             &var_constraints,
-            joint_constraints.as_ref(),
+            &joint_constraints,
             &mut words,
             Some(&budget),
         );
@@ -505,7 +501,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &patterns,
             &parsed_forms,
             &word_list_as_set,
-            joint_constraints.as_ref(),
+            joint_constraints.clone(),
             &mut seen,
         );
 

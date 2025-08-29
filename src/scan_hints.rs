@@ -98,7 +98,7 @@ pub(crate) fn form_len_hints_pf(
     form: &ParsedForm,
     vcs: &VarConstraints,
     // TODO: why is this an Option?
-    jcs: Option<&JointConstraints>,
+    jcs: &JointConstraints,
 ) -> PatternLenHints {
     form_len_hints_iter(
         form,
@@ -380,19 +380,21 @@ where
 
 /// Build the list of group constraints (as contiguous intervals) that are *scoped
 /// to this form*: every referenced variable must appear in the form.
-fn group_constraints_for_form(form: &ParsedForm, jcso: Option<&JointConstraints>) -> Vec<GroupLenConstraint> {
-    let Some(jcs) = jcso else { return vec![]; };
+fn group_constraints_for_form(form: &ParsedForm, jcs: &JointConstraints) -> Vec<GroupLenConstraint> {
+    if jcs.is_empty() {
+        vec![]
+    } else {
+        let present: HashSet<char> = form.iter().filter_map(|p| match p {
+            FormPart::Var(v) | FormPart::RevVar(v) => Some(*v),
+            _ => None,
+        }).collect();
 
-    let present: HashSet<char> = form.iter().filter_map(|p| match p {
-        FormPart::Var(v) | FormPart::RevVar(v) => Some(*v),
-        _ => None,
-    }).collect();
-
-    jcs.as_vec.iter()
-        // ← revert to ANY overlap so constraints like |AB|=6 still inform A-only forms
-        .filter(|jc| jc.vars.iter().any(|v| present.contains(v)))
-        .filter_map(group_from_joint)
-        .collect()
+        jcs.as_vec.iter()
+            // ← revert to ANY overlap so constraints like |AB|=6 still inform A-only forms
+            .filter(|jc| jc.vars.iter().any(|v| present.contains(v)))
+            .filter_map(group_from_joint)
+            .collect()
+    }
 }
 
 
@@ -420,7 +422,7 @@ mod tests {
             FormPart::Anagram("XY".into()),
         ]);
         let vcs = VarConstraints::default();
-        let hints = form_len_hints_pf(&form, &vcs, None);
+        let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
 
         let expected = PatternLenHints {
             min_len: Some(5),
@@ -441,7 +443,7 @@ mod tests {
         a.min_length = Some(2);
         a.max_length = Some(4);
 
-        let hints = form_len_hints_pf(&form, &vcs, None);
+        let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
 
         let expected = PatternLenHints {
             min_len: Some(5),
@@ -464,7 +466,7 @@ mod tests {
         b.min_length = Some(1);
         b.max_length = Some(5);
 
-        let hints = form_len_hints_pf(&form, &vcs, None);
+        let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
 
         let expected = PatternLenHints {
             min_len: Some(4),
@@ -487,7 +489,7 @@ mod tests {
         };
         let jcs = JointConstraints { as_vec: vec![jc] };
 
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         // Explanation:
         // - base = 0
@@ -522,7 +524,7 @@ mod tests {
             rel: RelMask::EQ,
         };
         let jcs = JointConstraints { as_vec: vec![jc] };
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         let expected = PatternLenHints {
             min_len: Some(8),
@@ -558,7 +560,7 @@ mod tests {
         let jcs = JointConstraints {
             as_vec: vec![g1, g2],
         };
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         let expected = PatternLenHints {
             min_len: Some(4),
@@ -578,7 +580,7 @@ mod tests {
         };
         let jcs = JointConstraints { as_vec: vec![jc] };
         let vcs = VarConstraints::default();
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         // star contributes 0 to min_len
         let expected = PatternLenHints {
@@ -598,7 +600,7 @@ mod tests {
         };
         let jcs = JointConstraints { as_vec: vec![jc] };
         let vcs = VarConstraints::default();
-        let hints = form_len_hints_pf(&form, &vcs, Some(&jcs));
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         // With |AB|=6 and only A present in this form:
         // - outside_form_min = min(B)
