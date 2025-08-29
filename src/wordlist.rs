@@ -20,9 +20,8 @@
 //! - `parse_from_str(...)` — works everywhere, including WASM.
 //! - `load_from_path(...)` — **native-only** convenience method to read from a file path.
 //!
-//! If compiled with `target_arch = "wasm32"`, only the WASM-safe parsing method is available.
-
-use std::cmp::Ordering;
+//! If compiled with `target_arch = "wasm32"`, only the WASM-safe parsing method is available
+//! and `parse_from_str` is not (as it's currently unused in WASM builds)
 
 /// Struct representing a processed, ready-to-use word list.
 ///
@@ -44,6 +43,8 @@ impl WordList {
     /// This is **WASM-safe** because it doesn’t touch the filesystem —
     /// you can pass the contents of a file fetched via JavaScript `fetch()` or read
     /// from the File API directly into this function.
+    /// That said, we're not using this function in WASM at the moment.
+    /// TODO: use this in JS instead of re-writing this logic?
     ///
     /// # Arguments
     /// * `contents`  — The raw file contents as a `&str`. Each line should be `word;score`.
@@ -61,6 +62,7 @@ impl WordList {
     /// 5. Converts `word` to lowercase.
     /// 6. Deduplicates the list (case-insensitive because we lowercase early).
     /// 7. Sorts by length, then alphabetically.
+    #[cfg(not(target_arch = "wasm32"))]
     fn parse_from_str(
         contents: &str,
         min_score: i32,
@@ -134,7 +136,7 @@ impl WordList {
         // so we have to sort twice — once alphabetically, once by (len, alpha).
         entries.sort_by(|a, b| {
             match a.len().cmp(&b.len()) {
-                Ordering::Equal => a.cmp(b), // same length → alphabetical order
+                std::cmp::Ordering::Equal => a.cmp(b), // same length → alphabetical order
                 other => other,     // otherwise sort by length
             }
         });
