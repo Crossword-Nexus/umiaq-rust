@@ -39,6 +39,10 @@ pub struct PatternLenHints {
     pub max_len: Option<usize>,
 }
 
+/// Small enum for `weighted_extreme_for_t`
+#[derive(Clone, Copy, Debug)]
+enum Extreme { Min, Max }
+
 impl PatternLenHints {
     /// Quick check for a candidate word length against this hint.
     pub(crate) fn is_word_len_possible(&self, len: usize) -> bool {
@@ -147,7 +151,7 @@ where
                 fixed_base += s.len();
             }
             FormPart::Var(v) | FormPart::RevVar(v) => {
-                *var_frequency.entry(*v).or_insert(0) += 1;
+                *var_frequency.entry(*v).or_insert(0) += VarConstraint::DEFAULT_MIN;
             }
         }
     }
@@ -215,10 +219,11 @@ where
         fn weighted_extreme_for_t(
             rows: &[Row],
             sum_li: usize,
-            sum_ui_opt: Option<usize>,
+            sum_ui_opt: Option<usize>, // Some(sum_ui) if ALL ui are finite; None if ANY ui is "unbounded"
             t: usize,
-            minimize: bool, // TODO replace with enum
+            extreme: Extreme,
         ) -> Option<usize> {
+            // Feasibility checks
             if t < sum_li {
                 return None;
             }
@@ -226,33 +231,49 @@ where
                 return None;
             }
 
-            let base = rows.iter().map(|r| r.w * r.li).sum::<usize>();
+            // Base cost at lower bounds
+            let base_weighted = rows.iter().map(|r| r.w.saturating_mul(r.li)).sum::<usize>();
             let mut rem = t - sum_li;
+            if rem == 0 {
+                return Some(base_weighted);
+            }
 
-            let mut rows_sorted = rows.to_vec();
-            if minimize {
-                rows_sorted.sort_by_key(|r| r.w); // cheapest first
-            } else {
-                rows_sorted.sort_by_key(|r| std::cmp::Reverse(r.w)); // most expensive first
+            // Greedy: assign remaining letters to cheapest (Min) or priciest (Max) first.
+            // We still honor each row's individual capacity (ui - li). A row is “unbounded”
+            // iff r.ui == VarConstraint::DEFAULT_MAX.
+            let mut order: Vec<&Row> = rows.iter().collect();
+            match extreme {
+                Extreme::Min => order.sort_unstable_by_key(|r| r.w),              // cheapest first
+                Extreme::Max => order.sort_unstable_by_key(|r| std::cmp::Reverse(r.w)),     // priciest first
             }
 
             let mut extra = 0usize;
-            for r in &rows_sorted {
-                if rem == 0 {
-                    break;
-                }
-                // Capacity available for this row beyond li
+            for r in order {
+                // Per-row capacity above li
                 let cap = if r.ui == VarConstraint::DEFAULT_MAX {
                     rem
                 } else {
                     r.ui.saturating_sub(r.li).min(rem)
                 };
-                extra += r.w * cap;
-                rem -= cap;
+
+                if cap > 0 {
+                    extra = extra.saturating_add(r.w.saturating_mul(cap));
+                    rem -= cap;
+                    // TODO: can rem ever go negative? Should we add a test for it?
+                    if rem == 0 {
+                        break;
+                    }
+                }
+            }
+
+            // If we reach here with rem != 0, `t` wasn’t feasible to begin with.
+            // TODO: throw an error?
+            if rem != 0 {
+                return None;
             }
 
             debug_assert_eq!(rem, 0);
-            Some(base + extra)
+            Some(base_weighted.saturating_add(extra))
         }
 
         if g.vars.is_empty() {
@@ -291,9 +312,9 @@ where
         }
 
         let weighted_min_for_t =
-            |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui_opt, t, true);
+            |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui_opt, t, Extreme::Min);
         let weighted_max_for_t =
-            |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui_opt, t, false);
+            |t: usize| weighted_extreme_for_t(&rows, sum_li, sum_ui_opt, t, Extreme::Max);
 
         // ---- Account for group vars that are NOT in this form ------------------
         // They eat into the group's total before we allocate to in-form vars.
