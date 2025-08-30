@@ -2,10 +2,10 @@ use crate::errors::ParseError;
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
+use std::sync::LazyLock;
+use fancy_regex::Regex;
 use crate::constraints::{VarConstraint, VarConstraints};
-use crate::errors;
 use crate::errors::ParseError::ParseFailure;
-use crate::umiaq_char::UmiaqChar;
 
 /// Compact representation of the relation between (sum) and (target).
 ///
@@ -52,12 +52,7 @@ impl RelMask {
             ">=" => Ok(Self::GE),
             "<" => Ok(Self::LT),
             ">" => Ok(Self::GT),
-            _ => Err(
-                ParseFailure {
-                    position: 0,
-                    remaining: op.to_string(),
-                }
-            ),
+            _ => Err(ParseFailure { s: op.to_string() }),
         }
     }
 }
@@ -128,74 +123,30 @@ fn resolve_var_len(parts: &[Bindings], v: char) -> Option<usize> {
     parts.iter().find_map(|bindings| bindings.get(v).map(String::len))
 }
 
+// TODO derive "<=|>=|==|!=|<|>|=" from a single source...
+static JOINT_LEN_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\|(?<vars>[A-Z]{2,})\| *(?<op><=|>=|==|!=|<|>|=) *(?<len>\d+)$").unwrap());
+
+
 /// Parse a single joint-length expression that **starts at** a `'|'`.
 ///
 /// Shape: `|VARS| OP NUMBER`
 ///  - `VARS`  : at least **two** ASCII uppercase letters (A–Z).
 ///  - `OP`    : one of `<=`, `>=`, `==`, `!=`, `<`, `>`, `=` (two-char ops matched first).
 ///  - `NUMBER`: one or more ASCII digits (base 10).
-///
-/// Notes:
-///  - Any trailing content after the number is currently **ignored**. If you need
-///    strictness here, add a trailing-whitespace check and reject junk.
 fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
-    let s = expr.trim();
-    if !s.starts_with('|') { return Err(
-        ParseFailure {
-            position: 0,
-            remaining: s.to_string()
-        }
-    ); }
+    if let Ok(Some(captures)) = JOINT_LEN_RE.captures(expr) {
+        let vars_match = captures.name("vars").ok_or(ParseFailure { s: expr.to_string() })?;
+        let target_match = captures.name("len").ok_or(ParseFailure { s: expr.to_string() })?;
+        let rel_mask_str_match = captures.name("op").ok_or(ParseFailure { s: expr.to_string() })?;
 
-    // Locate the closing bar.
-    let end_bar_rel = s[1..].find('|').ok_or(
-        ParseFailure {
-            position: 1,
-            remaining: s[1..].to_string()
-        }
-    )?;
-    let end_bar_idx = 1 + end_bar_rel;
-    let vars_str = &s[1..end_bar_idx];
-
-    // Enforce A–Z only and at least two variables (true "joint" constraint).
-    if !vars_str.chars().all(|c| c.is_variable()) || vars_str.chars().count() < 2 {
-        Err(
-            ParseFailure {
-                position: 1, // TODO find where actual failure is
-                remaining: s[1..].to_string()
-            }
-        )
+        Ok(JointConstraint {
+            vars: vars_match.as_str().chars().collect(),
+            target: target_match.as_str().parse()?,
+            rel: RelMask::from_str(rel_mask_str_match.as_str())?
+        })
     } else {
-        // Remainder like "=7", "<= 10", etc.
-        let rhs = s[end_bar_idx + 1..].trim_start();
-
-        // Recognize operators (two-char first to avoid "<" grabbing from "<=").
-        let (op_tok, rest) = ["<=", ">=", "==", "!=", "<", ">", "="] // TODO have these in one place
-            .iter()
-            .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start()))).ok_or(Err::<(&str, &str), errors::ParseError>(
-            ParseFailure {
-                position: 1, // TODO find where actual failure is
-                remaining: s[1..].to_string()
-            }
-        )).unwrap();
-
-        // Parse integer (digits only).
-        let digits_len = rest.chars().take_while(char::is_ascii_digit).count();
-        if digits_len == 0 {
-            Err(
-                ParseFailure {
-                    position: 1 + op_tok.len(), // TODO find where actual failure is
-                    remaining: rest.to_string()
-                }
-            )
-        } else {
-            let target = rest[..digits_len].parse::<usize>()?;
-
-            let rel = RelMask::from_str(op_tok)?;
-            let vars = vars_str.chars().collect::<Vec<char>>(); // duplicates are kept
-
-            Ok(JointConstraint { vars, target, rel })
-        }
+        Err(ParseFailure { s: expr.to_string() })
     }
 }
 
@@ -385,27 +336,42 @@ mod tests {
     }
 
     #[test]
-    fn parse_joint_len_basic_variants() {
+    fn parse_joint_len_basic() {
         // Basic equality
         let jc = parse_joint_len("|AB|=7").expect("should parse");
         assert_eq!(jc.vars, vec!['A','B']);
         assert_eq!(jc.target, 7);
         assert_eq!(jc.rel, RelMask::EQ);
+    }
 
+    #[test]
+    fn parse_joint_len_basic_with_spaces() {
         // Whitespace tolerated; two-char op
         let jc2 = parse_joint_len("|ABC|  <=   10").expect("should parse");
         assert_eq!(jc2.vars, vec!['A','B','C']);
         assert_eq!(jc2.target, 10);
         assert_eq!(jc2.rel, RelMask::LE);
+    }
 
-        // Reject single-var
+    #[test]
+    fn parse_joint_len_single_var() {
         assert!(parse_joint_len("|A|=3").is_err()); // TODO? check error in more detail
+    }
 
-        // Reject lowercase
+    #[test]
+    fn parse_joint_len_lowercase() {
         assert!(parse_joint_len("|Ab|=3").is_err()); // TODO? check error in more detail
+    }
 
-        // Must start at '|' (strict)
+    #[test]
+    fn parse_joint_len_start_with_pipe() {
         assert!(parse_joint_len("foo |AB|=3").is_err()); // TODO? check error in more detail
+    }
+
+    #[test]
+    fn parse_joint_len_end_with_number() {
+        // Reject noise after length constraint
+        assert!(parse_joint_len("|AB|=3x").is_err()); // TODO? check error in more detail
     }
 
     #[test]

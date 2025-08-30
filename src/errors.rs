@@ -3,8 +3,8 @@ use std::io;
 /// Custom error type for parsing operations
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
-    #[error("Form parsing failed @ pos. {position}; remaining input: \"{remaining}\"")]
-    ParseFailure { position: usize, remaining: String },
+    #[error("Form parsing failed: \"{s}\"")]
+    ParseFailure { s: String },
     #[error("Invalid regex pattern: {0}")]
     RegexError(#[from] fancy_regex::Error),
     #[error("Empty form string")]
