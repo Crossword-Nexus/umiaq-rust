@@ -3,7 +3,6 @@ use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
 use crate::constraints::{VarConstraint, VarConstraints};
-use crate::errors;
 use crate::errors::ParseError::ParseFailure;
 use crate::umiaq_char::UmiaqChar;
 
@@ -135,9 +134,6 @@ fn resolve_var_len(parts: &[Bindings], v: char) -> Option<usize> {
 ///  - `OP`    : one of `<=`, `>=`, `==`, `!=`, `<`, `>`, `=` (two-char ops matched first).
 ///  - `NUMBER`: one or more ASCII digits (base 10).
 ///
-/// Notes:
-///  - Any trailing content after the number is currently **ignored**. If you need
-///    strictness here, add a trailing-whitespace check and reject junk.
 fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
     let s = expr.trim();
     if !s.starts_with('|') { return Err(
@@ -158,7 +154,7 @@ fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
     let vars_str = &s[1..end_bar_idx];
 
     // Enforce A–Z only and at least two variables (true "joint" constraint).
-    if !vars_str.chars().all(|c| c.is_variable()) || vars_str.chars().count() < 2 {
+    if vars_str.chars().count() < 2 || !vars_str.chars().all(|c| c.is_variable()) {
         Err(
             ParseFailure {
                 position: 1, // TODO find where actual failure is
@@ -172,30 +168,18 @@ fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
         // Recognize operators (two-char first to avoid "<" grabbing from "<=").
         let (op_tok, rest) = ["<=", ">=", "==", "!=", "<", ">", "="] // TODO have these in one place
             .iter()
-            .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start()))).ok_or(Err::<(&str, &str), errors::ParseError>(
+            .find_map(|&tok| rhs.strip_prefix(tok).map(|r| (tok, r.trim_start()))).ok_or(Err::<(&str, &str), ParseError>(
             ParseFailure {
                 position: 1, // TODO find where actual failure is
                 remaining: s[1..].to_string()
             }
         )).unwrap();
 
-        // Parse integer (digits only).
-        let digits_len = rest.chars().take_while(char::is_ascii_digit).count();
-        if digits_len == 0 {
-            Err(
-                ParseFailure {
-                    position: 1 + op_tok.len(), // TODO find where actual failure is
-                    remaining: rest.to_string()
-                }
-            )
-        } else {
-            let target = rest[..digits_len].parse::<usize>()?;
-
-            let rel = RelMask::from_str(op_tok)?;
-            let vars = vars_str.chars().collect::<Vec<char>>(); // duplicates are kept
-
-            Ok(JointConstraint { vars, target, rel })
-        }
+        Ok(JointConstraint {
+            vars: vars_str.chars().collect::<Vec<char>>(), // duplicates are kept
+            target: rest.parse::<usize>()?,
+            rel: RelMask::from_str(op_tok)?
+        })
     }
 }
 
@@ -385,27 +369,42 @@ mod tests {
     }
 
     #[test]
-    fn parse_joint_len_basic_variants() {
+    fn parse_joint_len_basic() {
         // Basic equality
         let jc = parse_joint_len("|AB|=7").expect("should parse");
         assert_eq!(jc.vars, vec!['A','B']);
         assert_eq!(jc.target, 7);
         assert_eq!(jc.rel, RelMask::EQ);
+    }
 
+    #[test]
+    fn parse_joint_len_basic_with_spaces() {
         // Whitespace tolerated; two-char op
         let jc2 = parse_joint_len("|ABC|  <=   10").expect("should parse");
         assert_eq!(jc2.vars, vec!['A','B','C']);
         assert_eq!(jc2.target, 10);
         assert_eq!(jc2.rel, RelMask::LE);
+    }
 
-        // Reject single-var
+    #[test]
+    fn parse_joint_len_single_var() {
         assert!(parse_joint_len("|A|=3").is_err()); // TODO? check error in more detail
+    }
 
-        // Reject lowercase
+    #[test]
+    fn parse_joint_len_lowercase() {
         assert!(parse_joint_len("|Ab|=3").is_err()); // TODO? check error in more detail
+    }
 
-        // Must start at '|' (strict)
+    #[test]
+    fn parse_joint_len_start_with_pipe() {
         assert!(parse_joint_len("foo |AB|=3").is_err()); // TODO? check error in more detail
+    }
+
+    #[test]
+    fn parse_joint_len_end_with_number() {
+        // Reject noise after length constraint
+        assert!(parse_joint_len("|AB|=3x").is_err()); // TODO? check error in more detail
     }
 
     #[test]
