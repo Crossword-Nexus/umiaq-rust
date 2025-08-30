@@ -52,12 +52,7 @@ impl RelMask {
             ">=" => Ok(Self::GE),
             "<" => Ok(Self::LT),
             ">" => Ok(Self::GT),
-            _ => Err(
-                ParseFailure {
-                    position: 0,
-                    remaining: op.to_string(),
-                }
-            ),
+            _ => Err(ParseFailure { s: op.to_string() }),
         }
     }
 }
@@ -141,18 +136,9 @@ static JOINT_LEN_RE: LazyLock<Regex> =
 ///  - `NUMBER`: one or more ASCII digits (base 10).
 fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
     if let Ok(Some(captures)) = JOINT_LEN_RE.captures(expr) {
-        let vars_match = captures.name("vars").ok_or(ParseFailure {
-            position: 0, // TODO set properly
-            remaining: expr.to_string(), // TODO set properly
-        })?;
-        let target_match = captures.name("len").ok_or(ParseFailure {
-            position: 0, // TODO set properly
-            remaining: expr.to_string(), // TODO set properly
-        })?;
-        let rel_mask_str_match = captures.name("op").ok_or(ParseFailure {
-            position: 0, // TODO set properly
-            remaining: expr.to_string(), // TODO set properly
-        })?;
+        let vars_match = captures.name("vars").ok_or(ParseFailure { s: expr.to_string() })?;
+        let target_match = captures.name("len").ok_or(ParseFailure { s: expr.to_string() })?;
+        let rel_mask_str_match = captures.name("op").ok_or(ParseFailure { s: expr.to_string() })?;
 
         Ok(JointConstraint {
             vars: vars_match.as_str().chars().collect(),
@@ -160,10 +146,7 @@ fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
             rel: RelMask::from_str(rel_mask_str_match.as_str())?
         })
     } else {
-        Err(ParseFailure {
-            position: 0, // TODO set properly
-            remaining: expr.to_string(), // TODO set properly
-        })
+        Err(ParseFailure { s: expr.to_string() })
     }
 }
 

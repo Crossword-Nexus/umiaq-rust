@@ -102,12 +102,7 @@ pub fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
                 parts.push(part);
                 rest = next;
             }
-            Err(_) => {
-                return Err(ParseError::ParseFailure {
-                    position: raw_form.len() - rest.len(),
-                    remaining: rest.to_string(),
-                })
-            }
+            Err(_) => return Err(ParseError::ParseFailure { s: rest.to_string() }),
         }
     }
 
