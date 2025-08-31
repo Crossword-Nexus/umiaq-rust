@@ -10,8 +10,12 @@ use nom::{
     IResult,
     Parser,
 };
+use crate::errors::ParseError;
 use crate::errors::ParseError::ParseFailure;
+use crate::parser::utils::char_to_num;
 use super::prefilter::{form_to_regex_str, get_regex};
+
+const ALPHABET_SIZE:usize = 26;
 
 /// Represents a single parsed token (component) from a "form" string.
 #[derive(Debug, Clone, PartialEq)]
@@ -49,19 +53,23 @@ impl FormPart {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Alphagram {
-    char_counts: [u8; 128],
+    char_counts: [u8; ALPHABET_SIZE],
     pub(crate) as_string: String, // for regexes, pretty printing
     pub(crate) len: usize
 }
 
+// 'a' -> 0, 'b' -> 1, ..., 'z' -> 25
+fn lc_char_to_num(c: char) -> Result<usize, ParseError> { char_to_num(c, 'a' as usize) }
+
 impl Alphagram {
     // TODO? don't assume lowercase?
     fn of(lowercase_word: String) -> Result<Alphagram, crate::errors::ParseError> {
-        let mut len: usize = 0;
-        let mut char_counts = [0u8; 128];
+        let mut len = 0;
+        let mut char_counts = [0u8; ALPHABET_SIZE];
         for c in lowercase_word.chars() {
-            if (c as usize) < 128 {
-                char_counts[c as usize] += 1;
+            let c_as_num = lc_char_to_num(c)?;
+            if c_as_num < ALPHABET_SIZE {
+                char_counts[c_as_num] += 1;
                 len += 1;
             } else {
                 return Err(ParseFailure{ s: lowercase_word })
@@ -78,8 +86,9 @@ impl Alphagram {
 
         let mut char_counts = self.char_counts;
         for &c in other_word {
-            if (c as usize) < 128 {
-                if char_counts[c as usize] == 0 {
+            let c_as_num = lc_char_to_num(c)?;
+            if c_as_num < ALPHABET_SIZE {
+                if char_counts[c_as_num] == 0 {
                     return Ok(false);
                 }
                 char_counts[c as usize] -= 1;
@@ -100,9 +109,9 @@ pub struct ParsedForm {
 }
 
 impl ParsedForm {
-    fn of(parts: Vec<FormPart>) -> Result<Self, crate::errors::ParseError> {
+    fn of(parts: Vec<FormPart>) -> Result<Self, ParseError> {
         // Build the base regex string from tokens only (no var-constraints).
-        let regex_str = form_to_regex_str(&parts);
+        let regex_str = form_to_regex_str(&parts)?;
         let anchored = format!("^{regex_str}$");
         let prefilter = get_regex(&anchored)?;
 
@@ -210,27 +219,39 @@ mod tests {
     #[test] fn test_empty_form_error() {
         assert!(matches!(parse_form("").unwrap_err(), crate::errors::ParseError::EmptyForm));
     }
+
     #[test] fn test_parse_failure_error() {
         assert!(matches!(parse_form("[").unwrap_err(), ParseFailure { .. }));
     }
+
     #[test] fn test_parse_form_basic() {
         let parsed_form = parse_form("abc").unwrap();
         assert_eq!(vec![FormPart::Lit("abc".to_string())], parsed_form.parts);
     }
+
     #[test] fn test_parse_form_variable() {
         assert_eq!(vec![FormPart::Var('A')], parse_form("A").unwrap().parts);
     }
+
     #[test] fn test_parse_form_reversed_variable() {
         assert_eq!(vec![FormPart::RevVar('A')], parse_form("~A").unwrap().parts);
     }
+
     #[test] fn test_parse_form_wildcards() {
         let parts = parse_form(".*@#").unwrap().parts;
         assert_eq!(vec![FormPart::Dot, FormPart::Star, FormPart::Vowel, FormPart::Consonant], parts);
     }
+
     #[test] fn test_parse_form_charset() {
         assert_eq!(vec![FormPart::Charset(vec!['a','b','c'])], parse_form("[abc]").unwrap().parts);
     }
+
     #[test] fn test_parse_form_anagram() {
         assert_eq!(vec![FormPart::anagram_of("abc".to_string()).unwrap()], parse_form("/abc").unwrap().parts);
+    }
+
+    // only lowercase is allowed
+    #[test] fn test_parse_form_anagram_bad_char() {
+        assert!(FormPart::anagram_of("aBc".to_string()).is_err());
     }
 }
