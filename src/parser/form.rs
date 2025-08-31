@@ -1,4 +1,4 @@
-use crate::umiaq_char::{LITERAL_CHARS, VARIABLE_CHARS};
+use crate::umiaq_char::{ALPHABET_SIZE, LITERAL_CHARS, VARIABLE_CHARS};
 use fancy_regex::Regex;
 use nom::{
     branch::alt,
@@ -14,8 +14,6 @@ use crate::errors::ParseError;
 use crate::errors::ParseError::ParseFailure;
 use crate::parser::utils::char_to_num;
 use super::prefilter::{form_to_regex_str, get_regex};
-
-const ALPHABET_SIZE:usize = 26;
 
 /// Represents a single parsed token (component) from a "form" string.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,7 +57,7 @@ pub struct Alphagram {
 }
 
 // 'a' -> 0, 'b' -> 1, ..., 'z' -> 25
-fn lc_char_to_num(c: char) -> Result<usize, ParseError> { char_to_num(c, 'a' as usize) }
+fn lc_char_to_num(c: char) -> Result<usize, ParseError> { char_to_num(c, 'a' as usize, ALPHABET_SIZE) }
 
 impl Alphagram {
     // TODO? don't assume lowercase?
@@ -68,12 +66,8 @@ impl Alphagram {
         let mut char_counts = [0u8; ALPHABET_SIZE];
         for c in lowercase_word.chars() {
             let c_as_num = lc_char_to_num(c)?;
-            if c_as_num < ALPHABET_SIZE {
-                char_counts[c_as_num] += 1;
-                len += 1;
-            } else {
-                return Err(ParseFailure{ s: lowercase_word })
-            }
+            char_counts[c_as_num] += 1;
+            len += 1;
         }
 
         Ok(Alphagram { char_counts, as_string: lowercase_word, len })
@@ -87,14 +81,10 @@ impl Alphagram {
         let mut char_counts = self.char_counts;
         for &c in other_word {
             let c_as_num = lc_char_to_num(c)?;
-            if c_as_num < ALPHABET_SIZE {
-                if char_counts[c_as_num] == 0 {
-                    return Ok(false);
-                }
-                char_counts[c as usize] -= 1;
-            } else {
-                return Err(ParseFailure{ s: other_word.iter().collect() })
+            if char_counts[c_as_num] == 0 {
+                return Ok(false);
             }
+            char_counts[c as usize] -= 1;
         }
 
         Ok(char_counts.iter().all(|&count| count == 0))
