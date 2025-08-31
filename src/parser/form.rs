@@ -165,7 +165,7 @@ pub fn parse_form(raw_form: &str) -> Result<ParsedForm, crate::errors::ParseErro
     }
 
     if parts.is_empty() {
-        return Err(crate::errors::ParseError::EmptyForm);
+        return Err(ParseError::EmptyForm);
     }
 
     ParsedForm::of(parts)
@@ -217,7 +217,7 @@ mod tests {
     use super::*;
 
     #[test] fn test_empty_form_error() {
-        assert!(matches!(parse_form("").unwrap_err(), crate::errors::ParseError::EmptyForm));
+        assert!(matches!(parse_form("").unwrap_err(), ParseError::EmptyForm));
     }
 
     #[test] fn test_parse_failure_error() {
