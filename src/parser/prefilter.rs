@@ -43,6 +43,7 @@ pub(crate) fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
     Ok(compiled)
 }
 
+// TODO DRY w/form_to_regex_str_with_constraints
 /// Convert a parsed `FormPart` sequence into a regex string (no constraints).
 ///
 /// Used for the initial fast prefilter.
@@ -89,10 +90,10 @@ pub(crate) fn form_to_regex_str(parts: &[FormPart]) -> String {
                 }
                 regex_str.push(']');
             }
-            FormPart::Anagram(s) => {
+            FormPart::Anagram(ag) => {
                 use std::fmt::Write;
-                let len = s.len();
-                let class = fancy_regex::escape(s);
+                let len = ag.len;
+                let class = fancy_regex::escape(ag.as_string.as_str());
                 let _ = write!(regex_str, "[{class}]{{{len}}}");
             }
         }
@@ -232,9 +233,9 @@ pub(crate) fn form_to_regex_str_with_constraints(
                 for c in chars { regex_str.push(*c); }
                 regex_str.push(']');
             }
-            FormPart::Anagram(s) => {
-                let len = s.len();
-                let class = fancy_regex::escape(s);
+            FormPart::Anagram(ag) => {
+                let len = ag.len;
+                let class = fancy_regex::escape(ag.as_string.as_str());
                 let _ = write!(regex_str, "[{class}]{{{len}}}");
             }
         }

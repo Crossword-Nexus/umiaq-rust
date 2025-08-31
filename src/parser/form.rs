@@ -10,7 +10,7 @@ use nom::{
     IResult,
     Parser,
 };
-use crate::errors::ParseError;
+use crate::errors::ParseError::ParseFailure;
 use super::prefilter::{form_to_regex_str, get_regex};
 
 /// Represents a single parsed token (component) from a "form" string.
@@ -24,7 +24,7 @@ pub enum FormPart {
     Vowel,              // '@' wildcard: any vowel (aeiouy)
     Consonant,          // '#' wildcard: any consonant (bcdf...xz)
     Charset(Vec<char>), // '[abc]': any of the given letters
-    Anagram(String),    // '/abc': any permutation of the given letters
+    Anagram(Alphagram), // '/abc': any permutation of the given letters
 }
 
 impl FormPart {
@@ -41,6 +41,55 @@ impl FormPart {
             _ => None // Only the single-char tokens have tags
         }
     }
+
+    pub(crate) fn anagram_of(s: String) -> Result<FormPart, crate::errors::ParseError> {
+        Ok(FormPart::Anagram(Alphagram::of(s)?))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Alphagram {
+    char_counts: [u8; 128],
+    pub(crate) as_string: String, // for regexes, pretty printing
+    pub(crate) len: usize
+}
+
+impl Alphagram {
+    // TODO? don't assume lowercase?
+    fn of(lowercase_word: String) -> Result<Alphagram, crate::errors::ParseError> {
+        let mut len: usize = 0;
+        let mut char_counts = [0u8; 128];
+        for c in lowercase_word.chars() {
+            if (c as usize) < 128 {
+                char_counts[c as usize] += 1;
+                len += 1;
+            } else {
+                return Err(ParseFailure{ s: lowercase_word })
+            }
+        }
+
+        Ok(Alphagram { char_counts, as_string: lowercase_word, len })
+    }
+
+    pub(crate) fn is_anagram(&self, other_word: &[char]) -> Result<bool, crate::errors::ParseError> {
+        if self.len != other_word.len() {
+            return Ok(false);
+        }
+
+        let mut char_counts = self.char_counts;
+        for &c in other_word {
+            if (c as usize) < 128 {
+                if char_counts[c as usize] == 0 {
+                    return Ok(false);
+                }
+                char_counts[c as usize] -= 1;
+            } else {
+                return Err(ParseFailure{ s: other_word.iter().collect() })
+            }
+        }
+
+        Ok(char_counts.iter().all(|&count| count == 0))
+    }
 }
 
 /// A `Vec` of `FormPart`s along with a compiled regex prefilter.
@@ -51,7 +100,7 @@ pub struct ParsedForm {
 }
 
 impl ParsedForm {
-    fn of(parts: Vec<FormPart>) -> Result<Self, ParseError> {
+    fn of(parts: Vec<FormPart>) -> Result<Self, crate::errors::ParseError> {
         // Build the base regex string from tokens only (no var-constraints).
         let regex_str = form_to_regex_str(&parts);
         let anchored = format!("^{regex_str}$");
@@ -92,7 +141,7 @@ impl<'a> IntoIterator for &'a ParsedForm {
 /// Parse a form string into a `ParsedForm` object.
 ///
 /// Walks the input, consuming tokens one at a time with `equation_part`.
-pub fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
+pub fn parse_form(raw_form: &str) -> Result<ParsedForm, crate::errors::ParseError> {
     let mut rest = raw_form;
     let mut parts = Vec::new();
 
@@ -102,12 +151,12 @@ pub fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
                 parts.push(part);
                 rest = next;
             }
-            Err(_) => return Err(ParseError::ParseFailure { s: rest.to_string() }),
+            Err(_) => return Err(ParseFailure { s: rest.to_string() }),
         }
     }
 
     if parts.is_empty() {
-        return Err(ParseError::EmptyForm);
+        return Err(crate::errors::ParseError::EmptyForm);
     }
 
     ParsedForm::of(parts)
@@ -147,7 +196,7 @@ fn charset(input: &str) -> IResult<&str, FormPart> {
 fn anagram(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("/")(input)?;
     let (input, chars) = many1(one_of(LITERAL_CHARS)).parse(input)?;
-    Ok((input, FormPart::Anagram(chars.into_iter().collect())))
+    Ok((input, FormPart::anagram_of(chars.into_iter().collect()).unwrap())) // TODO handle error (better than unwrap)
 }
 
 fn equation_part(input: &str) -> IResult<&str, FormPart> {
@@ -159,10 +208,10 @@ mod tests {
     use super::*;
 
     #[test] fn test_empty_form_error() {
-        assert!(matches!(parse_form("").unwrap_err(), ParseError::EmptyForm));
+        assert!(matches!(parse_form("").unwrap_err(), crate::errors::ParseError::EmptyForm));
     }
     #[test] fn test_parse_failure_error() {
-        assert!(matches!(parse_form("[").unwrap_err(), ParseError::ParseFailure { .. }));
+        assert!(matches!(parse_form("[").unwrap_err(), ParseFailure { .. }));
     }
     #[test] fn test_parse_form_basic() {
         let parsed_form = parse_form("abc").unwrap();
@@ -182,6 +231,6 @@ mod tests {
         assert_eq!(vec![FormPart::Charset(vec!['a','b','c'])], parse_form("[abc]").unwrap().parts);
     }
     #[test] fn test_parse_form_anagram() {
-        assert_eq!(vec![FormPart::Anagram("abc".to_string())], parse_form("/abc").unwrap().parts);
+        assert_eq!(vec![FormPart::anagram_of("abc".to_string()).unwrap()], parse_form("/abc").unwrap().parts);
     }
 }
