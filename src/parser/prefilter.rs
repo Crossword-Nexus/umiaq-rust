@@ -143,6 +143,7 @@ fn get_var_and_rev_var_counts(
     Ok((var_counts, rev_var_counts))
 }
 
+// TODO DRY w/form_to_regex_str
 /// Convert a parsed `FormPart` sequence into a regex string,
 /// taking variable constraints into account when possible.
 ///

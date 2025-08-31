@@ -10,8 +10,8 @@ use crate::umiaq_char::UmiaqChar;
 /// The character that separates forms, in an equation
 pub const FORM_SEPARATOR: char = ';';
 
-// TODO? be stricter (e.g., than "\s*")
 /// Matches comparative length constraints like `|A|>4`, `|A|<=7`, etc.
+/// (Whitespace is permitted around operator.)
 static LEN_CMP_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\|([A-Z])\|\s*(<=|>=|=|<|>)\s*(\d+)$").unwrap());
 
@@ -590,9 +590,8 @@ mod tests {
         assert_eq!((None, Some(3)), parse_length_range("-3").unwrap());
         assert_eq!((Some(1), None), parse_length_range("1-").unwrap());
         assert_eq!((Some(7), Some(7)), parse_length_range("7").unwrap());
-        // TODO replace "_" with a more specific check (next two lines--and elsewhere... as appropriate)
-        assert!(matches!(parse_length_range("").unwrap_err(), ParseError::InvalidLengthRange { input: _ }));
-        assert!(matches!(parse_length_range("1-2-3").unwrap_err(), ParseError::InvalidLengthRange { input: _ }));
+        assert!(matches!(parse_length_range("").unwrap_err(), ParseError::InvalidLengthRange { input } if input == "" ));
+        assert!(matches!(parse_length_range("1-2-3").unwrap_err(), ParseError::InvalidLengthRange { input } if input == "1-2-3" ));
     }
 
     #[test]
