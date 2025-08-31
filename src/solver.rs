@@ -421,7 +421,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     // from `.+` to `g.*`
     // TODO: why not do this when constructing Patterns?
     for pf in &mut parsed_forms {
-        let upgraded = build_prefilter_regex(pf, Some(&var_constraints));
+        let upgraded = build_prefilter_regex(pf, Some(&var_constraints))?;
         pf.prefilter = upgraded;
     }
 

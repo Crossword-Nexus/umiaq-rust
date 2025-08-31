@@ -132,7 +132,8 @@ where
         match p {
             FormPart::Star => has_star = true,
             FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => fixed_base += 1,
-            FormPart::Lit(s) | FormPart::Anagram(s) => fixed_base += s.len(),
+            FormPart::Lit(s) => fixed_base += s.len(),
+            FormPart::Anagram(ag) => fixed_base += ag.len,
             FormPart::Var(v) | FormPart::RevVar(v) => *var_frequency.entry(*v).or_insert(0) += VarConstraint::DEFAULT_MIN,
         }
     }
@@ -418,7 +419,7 @@ mod tests {
         let form = pf(vec![
             FormPart::Lit("AB".into()),
             FormPart::Dot,
-            FormPart::Anagram("XY".into()),
+            FormPart::anagram_of("xy".into()).unwrap(),
         ]);
         let vcs = VarConstraints::default();
         let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());

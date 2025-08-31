@@ -136,11 +136,11 @@ fn match_equation_internal(
             FormPart::Consonant => take_if(chars, rest, hp, char::is_consonant),
             FormPart::Charset(s) => take_if(chars, rest, hp, |c| s.contains(c)),
 
-            FormPart::Anagram(s) => {
+            FormPart::Anagram(ag) => {
                 // Match if the next len chars are an anagram of target
-                let len = s.len();
+                let len = ag.len;
                 chars.len() >= len
-                    && are_anagrams(&chars[..len], s)
+                    && ag.is_anagram(&chars[..len]).unwrap() // TODO! handle error
                     && helper(&chars[len..], rest, hp)
             }
 
@@ -226,28 +226,6 @@ fn match_equation_internal(
         } else {
             false
         }
-    }
-
-    // ASCII-only anagram check used by /abc
-    fn are_anagrams(lowercase_word: &[char], other_word: &str) -> bool {
-        if lowercase_word.len() != other_word.len() {
-            return false;
-        }
-        let mut char_counts = [0u8; 128];
-        for &c in lowercase_word {
-            if (c as usize) < 128 {
-                char_counts[c as usize] += 1;
-            }
-        }
-        for c in other_word.chars() {
-            if (c as usize) < 128 {
-                if char_counts[c as usize] == 0 {
-                    return false;
-                }
-                char_counts[c as usize] -= 1;
-            }
-        }
-        char_counts.iter().all(|&count| count == 0)
     }
 
     // === PREFILTER STEP ===
