@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::sync::LazyLock;
 
 // Character-set constants
+pub(crate) const ALPHABET_SIZE: usize = 26;
+
 pub(crate) const VOWELS: &str = "aeiouy";
 pub(crate) const CONSONANTS: &str = "bcdfghjklmnpqrstvwxz";
 pub(crate) const VARIABLE_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";

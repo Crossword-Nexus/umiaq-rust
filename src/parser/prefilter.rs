@@ -6,7 +6,7 @@ use fancy_regex::Regex;
 use crate::constraints::VarConstraints;
 use crate::errors::ParseError;
 use crate::parser::utils::char_to_num;
-use crate::umiaq_char::{CONSONANTS, NUM_POSSIBLE_VARIABLES, VOWELS};
+use crate::umiaq_char::{ALPHABET_SIZE, CONSONANTS, NUM_POSSIBLE_VARIABLES, VOWELS};
 
 use super::form::{FormPart, ParsedForm};
 
@@ -125,7 +125,7 @@ fn get_regex_str_segment(
 }
 
 // 'A' -> 0, 'B' -> 1, ..., 'Z' -> 25
-fn uc_char_to_num(c: char) -> Result<usize, ParseError> { char_to_num(c, 'A' as usize) }
+fn uc_char_to_num(c: char) -> Result<usize, ParseError> { char_to_num(c, 'A' as usize, ALPHABET_SIZE) }
 
 // Count occurrences of vars and revvars to decide capture/backref scheme.
 fn get_var_and_rev_var_counts(
