@@ -60,7 +60,7 @@ pub struct Alphagram {
 fn lc_letter_to_num(c: char) -> Result<usize, ParseError> { letter_to_num(c, 'a' as usize) }
 
 impl Alphagram {
-    // TODO? don't assume lowercase?
+    // NB: throws error if lowercase_word contains anything but lowercase letters
     fn of(lowercase_word: String) -> Result<Alphagram, ParseError> {
         let mut len = 0;
         let mut char_counts = [0u8; ALPHABET_SIZE];
@@ -242,6 +242,6 @@ mod tests {
 
     // only lowercase is allowed
     #[test] fn test_parse_form_anagram_bad_char() {
-        assert!(FormPart::anagram_of("aBc".to_string()).is_err());
+        assert!(FormPart::anagram_of("aBc".to_string()).is_err_and(|pe| pe.to_string() == "Form parsing failed: \"Illegal char: 'B'\""));
     }
 }

@@ -326,7 +326,7 @@ mod tests {
         assert_eq!(RelMask::NE, RelMask::from_str("!=").unwrap());
         assert_eq!(RelMask::LT, RelMask::from_str("<").unwrap());
         assert_eq!(RelMask::GT, RelMask::from_str(">").unwrap());
-        assert!(RelMask::from_str("INVALID123").is_err());
+        assert!(RelMask::from_str("INVALID123").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"INVALID123\""));
         assert!(RelMask::LE.allows(Ordering::Less));
         assert!(RelMask::LE.allows(Ordering::Equal));
         assert!(!RelMask::LE.allows(Ordering::Greater));
@@ -355,23 +355,23 @@ mod tests {
 
     #[test]
     fn parse_joint_len_single_var() {
-        assert!(parse_joint_len("|A|=3").is_err()); // TODO? check error in more detail
+        assert!(parse_joint_len("|A|=3").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"|A|=3\""));
     }
 
     #[test]
     fn parse_joint_len_lowercase() {
-        assert!(parse_joint_len("|Ab|=3").is_err()); // TODO? check error in more detail
+        assert!(parse_joint_len("|Ab|=3").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"|Ab|=3\""));
     }
 
     #[test]
     fn parse_joint_len_start_with_pipe() {
-        assert!(parse_joint_len("foo |AB|=3").is_err()); // TODO? check error in more detail
+        assert!(parse_joint_len("foo |AB|=3").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"foo |AB|=3\""));
     }
 
     #[test]
     fn parse_joint_len_end_with_number() {
         // Reject noise after length constraint
-        assert!(parse_joint_len("|AB|=3x").is_err()); // TODO? check error in more detail
+        assert!(parse_joint_len("|AB|=3x").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"|AB|=3x\""));
     }
 
     #[test]
