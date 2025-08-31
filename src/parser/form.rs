@@ -44,7 +44,7 @@ impl FormPart {
         }
     }
 
-    pub(crate) fn anagram_of(s: String) -> Result<FormPart, crate::errors::ParseError> {
+    pub(crate) fn anagram_of(s: String) -> Result<FormPart, ParseError> {
         Ok(FormPart::Anagram(Alphagram::of(s)?))
     }
 }
@@ -61,7 +61,7 @@ fn lc_letter_to_num(c: char) -> Result<usize, ParseError> { letter_to_num(c, 'a'
 
 impl Alphagram {
     // TODO? don't assume lowercase?
-    fn of(lowercase_word: String) -> Result<Alphagram, crate::errors::ParseError> {
+    fn of(lowercase_word: String) -> Result<Alphagram, ParseError> {
         let mut len = 0;
         let mut char_counts = [0u8; ALPHABET_SIZE];
         for c in lowercase_word.chars() {
@@ -73,7 +73,7 @@ impl Alphagram {
         Ok(Alphagram { char_counts, as_string: lowercase_word, len })
     }
 
-    pub(crate) fn is_anagram(&self, other_word: &[char]) -> Result<bool, crate::errors::ParseError> {
+    pub(crate) fn is_anagram(&self, other_word: &[char]) -> Result<bool, ParseError> {
         if self.len != other_word.len() {
             return Ok(false);
         }
@@ -140,7 +140,7 @@ impl<'a> IntoIterator for &'a ParsedForm {
 /// Parse a form string into a `ParsedForm` object.
 ///
 /// Walks the input, consuming tokens one at a time with `equation_part`.
-pub fn parse_form(raw_form: &str) -> Result<ParsedForm, crate::errors::ParseError> {
+pub fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
     let mut rest = raw_form;
     let mut parts = Vec::new();
 
