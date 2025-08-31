@@ -5,8 +5,8 @@ use fancy_regex::Regex;
 
 use crate::constraints::VarConstraints;
 use crate::errors::ParseError;
-use crate::parser::utils::char_to_num;
-use crate::umiaq_char::{ALPHABET_SIZE, CONSONANTS, NUM_POSSIBLE_VARIABLES, VOWELS};
+use crate::parser::utils::letter_to_num;
+use crate::umiaq_char::{CONSONANTS, NUM_POSSIBLE_VARIABLES, VOWELS};
 
 use super::form::{FormPart, ParsedForm};
 
@@ -110,7 +110,7 @@ fn get_regex_str_segment(
     backreference_index: &mut usize,
     c: char,
 ) -> Result<String, ParseError> {
-    let char_as_num = uc_char_to_num(c)?;
+    let char_as_num = uc_letter_to_num(c)?;
     let pushed_str = if var_to_backreference_num[char_as_num] != 0 {
         &format!("\\{}", var_to_backreference_num[char_as_num])
     } else if var_counts[char_as_num] > 1 {
@@ -125,7 +125,7 @@ fn get_regex_str_segment(
 }
 
 // 'A' -> 0, 'B' -> 1, ..., 'Z' -> 25
-fn uc_char_to_num(c: char) -> Result<usize, ParseError> { char_to_num(c, 'A' as usize, ALPHABET_SIZE) }
+fn uc_letter_to_num(c: char) -> Result<usize, ParseError> { letter_to_num(c, 'A' as usize) }
 
 // Count occurrences of vars and revvars to decide capture/backref scheme.
 fn get_var_and_rev_var_counts(
@@ -135,8 +135,8 @@ fn get_var_and_rev_var_counts(
     let mut rev_var_counts = [0; NUM_POSSIBLE_VARIABLES];
     for part in parts {
         match part {
-            FormPart::Var(c) => var_counts[uc_char_to_num(*c)?] += 1,
-            FormPart::RevVar(c) => rev_var_counts[uc_char_to_num(*c)?] += 1,
+            FormPart::Var(c) => var_counts[uc_letter_to_num(*c)?] += 1,
+            FormPart::RevVar(c) => rev_var_counts[uc_letter_to_num(*c)?] += 1,
             _ => (),
         }
     }
@@ -181,7 +181,7 @@ pub(crate) fn form_to_regex_str_with_constraints(
     for part in parts {
         match part {
             FormPart::Var(c) => {
-                let idx = uc_char_to_num(*c)?;
+                let idx = uc_letter_to_num(*c)?;
                 let occurs_many = var_counts[idx] > 1;
                 let already_has_group = var_to_backreference_num[idx] != 0;
 
@@ -211,7 +211,7 @@ pub(crate) fn form_to_regex_str_with_constraints(
 
             FormPart::RevVar(c) => {
                 // Keep existing behavior for ~A
-                let idx = uc_char_to_num(*c)?;
+                let idx = uc_letter_to_num(*c)?;
                 let occurs_many = rev_var_counts[idx] > 1;
                 let already_has_group = rev_var_to_backreference_num[idx] != 0;
 
