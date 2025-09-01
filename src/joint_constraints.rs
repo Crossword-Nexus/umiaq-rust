@@ -42,12 +42,16 @@ impl RelMask {
         };
         (self.mask & bit) != 0
     }
+}
+
+impl FromStr for RelMask {
+    type Err = ParseError;
 
     /// Parse an operator token into a `RelMask`.
     /// Accepted: "=", "!=", "<=", ">=", "<", ">".
-    pub(crate) fn from_str(op: &str) -> Result<Self, ParseError> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(
-            match ComparisonOperator::from_str(op)? {
+            match ComparisonOperator::from_str(s)? {
                 ComparisonOperator::EQ => Self::EQ,
                 ComparisonOperator::NE => Self::NE,
                 ComparisonOperator::LE => Self::LE,
