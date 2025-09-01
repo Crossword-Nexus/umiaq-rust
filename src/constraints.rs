@@ -2,7 +2,7 @@
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use crate::parser::{parse_form, ParsedForm};
+use crate::parser::ParsedForm;
 
 /// A collection of constraints for variables in a pattern-matching equation.
 ///
@@ -103,7 +103,7 @@ impl VarConstraint {
     }
     /// Get the parsed form
     pub(crate) fn get_parsed_form(&self) -> Option<&ParsedForm> {
-        self.form.as_deref().map(|f| self.parsed_form.get_or_init(|| parse_form(f).unwrap()))
+        self.form.as_deref().map(|f| self.parsed_form.get_or_init(|| f.parse::<ParsedForm>().unwrap()))
     }
 
     /// Normalize this constraint into concrete bounds.

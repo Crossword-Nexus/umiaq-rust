@@ -419,7 +419,7 @@ mod tests {
         let form = pf(vec![
             FormPart::Lit("AB".into()),
             FormPart::Dot,
-            FormPart::anagram_of("xy".into()).unwrap(),
+            FormPart::anagram_of("xy").unwrap(),
         ]);
         let vcs = VarConstraints::default();
         let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
