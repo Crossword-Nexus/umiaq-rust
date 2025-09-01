@@ -13,3 +13,4 @@ mod errors;
 // Compile the wasm glue only when targeting wasm32.
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
+mod comparison_operator;

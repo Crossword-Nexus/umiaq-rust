@@ -3,7 +3,9 @@ use crate::parser::parse_form;
 use fancy_regex::Regex;
 use std::cmp::Reverse;
 use std::collections::HashSet;
+use std::str::FromStr;
 use std::sync::LazyLock;
+use crate::comparison_operator::ComparisonOperator;
 use crate::errors::ParseError;
 use crate::umiaq_char::UmiaqChar;
 
@@ -233,17 +235,16 @@ impl Patterns {
         for form in &forms {
             if let Some(cap) = LEN_CMP_RE.captures(form).unwrap() {
                 let var = cap[1].chars().next().unwrap();
-                let op  = &cap[2];
+                let op  = ComparisonOperator::from_str(&cap[2]).unwrap(); // TODO better error handling
                 let n   = cap[3].parse::<usize>().unwrap();
                 let vc  = self.var_constraints.ensure(var);
 
-                // TODO DRY w/RelMask
                 match op {
-                    "="  => vc.set_exact_len(n),
-                    ">=" => vc.min_length = Some(n),
-                    ">"  => vc.min_length = n.checked_add(1),   // n+1
-                    "<=" => vc.max_length = Some(n),
-                    "<"  => vc.max_length = n.checked_sub(1),   // n-1 (None if n==0)
+                    ComparisonOperator::EQ  => vc.set_exact_len(n),
+                    ComparisonOperator::GE => vc.min_length = Some(n),
+                    ComparisonOperator::GT  => vc.min_length = n.checked_add(1),   // n+1
+                    ComparisonOperator::LE => vc.max_length = Some(n),
+                    ComparisonOperator::LT  => vc.max_length = n.checked_sub(1),   // n-1 (None if n==0)
                     _    => {}
                 }
             } else if let Some(cap) = NEQ_RE.captures(form).unwrap() {
