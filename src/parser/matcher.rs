@@ -259,11 +259,10 @@ struct HelperParams<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::form::parse_form;
 
     #[test]
     fn test_palindrome_matching() {
-        let patt = parse_form("A~A").unwrap();
+        let patt = "A~A".parse::<ParsedForm>().unwrap();
         assert!(match_equation_exists("noon", &patt, None, JointConstraints::default()));
         assert!(!match_equation_exists("radar", &patt, None, JointConstraints::default()));
         assert!(!match_equation_exists("test", &patt, None, JointConstraints::default()));
@@ -271,7 +270,7 @@ mod tests {
 
     #[test]
     fn test_literal_matching() {
-        let patt = parse_form("abc").unwrap();
+        let patt = "abc".parse::<ParsedForm>().unwrap();
         assert!(match_equation_exists("abc", &patt, None, JointConstraints::default()));
         assert!(!match_equation_exists("xyz", &patt, None, JointConstraints::default()));
     }

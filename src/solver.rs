@@ -3,7 +3,6 @@ use crate::errors::ParseError;
 use crate::joint_constraints::{propagate_joint_to_var_bounds, JointConstraints};
 use crate::parser::{
     match_equation_all,
-    parse_form,
     ParsedForm,
 };
 use crate::parser::prefilter::build_prefilter_regex;
@@ -391,7 +390,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
-    let patterns = Patterns::of(input);
+    let patterns = input.parse::<Patterns>().unwrap();
 
     // 2. Build per-pattern lookup key specs (shared vars) for the join
     let lookup_keys: Vec<Option<HashSet<char>>> =
@@ -410,7 +409,10 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     //    These are index-aligned with `patterns`.
     let mut parsed_forms: Vec<_> = patterns
         .iter()
-        .map(|p| parse_form(&p.raw_string))
+        .map(|p| {
+            let raw_form = &p.raw_string;
+            raw_form.parse::<ParsedForm>()
+        })
         .collect::<Result<_, _>>()?;
 
     // 5. Pull out the per-variable constraints collected from the equation.

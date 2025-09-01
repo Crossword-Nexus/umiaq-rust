@@ -275,11 +275,10 @@ pub(crate) fn build_prefilter_regex(
 mod tests {
     use super::*;
     use crate::constraints::{VarConstraint, VarConstraints};
-    use crate::parser::form::parse_form;
 
     #[test]
     fn test_constraint_prefilter_string_single_use() {
-        let pf = parse_form("A").unwrap();
+        let pf = "A".parse::<ParsedForm>().unwrap();
         let mut vcs = VarConstraints::default();
         let mut vc = VarConstraint::default();
         vc.form = Some("x*a".to_string());
@@ -290,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_prefilter_upgrade_prunes_nonmatching_words() {
-        let mut pf = parse_form("A").unwrap();
+        let mut pf = "A".parse::<ParsedForm>().unwrap();
         let mut vcs = VarConstraints::default();
         let mut vc = VarConstraint::default();
         vc.form = Some("x*a".to_string());

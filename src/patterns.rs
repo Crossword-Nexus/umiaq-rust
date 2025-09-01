@@ -1,5 +1,4 @@
 use crate::constraints::{VarConstraint, VarConstraints};
-use crate::parser::parse_form;
 use fancy_regex::Regex;
 use std::cmp::Reverse;
 use std::collections::HashSet;
@@ -7,6 +6,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 use crate::comparison_operator::ComparisonOperator;
 use crate::errors::ParseError;
+use crate::parser::ParsedForm;
 use crate::umiaq_char::UmiaqChar;
 
 /// The character that separates forms, in an equation
@@ -110,7 +110,7 @@ impl Pattern {
     fn create(string: impl Into<String>, original_index: usize) -> Self {
         let raw_string = string.into();
         // Determine if the pattern is deterministic
-        let deterministic = parse_form(&raw_string)
+        let deterministic = &raw_string.parse::<ParsedForm>()
             .map(|parts| { parts.iter().all(|p| { p.is_deterministic() }) })
             .unwrap_or(false);
 
@@ -124,7 +124,7 @@ impl Pattern {
             raw_string,
             lookup_keys: None,
             original_index,
-            is_deterministic: deterministic,
+            is_deterministic: *deterministic,
             variables: vars,
         }
     }
@@ -196,15 +196,6 @@ pub struct Patterns {
 }
 
 impl Patterns {
-    pub(crate) fn of(input: &str) -> Self {
-        let mut patterns = Patterns::default();
-        patterns.make_list(input);
-        patterns.ordered_list = patterns.ordered_partitions();
-        // populate original_to_ordered and ordered_to_original
-        patterns.build_order_maps();
-        patterns
-    }
-
     fn build_order_maps(&mut self) {
         let n = self.list.len();
         self.ordered_to_original = self
@@ -280,7 +271,7 @@ impl Patterns {
                 // Specifically, things like |AB|=7 should not be picked up here
                 // TODO do we check for those separately?
                 // TODO avoid calling parse_form twice on the same form? (here and in solve_equation)
-                if let Ok(_parsed) = parse_form(form) {
+                if let Ok(_parsed) = form.parse::<ParsedForm>() {
                     self.list.push(Pattern::create(*form, next_form_ix));
                     next_form_ix += 1;
                 } else {
@@ -380,6 +371,19 @@ impl Patterns {
     */
 }
 
+impl FromStr for Patterns {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut patterns = Patterns::default();
+        patterns.make_list(s);
+        patterns.ordered_list = patterns.ordered_partitions();
+        // populate original_to_ordered and ordered_to_original
+        patterns.build_order_maps();
+        Ok(patterns)
+    }
+}
+
 // TODO? do this via regex?
 // e.g., A=(3-:x*)
 fn get_complex_constraint(form: &&str) -> Result<(char, VarConstraint), ParseError> {
@@ -469,7 +473,7 @@ mod tests {
 
     #[test]
     fn test_basic_pattern_and_constraints() {
-        let patterns = Patterns::of("AB;|A|=3;!=AB;B=(2:b*)");
+        let patterns = "AB;|A|=3;!=AB;B=(2:b*)".parse::<Patterns>().unwrap();
 
         // Test raw pattern list
         assert_eq!(vec!["AB".to_string()], patterns.list.iter().map(|p| p.raw_string.clone()).collect::<Vec<_>>());
@@ -499,7 +503,7 @@ mod tests {
 
     #[test]
     fn test_complex_re_len_only() {
-        let patterns = Patterns::of("A;A=(6)");
+        let patterns = "A;A=(6)".parse::<Patterns>().unwrap();
 
         let expected = VarConstraint {
             min_length: Some(6),
@@ -512,7 +516,7 @@ mod tests {
 
     #[test]
     fn test_complex_re_lit_only() {
-        let patterns = Patterns::of("A;A=(g*)");
+        let patterns = "A;A=(g*)".parse::<Patterns>().unwrap();
 
         let expected = VarConstraint {
             min_length: None,
@@ -524,7 +528,7 @@ mod tests {
     }
     #[test]
     fn test_complex_re() {
-        let patterns = Patterns::of("A;A=(3-4:x*)");
+        let patterns = "A;A=(3-4:x*)".parse::<Patterns>().unwrap();
 
         let expected = VarConstraint {
             min_length: Some(3),
@@ -537,7 +541,7 @@ mod tests {
 
     #[test]
     fn test_complex_re_unbounded_max_len() {
-        let patterns = Patterns::of("A;A=(3-:x*)");
+        let patterns = "A;A=(3-:x*)".parse::<Patterns>().unwrap();
 
         let expected = VarConstraint {
             min_length: Some(3),
@@ -550,7 +554,7 @@ mod tests {
 
     #[test]
     fn test_complex_re_unbounded_min_len() {
-        let patterns = Patterns::of("A;A=(-4:x*)");
+        let patterns = "A;A=(-4:x*)".parse::<Patterns>().unwrap();
 
         let expected = VarConstraint {
             min_length: None,
@@ -563,7 +567,7 @@ mod tests {
 
     #[test]
     fn test_complex_re_exact_len() {
-        let patterns = Patterns::of("A;A=(6:x*)");
+        let patterns = "A;A=(6:x*)".parse::<Patterns>().unwrap();
 
         let expected = VarConstraint {
             min_length: Some(6),
@@ -577,7 +581,7 @@ mod tests {
     #[test]
     fn test_ordered_partitioning() {
         let input = "ABC;BC;C";
-        let patterns = Patterns::of(input);
+        let patterns = input.parse::<Patterns>().unwrap();
 
         let vars: Vec<HashSet<char>> = patterns.ordered_list.iter().map(|p| p.variables.clone()).collect();
 
@@ -597,7 +601,7 @@ mod tests {
 
     #[test]
     fn test_len_gt() {
-        let patterns = Patterns::of("|A|>4;A");
+        let patterns = "|A|>4;A".parse::<Patterns>().unwrap();
         let a = patterns.var_constraints.get('A').unwrap();
         assert_eq!(a.min_length, Some(5));
         assert_eq!(a.max_length, None);
@@ -605,7 +609,7 @@ mod tests {
 
     #[test]
     fn test_len_ge() {
-        let patterns = Patterns::of("|A|>=4;A");
+        let patterns = "|A|>=4;A".parse::<Patterns>().unwrap();
         let a = patterns.var_constraints.get('A').unwrap();
         assert_eq!(a.min_length, Some(4));
         assert_eq!(a.max_length, None);
@@ -613,7 +617,7 @@ mod tests {
 
     #[test]
     fn test_len_lt() {
-        let patterns = Patterns::of("|A|<4;A");
+        let patterns = "|A|<4;A".parse::<Patterns>().unwrap();
         let a = patterns.var_constraints.get('A').unwrap();
         // For <4, max becomes 3; <1 would become None via checked_sub
         assert_eq!(a.min_length, None);
@@ -622,7 +626,7 @@ mod tests {
 
     #[test]
     fn test_len_le() {
-        let patterns = Patterns::of("|A|<=4;A");
+        let patterns = "|A|<=4;A".parse::<Patterns>().unwrap();
         let a = patterns.var_constraints.get('A').unwrap();
         assert_eq!(a.min_length, None);
         assert_eq!(a.max_length, Some(4));
@@ -631,7 +635,7 @@ mod tests {
     #[test]
     fn test_len_equality_then_complex_form_only() {
         // Equality first, then a complex constraint that only specifies a form
-        let patterns = Patterns::of("A;|A|=7;A=(x*a)");
+        let patterns = "A;|A|=7;A=(x*a)".parse::<Patterns>().unwrap();
         let a = patterns.var_constraints.get('A').unwrap().clone();
 
         let expected = VarConstraint {

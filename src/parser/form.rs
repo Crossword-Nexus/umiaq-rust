@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use crate::umiaq_char::{ALPHABET_SIZE, LITERAL_CHARS, VARIABLE_CHARS};
 use fancy_regex::Regex;
 use nom::{
@@ -44,8 +45,8 @@ impl FormPart {
         }
     }
 
-    pub(crate) fn anagram_of(s: String) -> Result<FormPart, ParseError> {
-        Ok(FormPart::Anagram(Alphagram::of(s)?))
+    pub(crate) fn anagram_of(s: &str) -> Result<FormPart, ParseError> {
+        Ok(FormPart::Anagram(s.parse::<Alphagram>()?))
     }
 }
 
@@ -60,19 +61,6 @@ pub struct Alphagram {
 fn lc_letter_to_num(c: char) -> Result<usize, ParseError> { letter_to_num(c, 'a' as usize) }
 
 impl Alphagram {
-    // NB: throws error if lowercase_word contains anything but lowercase letters
-    fn of(lowercase_word: String) -> Result<Alphagram, ParseError> {
-        let mut len = 0;
-        let mut char_counts = [0u8; ALPHABET_SIZE];
-        for c in lowercase_word.chars() {
-            let c_as_num = lc_letter_to_num(c)?;
-            char_counts[c_as_num] += 1;
-            len += 1;
-        }
-
-        Ok(Alphagram { char_counts, as_string: lowercase_word, len })
-    }
-
     pub(crate) fn is_anagram(&self, other_word: &[char]) -> Result<bool, ParseError> {
         if self.len != other_word.len() {
             return Ok(false);
@@ -88,6 +76,23 @@ impl Alphagram {
         }
 
         Ok(char_counts.iter().all(|&count| count == 0))
+    }
+}
+
+impl FromStr for Alphagram {
+    type Err = ParseError;
+
+    // NB: throws error if lowercase_word contains anything but lowercase letters
+    fn from_str(lowercase_word: &str) -> Result<Self, Self::Err> {
+        let mut len = 0;
+        let mut char_counts = [0u8; ALPHABET_SIZE];
+        for c in lowercase_word.chars() {
+            let c_as_num = lc_letter_to_num(c)?;
+            char_counts[c_as_num] += 1;
+            len += 1;
+        }
+
+        Ok(Alphagram { char_counts, as_string: lowercase_word.to_string(), len })
     }
 }
 
@@ -137,28 +142,36 @@ impl<'a> IntoIterator for &'a ParsedForm {
     fn into_iter(self) -> Self::IntoIter { self.parts.iter() }
 }
 
-/// Parse a form string into a `ParsedForm` object.
-///
-/// Walks the input, consuming tokens one at a time with `equation_part`.
-pub fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
-    let mut rest = raw_form;
-    let mut parts = Vec::new();
+impl FromStr for ParsedForm {
+    type Err = ParseError;
 
-    while !rest.is_empty() {
-        match equation_part(rest) {
-            Ok((next, part)) => {
-                parts.push(part);
-                rest = next;
+    /// Parse a form string into a `ParsedForm` object.
+    ///
+    /// Walks the input, consuming tokens one at a time with `equation_part`.
+    fn from_str(raw_form: &str) -> Result<Self, Self::Err> {
+        let mut rest = raw_form;
+        let mut parts = Vec::new();
+
+        while !rest.is_empty() {
+            match equation_part(rest) {
+                Ok((next, part)) => {
+                    parts.push(part);
+                    rest = next;
+                }
+                Err(_) => return Err(ParseFailure { s: rest.to_string() }),
             }
-            Err(_) => return Err(ParseFailure { s: rest.to_string() }),
         }
-    }
 
-    if parts.is_empty() {
-        return Err(ParseError::EmptyForm);
-    }
+        if parts.is_empty() {
+            return Err(ParseError::EmptyForm);
+        }
 
-    ParsedForm::of(parts)
+        ParsedForm::of(parts)
+    }
+}
+
+pub fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
+    raw_form.parse::<ParsedForm>()
 }
 
 // === Token parsers ===
@@ -195,7 +208,7 @@ fn charset(input: &str) -> IResult<&str, FormPart> {
 fn anagram(input: &str) -> IResult<&str, FormPart> {
     let (input, _) = tag("/")(input)?;
     let (input, chars) = many1(one_of(LITERAL_CHARS)).parse(input)?;
-    Ok((input, FormPart::anagram_of(chars.into_iter().collect()).unwrap())) // TODO handle error (better than unwrap)
+    Ok((input, FormPart::anagram_of(&chars.into_iter().collect::<String>()).unwrap())) // TODO handle error (better than unwrap)
 }
 
 fn equation_part(input: &str) -> IResult<&str, FormPart> {
@@ -207,41 +220,41 @@ mod tests {
     use super::*;
 
     #[test] fn test_empty_form_error() {
-        assert!(matches!(parse_form("").unwrap_err(), ParseError::EmptyForm));
+        assert!(matches!("".parse::<ParsedForm>().unwrap_err(), ParseError::EmptyForm));
     }
 
     #[test] fn test_parse_failure_error() {
-        assert!(matches!(parse_form("[").unwrap_err(), ParseFailure { .. }));
+        assert!(matches!("[".parse::<ParsedForm>().unwrap_err(), ParseFailure { .. }));
     }
 
     #[test] fn test_parse_form_basic() {
-        let parsed_form = parse_form("abc").unwrap();
+        let parsed_form = "abc".parse::<ParsedForm>().unwrap();
         assert_eq!(vec![FormPart::Lit("abc".to_string())], parsed_form.parts);
     }
 
     #[test] fn test_parse_form_variable() {
-        assert_eq!(vec![FormPart::Var('A')], parse_form("A").unwrap().parts);
+        assert_eq!(vec![FormPart::Var('A')], "A".parse::<ParsedForm>().unwrap().parts);
     }
 
     #[test] fn test_parse_form_reversed_variable() {
-        assert_eq!(vec![FormPart::RevVar('A')], parse_form("~A").unwrap().parts);
+        assert_eq!(vec![FormPart::RevVar('A')], "~A".parse::<ParsedForm>().unwrap().parts);
     }
 
     #[test] fn test_parse_form_wildcards() {
-        let parts = parse_form(".*@#").unwrap().parts;
+        let parts = ".*@#".parse::<ParsedForm>().unwrap().parts;
         assert_eq!(vec![FormPart::Dot, FormPart::Star, FormPart::Vowel, FormPart::Consonant], parts);
     }
 
     #[test] fn test_parse_form_charset() {
-        assert_eq!(vec![FormPart::Charset(vec!['a','b','c'])], parse_form("[abc]").unwrap().parts);
+        assert_eq!(vec![FormPart::Charset(vec!['a','b','c'])], "[abc]".parse::<ParsedForm>().unwrap().parts);
     }
 
     #[test] fn test_parse_form_anagram() {
-        assert_eq!(vec![FormPart::anagram_of("abc".to_string()).unwrap()], parse_form("/abc").unwrap().parts);
+        assert_eq!(vec![FormPart::anagram_of("abc").unwrap()], "/abc".parse::<ParsedForm>().unwrap().parts);
     }
 
     // only lowercase is allowed
     #[test] fn test_parse_form_anagram_bad_char() {
-        assert!(FormPart::anagram_of("aBc".to_string()).is_err_and(|pe| pe.to_string() == "Form parsing failed: \"Illegal char: 'B'\""));
+        assert!(FormPart::anagram_of("aBc").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"Illegal char: 'B'\""));
     }
 }
