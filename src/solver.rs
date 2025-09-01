@@ -384,7 +384,7 @@ fn recursive_join(
 ///
 /// Will return a `ParseError` if a form cannot be parsed.
 // TODO? add more detail in Errors section
-pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: usize) -> Result<Vec<Vec<Bindings>>, ParseError> {
+pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: usize) -> Result<Vec<Vec<Bindings>>, Box<ParseError>> {
     // 0. Make a hash set version of our word list
     let word_list_as_set: HashSet<&str> = word_list.iter().copied().collect();
 

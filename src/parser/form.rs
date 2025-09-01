@@ -45,7 +45,7 @@ impl FormPart {
         }
     }
 
-    pub(crate) fn anagram_of(s: &str) -> Result<FormPart, ParseError> {
+    pub(crate) fn anagram_of(s: &str) -> Result<FormPart, Box<ParseError>> {
         Ok(FormPart::Anagram(s.parse::<Alphagram>()?))
     }
 }
@@ -58,10 +58,10 @@ pub struct Alphagram {
 }
 
 // 'a' -> 0, 'b' -> 1, ..., 'z' -> 25
-fn lc_letter_to_num(c: char) -> Result<usize, ParseError> { letter_to_num(c, 'a' as usize) }
+fn lc_letter_to_num(c: char) -> Result<usize, Box<ParseError>> { letter_to_num(c, 'a' as usize) }
 
 impl Alphagram {
-    pub(crate) fn is_anagram(&self, other_word: &[char]) -> Result<bool, ParseError> {
+    pub(crate) fn is_anagram(&self, other_word: &[char]) -> Result<bool, Box<ParseError>> {
         if self.len != other_word.len() {
             return Ok(false);
         }
@@ -80,7 +80,7 @@ impl Alphagram {
 }
 
 impl FromStr for Alphagram {
-    type Err = ParseError;
+    type Err = Box<ParseError>;
 
     // NB: throws error if lowercase_word contains anything but lowercase letters
     fn from_str(lowercase_word: &str) -> Result<Self, Self::Err> {
@@ -104,7 +104,7 @@ pub struct ParsedForm {
 }
 
 impl ParsedForm {
-    fn of(parts: Vec<FormPart>) -> Result<Self, ParseError> {
+    fn of(parts: Vec<FormPart>) -> Result<Self, Box<ParseError>> {
         // Build the base regex string from tokens only (no var-constraints).
         let regex_str = form_to_regex_str(&parts)?;
         let anchored = format!("^{regex_str}$");
@@ -143,7 +143,7 @@ impl<'a> IntoIterator for &'a ParsedForm {
 }
 
 impl FromStr for ParsedForm {
-    type Err = ParseError;
+    type Err = Box<ParseError>;
 
     /// Parse a form string into a `ParsedForm` object.
     ///
@@ -158,19 +158,19 @@ impl FromStr for ParsedForm {
                     parts.push(part);
                     rest = next;
                 }
-                Err(_) => return Err(ParseFailure { s: rest.to_string() }),
+                Err(_) => return Err(Box::new(ParseFailure { s: rest.to_string() })),
             }
         }
 
         if parts.is_empty() {
-            return Err(ParseError::EmptyForm);
+            return Err(Box::new(ParseError::EmptyForm));
         }
 
         ParsedForm::of(parts)
     }
 }
 
-pub fn parse_form(raw_form: &str) -> Result<ParsedForm, ParseError> {
+pub fn parse_form(raw_form: &str) -> Result<ParsedForm, Box<ParseError>> {
     raw_form.parse::<ParsedForm>()
 }
 
@@ -220,11 +220,11 @@ mod tests {
     use super::*;
 
     #[test] fn test_empty_form_error() {
-        assert!(matches!("".parse::<ParsedForm>().unwrap_err(), ParseError::EmptyForm));
+        assert!(matches!(*"".parse::<ParsedForm>().unwrap_err(), ParseError::EmptyForm));
     }
 
     #[test] fn test_parse_failure_error() {
-        assert!(matches!("[".parse::<ParsedForm>().unwrap_err(), ParseFailure { .. }));
+        assert!(matches!(*"[".parse::<ParsedForm>().unwrap_err(), ParseFailure { .. }));
     }
 
     #[test] fn test_parse_form_basic() {

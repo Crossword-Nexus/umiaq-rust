@@ -384,15 +384,15 @@ impl FromStr for Patterns {
 
 // TODO? do this via regex?
 // e.g., A=(3-:x*)
-fn get_complex_constraint(form: &str) -> Result<(char, VarConstraint), ParseError> {
+fn get_complex_constraint(form: &str) -> Result<(char, VarConstraint), Box<ParseError>> {
     let top_parts = form.split('=').collect::<Vec<_>>();
     if top_parts.len() != 2 {
-        return Err(ParseError::InvalidComplexConstraint { str: format!("expected 1 equals sign (not {})", top_parts.len()) });
+        return Err(Box::new(ParseError::InvalidComplexConstraint { str: format!("expected 1 equals sign (not {})", top_parts.len()) }));
     }
 
     let var_str = top_parts[0];
     if var_str.len() != 1 {
-        return Err(ParseError::InvalidComplexConstraint { str: format!("expected 1 character (as the variable) to the left of \"=\" (not {})", var_str.len()) });
+        return Err(Box::new(ParseError::InvalidComplexConstraint { str: format!("expected 1 character (as the variable) to the left of \"=\" (not {})", var_str.len()) }));
     }
 
     let var = var_str.chars().next().unwrap();
@@ -421,7 +421,7 @@ fn get_complex_constraint(form: &str) -> Result<(char, VarConstraint), ParseErro
                 Err(_) => (None, Some(constraint_halves[0]))
             }
         }
-        _ => return Err(ParseError::InvalidComplexConstraint { str: format!("too many colons--0 or 1 expected (not {})", constraint_halves.len() - 1) })
+        _ => return Err(Box::new(ParseError::InvalidComplexConstraint { str: format!("too many colons--0 or 1 expected (not {})", constraint_halves.len() - 1) }))
     };
 
     let vc = VarConstraint {
@@ -454,10 +454,10 @@ impl<'a> IntoIterator for &'a Patterns {
 
 /// Parses a string like "3-5", "-5", "3-", or "3" into min and max length values.
 /// Returns `((min, max))` where each is an `Option<usize>`.
-fn parse_length_range(input: &str) -> Result<(Option<usize>, Option<usize>), ParseError> {
+fn parse_length_range(input: &str) -> Result<(Option<usize>, Option<usize>), Box<ParseError>> {
     let parts: Vec<_> = input.split('-').map(|part| part.parse::<usize>().ok()).collect();
     if (parts.len() == 1 && parts[0].is_none()) || parts.len() > 2 {
-        return Err(ParseError::InvalidLengthRange { input: input.to_string() })
+        return Err(Box::new(ParseError::InvalidLengthRange { input: input.to_string() }))
     }
     let min = *parts.first().unwrap();
     let max = *parts.last().unwrap();
@@ -593,8 +593,8 @@ mod tests {
         assert_eq!((None, Some(3)), parse_length_range("-3").unwrap());
         assert_eq!((Some(1), None), parse_length_range("1-").unwrap());
         assert_eq!((Some(7), Some(7)), parse_length_range("7").unwrap());
-        assert!(matches!(parse_length_range("").unwrap_err(), ParseError::InvalidLengthRange { input } if input == "" ));
-        assert!(matches!(parse_length_range("1-2-3").unwrap_err(), ParseError::InvalidLengthRange { input } if input == "1-2-3" ));
+        assert!(matches!(*parse_length_range("").unwrap_err(), ParseError::InvalidLengthRange { input } if input == "" ));
+        assert!(matches!(*parse_length_range("1-2-3").unwrap_err(), ParseError::InvalidLengthRange { input } if input == "1-2-3" ));
     }
 
     #[test]
