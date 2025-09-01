@@ -123,7 +123,7 @@ fn match_equation_internal(
         match first {
             FormPart::Lit(s) => {
                 // Literal match (case-insensitive, stored lowercase)
-                is_prefix(s, &chars, rest, hp)
+                is_prefix(s, chars, rest, hp)
             }
             FormPart::Star => {
                 // Zero-or-more wildcard; try all possible splits
@@ -147,7 +147,7 @@ fn match_equation_internal(
             FormPart::Var(var_name) | FormPart::RevVar(var_name) => {
                 if let Some(bound_val) = hp.bindings.get(*var_name) {
                     // Already bound: must match exactly
-                    is_prefix(&get_reversed_or_not(first, bound_val), &chars, rest, hp)
+                    is_prefix(&get_reversed_or_not(first, bound_val), chars, rest, hp)
                 } else {
                     // Not bound yet: try binding to all possible lengths
                     // To prune the search space, apply length constraints up front
@@ -210,7 +210,7 @@ fn match_equation_internal(
     /// Returns true if `prefix` is a prefix of `chars`
     fn is_prefix(
         prefix: &str,
-        chars: &&[char],
+        chars: &[char],
         rest: &[FormPart],
         helper_params: &mut HelperParams,
     ) -> bool {
