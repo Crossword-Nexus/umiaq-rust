@@ -1,4 +1,6 @@
 use std::io;
+use std::num::ParseIntError;
+use crate::errors::ParseError::ParseFailure;
 
 /// Custom error type for parsing operations
 #[derive(Debug, thiserror::Error)]
@@ -14,12 +16,24 @@ pub enum ParseError {
     #[error("{str}")]
     InvalidComplexConstraint { str: String },
     #[error("int-parsing error: {0}")]
-    ParseIntError(#[from] std::num::ParseIntError),
+    ParseIntError(#[from] ParseIntError),
 }
 
 impl From<ParseError> for io::Error {
     fn from(pe: ParseError) -> Self {
         // String version is the least fragile (no Send/Sync bounds issues)
         io::Error::new(io::ErrorKind::InvalidInput, pe.to_string())
+    }
+}
+
+impl From<ParseIntError> for Box<ParseError> {
+    fn from(pie: ParseIntError) -> Self {
+        ParseFailure { s: pie.to_string() }.into()
+    }
+}
+
+impl From<Box<fancy_regex::Error>> for Box<ParseError> {
+    fn from(e: Box<fancy_regex::Error>) -> Self {
+        ParseFailure { s: (*e).to_string() }.into()
     }
 }

@@ -140,7 +140,7 @@ static JOINT_LEN_RE: LazyLock<Regex> =
 ///  - `VARS`  : at least **two** ASCII uppercase letters (A–Z).
 ///  - `OP`    : one of `<=`, `>=`, `==`, `!=`, `<`, `>`, `=` (two-char ops matched first).
 ///  - `NUMBER`: one or more ASCII digits (base 10).
-fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
+fn parse_joint_len(expr: &str) -> Result<JointConstraint, Box<ParseError>> {
     if let Ok(Some(captures)) = JOINT_LEN_RE.captures(expr) {
         let vars_match = captures.name("vars").ok_or(ParseFailure { s: expr.to_string() })?;
         let target_match = captures.name("len").ok_or(ParseFailure { s: expr.to_string() })?;
@@ -152,7 +152,7 @@ fn parse_joint_len(expr: &str) -> Result<JointConstraint, ParseError> {
             rel: RelMask::from_str(rel_mask_str_match.as_str())?
         })
     } else {
-        Err(ParseFailure { s: expr.to_string() })
+        Err(Box::new(ParseFailure { s: expr.to_string() }))
     }
 }
 

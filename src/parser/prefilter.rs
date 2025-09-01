@@ -26,7 +26,7 @@ use super::form::{FormPart, ParsedForm};
 static REGEX_CACHE: OnceLock<Mutex<HashMap<String, Regex>>> = OnceLock::new();
 
 /// Return a compiled `Regex` for `pattern`, caching the result.
-pub(crate) fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
+pub(crate) fn get_regex(pattern: &str) -> Result<Regex, Box<fancy_regex::Error>> {
     let cache = REGEX_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
 
     if let Some(re) = cache.lock().unwrap().get(pattern).cloned() {
@@ -49,7 +49,7 @@ pub(crate) fn get_regex(pattern: &str) -> Result<Regex, fancy_regex::Error> {
 /// Convert a parsed `FormPart` sequence into a regex string (no constraints).
 ///
 /// Used for the initial fast prefilter.
-pub(crate) fn form_to_regex_str(parts: &[FormPart]) -> Result<String, ParseError> {
+pub(crate) fn form_to_regex_str(parts: &[FormPart]) -> Result<String, Box<ParseError>> {
     let (var_counts, rev_var_counts) = get_var_and_rev_var_counts(parts)?;
     let mut var_to_backreference_num = [0; NUM_POSSIBLE_VARIABLES];
     let mut rev_var_to_backreference_num = [0; NUM_POSSIBLE_VARIABLES];
@@ -109,7 +109,7 @@ fn get_regex_str_segment(
     var_to_backreference_num: &mut [usize; NUM_POSSIBLE_VARIABLES],
     backreference_index: &mut usize,
     c: char,
-) -> Result<String, ParseError> {
+) -> Result<String, Box<ParseError>> {
     let char_as_num = uc_letter_to_num(c)?;
     let pushed_str = if var_to_backreference_num[char_as_num] != 0 {
         &format!("\\{}", var_to_backreference_num[char_as_num])
@@ -125,12 +125,12 @@ fn get_regex_str_segment(
 }
 
 // 'A' -> 0, 'B' -> 1, ..., 'Z' -> 25
-fn uc_letter_to_num(c: char) -> Result<usize, ParseError> { letter_to_num(c, 'A' as usize) }
+fn uc_letter_to_num(c: char) -> Result<usize, Box<ParseError>> { letter_to_num(c, 'A' as usize) }
 
 // Count occurrences of vars and revvars to decide capture/backref scheme.
 fn get_var_and_rev_var_counts(
     parts: &[FormPart],
-) -> Result<([usize; NUM_POSSIBLE_VARIABLES], [usize; NUM_POSSIBLE_VARIABLES]), ParseError> {
+) -> Result<([usize; NUM_POSSIBLE_VARIABLES], [usize; NUM_POSSIBLE_VARIABLES]), Box<ParseError>> {
     let mut var_counts = [0; NUM_POSSIBLE_VARIABLES];
     let mut rev_var_counts = [0; NUM_POSSIBLE_VARIABLES];
     for part in parts {
@@ -169,7 +169,7 @@ fn get_var_and_rev_var_counts(
 pub(crate) fn form_to_regex_str_with_constraints(
     parts: &[FormPart],
     constraints: Option<&VarConstraints>,
-) -> Result<String, ParseError> {
+) -> Result<String, Box<ParseError>> {
     use std::fmt::Write;
 
     let (var_counts, rev_var_counts) = get_var_and_rev_var_counts(parts)?;
@@ -262,7 +262,7 @@ pub(crate) fn has_inlineable_var_form(parts: &[FormPart], constraints: &VarConst
 pub(crate) fn build_prefilter_regex(
     parsed_form: &ParsedForm,
     constraints: Option<&VarConstraints>,
-) -> Result<Regex, ParseError> {
+) -> Result<Regex, Box<ParseError>> {
     if let Some(vcs) = constraints && has_inlineable_var_form(&parsed_form.parts, vcs) {
         let anchored = format!("^{}$", form_to_regex_str_with_constraints(&parsed_form.parts, Some(vcs))?);
         Ok(get_regex(&anchored).unwrap_or_else(|_| parsed_form.prefilter.clone()))
