@@ -140,7 +140,8 @@ fn push_binding(words: &mut [CandidateBuckets], i: usize, key: LookupKey, bindin
 /// Scan a slice of the word list and incrementally fill candidate buckets.
 /// Returns whether we hit the per-pattern cap and the last index scanned (exclusive).
 /// Scan a slice of the word list and incrementally fill candidate buckets.
-/// Returns (new_scan_pos, time_up).
+/// Returns a pair containing (in order) the new scan position and a boolean stating if time is up.
+// TODO reword last sentence to be umm better
 fn scan_batch(
     word_list: &[&str],
     start_idx: usize,
@@ -468,7 +469,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     {
         // 1. Scan the next batch_size words into candidate buckets.
         // Each candidate binding is grouped by its lookup key so later joins are fast.
-        let (new_pos, _time_up) = scan_batch(
+        let (new_pos, _is_time_up) = scan_batch(
             word_list,
             scan_pos,
             batch_size,

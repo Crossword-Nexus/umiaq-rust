@@ -41,6 +41,7 @@ fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings)
 }
 
 /// Return `true` if at least one binding satisfies the equation.
+#[must_use]
 pub fn match_equation_exists(
     word: &str,
     parts: &ParsedForm,
@@ -53,6 +54,7 @@ pub fn match_equation_exists(
 }
 
 /// Return all bindings that satisfy the equation.
+#[must_use]
 pub fn match_equation_all(
     word: &str,
     parts: &ParsedForm,

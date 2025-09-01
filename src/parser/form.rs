@@ -170,10 +170,6 @@ impl FromStr for ParsedForm {
     }
 }
 
-pub fn parse_form(raw_form: &str) -> Result<ParsedForm, Box<ParseError>> {
-    raw_form.parse::<ParsedForm>()
-}
-
 // === Token parsers ===
 
 fn varref(input: &str) -> IResult<&str, FormPart> {
