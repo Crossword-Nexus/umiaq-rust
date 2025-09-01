@@ -20,8 +20,6 @@ static LEN_CMP_RE: LazyLock<Regex> =
 /// Matches inequality constraints like `!=AB`
 static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
-// TODO? disallow accepting one paren and not the other
-// TODO require colon if both types, require no colon if just one (but support both or just one)
 /// Matches complex constraints like `A=(3-5:a*)` with length and/or pattern
 // syntax:
 //
@@ -386,7 +384,7 @@ impl FromStr for Patterns {
 
 // TODO? do this via regex?
 // e.g., A=(3-:x*)
-fn get_complex_constraint(form: &&str) -> Result<(char, VarConstraint), ParseError> {
+fn get_complex_constraint(form: &str) -> Result<(char, VarConstraint), ParseError> {
     let top_parts = form.split('=').collect::<Vec<_>>();
     if top_parts.len() != 2 {
         return Err(ParseError::InvalidComplexConstraint { str: format!("expected 1 equals sign (not {})", top_parts.len()) });
