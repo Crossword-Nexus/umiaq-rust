@@ -20,8 +20,6 @@ static LEN_CMP_RE: LazyLock<Regex> =
 /// Matches inequality constraints like `!=AB`
 static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").unwrap());
 
-// TODO? disallow accepting one paren and not the other
-// TODO require colon if both types, require no colon if just one (but support both or just one)
 /// Matches complex constraints like `A=(3-5:a*)` with length and/or pattern
 // syntax:
 //
@@ -231,12 +229,12 @@ impl Patterns {
                 let vc  = self.var_constraints.ensure(var);
 
                 match op {
-                    ComparisonOperator::EQ  => vc.set_exact_len(n),
-                    ComparisonOperator::GE => vc.min_length = Some(n),
-                    ComparisonOperator::GT  => vc.min_length = n.checked_add(1),   // n+1
+                    ComparisonOperator::EQ => vc.set_exact_len(n),
+                    ComparisonOperator::NE => {}
                     ComparisonOperator::LE => vc.max_length = Some(n),
-                    ComparisonOperator::LT  => vc.max_length = n.checked_sub(1),   // n-1 (None if n==0)
-                    _    => {}
+                    ComparisonOperator::GE => vc.min_length = Some(n),
+                    ComparisonOperator::LT => vc.max_length = n.checked_sub(1),   // n-1 (None if n==0)
+                    ComparisonOperator::GT => vc.min_length = n.checked_add(1),   // n+1
                 }
             } else if let Some(cap) = NEQ_RE.captures(form).unwrap() {
                 // Extract all variables from inequality constraint
@@ -386,7 +384,7 @@ impl FromStr for Patterns {
 
 // TODO? do this via regex?
 // e.g., A=(3-:x*)
-fn get_complex_constraint(form: &&str) -> Result<(char, VarConstraint), ParseError> {
+fn get_complex_constraint(form: &str) -> Result<(char, VarConstraint), ParseError> {
     let top_parts = form.split('=').collect::<Vec<_>>();
     if top_parts.len() != 2 {
         return Err(ParseError::InvalidComplexConstraint { str: format!("expected 1 equals sign (not {})", top_parts.len()) });
