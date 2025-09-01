@@ -231,12 +231,12 @@ impl Patterns {
                 let vc  = self.var_constraints.ensure(var);
 
                 match op {
-                    ComparisonOperator::EQ  => vc.set_exact_len(n),
-                    ComparisonOperator::GE => vc.min_length = Some(n),
-                    ComparisonOperator::GT  => vc.min_length = n.checked_add(1),   // n+1
+                    ComparisonOperator::EQ => vc.set_exact_len(n),
+                    ComparisonOperator::NE => {}
                     ComparisonOperator::LE => vc.max_length = Some(n),
-                    ComparisonOperator::LT  => vc.max_length = n.checked_sub(1),   // n-1 (None if n==0)
-                    _    => {}
+                    ComparisonOperator::GE => vc.min_length = Some(n),
+                    ComparisonOperator::LT => vc.max_length = n.checked_sub(1),   // n-1 (None if n==0)
+                    ComparisonOperator::GT => vc.min_length = n.checked_add(1),   // n+1
                 }
             } else if let Some(cap) = NEQ_RE.captures(form).unwrap() {
                 // Extract all variables from inequality constraint
