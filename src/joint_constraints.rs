@@ -2,8 +2,10 @@ use crate::errors::ParseError;
 use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
+use std::str::FromStr;
 use std::sync::LazyLock;
 use fancy_regex::Regex;
+use crate::comparison_operator::ComparisonOperator;
 use crate::constraints::{VarConstraint, VarConstraints};
 use crate::errors::ParseError::ParseFailure;
 
@@ -41,19 +43,19 @@ impl RelMask {
         (self.mask & bit) != 0
     }
 
-    /// Parse an operator token into a mask.
-    /// Accepted: "==", "=", "!=", "<=", ">=", "<", ">".
+    /// Parse an operator token into a `RelMask`.
+    /// Accepted: "=", "!=", "<=", ">=", "<", ">".
     pub(crate) fn from_str(op: &str) -> Result<Self, ParseError> {
-        match op {
-            // TODO: Jeremy's OCD
-            "==" | "=" => Ok(Self::EQ),
-            "!=" => Ok(Self::NE),
-            "<=" => Ok(Self::LE),
-            ">=" => Ok(Self::GE),
-            "<" => Ok(Self::LT),
-            ">" => Ok(Self::GT),
-            _ => Err(ParseFailure { s: op.to_string() }),
-        }
+        Ok(
+            match ComparisonOperator::from_str(op)? {
+                ComparisonOperator::EQ => Self::EQ,
+                ComparisonOperator::NE => Self::NE,
+                ComparisonOperator::LE => Self::LE,
+                ComparisonOperator::GE => Self::GE,
+                ComparisonOperator::LT => Self::LT,
+                ComparisonOperator::GT => Self::GT,
+            }
+        )
     }
 }
 
@@ -320,13 +322,12 @@ mod tests {
     #[test]
     fn rel_mask_from_str_and_allows() {
         assert_eq!(RelMask::EQ, RelMask::from_str("=").unwrap());
-        assert_eq!(RelMask::EQ, RelMask::from_str("==").unwrap());
         assert_eq!(RelMask::LE, RelMask::from_str("<=").unwrap());
         assert_eq!(RelMask::GE, RelMask::from_str(">=").unwrap());
         assert_eq!(RelMask::NE, RelMask::from_str("!=").unwrap());
         assert_eq!(RelMask::LT, RelMask::from_str("<").unwrap());
         assert_eq!(RelMask::GT, RelMask::from_str(">").unwrap());
-        assert!(RelMask::from_str("INVALID123").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"INVALID123\""));
+        assert!(RelMask::from_str("INVALID123").is_err_and(|pe| { pe.to_string() == "Form parsing failed: \"Cannot parse operator from \"INVALID123\"\""})); // TODO better message
         assert!(RelMask::LE.allows(Ordering::Less));
         assert!(RelMask::LE.allows(Ordering::Equal));
         assert!(!RelMask::LE.allows(Ordering::Greater));
