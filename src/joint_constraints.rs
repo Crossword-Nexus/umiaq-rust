@@ -3,6 +3,7 @@ use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
 use std::str::FromStr;
+use std::string::ToString;
 use std::sync::LazyLock;
 use fancy_regex::Regex;
 use crate::comparison_operator::ComparisonOperator;
@@ -17,7 +18,7 @@ use crate::errors::ParseError::ParseFailure;
 /// - GT (sum > target)  -> 0b100
 ///
 /// Compound operators (<=, >=, !=) are unions of these bits.
-/// Evaluation is then: `rel.allows(total.cmp(&target))`.
+/// Evaluation can then be done as: `rel.allows(total.cmp(&target))`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RelMask {
     mask: u8,
@@ -129,16 +130,16 @@ fn resolve_var_len(parts: &[Bindings], v: char) -> Option<usize> {
     parts.iter().find_map(|bindings| bindings.get(v).map(String::len))
 }
 
-// TODO derive "<=|>=|==|!=|<|>|=" from a single source...
+// TODO derive "=|!=|<=|>=|<|>" from a single source (e.g., COMPARISON_OPERATORS)
 static JOINT_LEN_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\|(?<vars>[A-Z]{2,})\| *(?<op><=|>=|==|!=|<|>|=) *(?<len>\d+)$").unwrap());
+    LazyLock::new(|| Regex::new(r"^\|(?<vars>[A-Z]{2,})\| *(?<op>=|!=|<=|>=|<|>) *(?<len>\d+)$").unwrap());
 
 
 /// Parse a single joint-length expression that **starts at** a `'|'`.
 ///
 /// Shape: `|VARS| OP NUMBER`
 ///  - `VARS`  : at least **two** ASCII uppercase letters (A–Z).
-///  - `OP`    : one of `<=`, `>=`, `==`, `!=`, `<`, `>`, `=` (two-char ops matched first).
+///  - `OP`    : one of `<=`, `>=`, `!=`, `<`, `>`, `=` (NB: two-char ops checked first).
 ///  - `NUMBER`: one or more ASCII digits (base 10).
 fn parse_joint_len(expr: &str) -> Result<JointConstraint, Box<ParseError>> {
     if let Ok(Some(captures)) = JOINT_LEN_RE.captures(expr) {
@@ -326,18 +327,30 @@ mod tests {
     #[test]
     fn rel_mask_from_str_and_allows() {
         assert_eq!(RelMask::EQ, RelMask::from_str("=").unwrap());
+        assert_eq!(RelMask::NE, RelMask::from_str("!=").unwrap());
         assert_eq!(RelMask::LE, RelMask::from_str("<=").unwrap());
         assert_eq!(RelMask::GE, RelMask::from_str(">=").unwrap());
-        assert_eq!(RelMask::NE, RelMask::from_str("!=").unwrap());
         assert_eq!(RelMask::LT, RelMask::from_str("<").unwrap());
         assert_eq!(RelMask::GT, RelMask::from_str(">").unwrap());
         assert!(RelMask::from_str("INVALID123").is_err_and(|pe| { pe.to_string() == "Form parsing failed: \"Cannot parse operator from \"INVALID123\"\""})); // TODO better message
+        assert!(!RelMask::EQ.allows(Ordering::Less));
+        assert!(RelMask::EQ.allows(Ordering::Equal));
+        assert!(!RelMask::EQ.allows(Ordering::Greater));
+        assert!(RelMask::NE.allows(Ordering::Less));
+        assert!(!RelMask::NE.allows(Ordering::Equal));
+        assert!(RelMask::NE.allows(Ordering::Greater));
         assert!(RelMask::LE.allows(Ordering::Less));
         assert!(RelMask::LE.allows(Ordering::Equal));
         assert!(!RelMask::LE.allows(Ordering::Greater));
-        assert!(RelMask::NE.allows(Ordering::Less));
-        assert!(RelMask::NE.allows(Ordering::Greater));
-        assert!(!RelMask::NE.allows(Ordering::Equal));
+        assert!(!RelMask::GE.allows(Ordering::Less));
+        assert!(RelMask::GE.allows(Ordering::Equal));
+        assert!(RelMask::GE.allows(Ordering::Greater));
+        assert!(RelMask::LT.allows(Ordering::Less));
+        assert!(!RelMask::LT.allows(Ordering::Equal));
+        assert!(!RelMask::LT.allows(Ordering::Greater));
+        assert!(!RelMask::GT.allows(Ordering::Less));
+        assert!(!RelMask::GT.allows(Ordering::Equal));
+        assert!(RelMask::GT.allows(Ordering::Greater));
     }
 
     #[test]

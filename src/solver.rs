@@ -158,9 +158,9 @@ fn scan_batch(
     let end = start_idx.saturating_add(batch_size).min(word_list.len());
 
     while i_word < end {
-        if let Some(b) = budget {
-            // TODO: have this timeout bubble all the way up
-            if b.expired() { return (i_word, true); }
+        // TODO: have this timeout bubble all the way up
+        if let Some(b) = budget && b.expired() {
+            return (i_word, true);
         }
 
         let word = word_list[i_word];
