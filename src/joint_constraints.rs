@@ -133,7 +133,8 @@ static JOINT_LEN_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\|(?<vars>[A-Z]{2,})\| *(?<op>=|!=|<=|>=|<|>) *(?<len>\d+)$").unwrap());
 
 // TODO should this be turning (potential) errors into `None`s (i.e., swallowing errors...)?
-/// Parse a single joint-length expression that **starts at** a `'|'`.
+/// Parse a single joint-length expression that **starts at** a `'|'`. Returns `None` on invalid
+/// input.
 ///
 /// Shape: `|VARS| OP NUMBER`
 ///  - `VARS`  : at least **two** ASCII uppercase letters (A–Z).
