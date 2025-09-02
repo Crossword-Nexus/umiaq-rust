@@ -24,7 +24,7 @@ function processWordList(fileContents, minScore) {
 }
 
 async function getLocalWordList() {
-  const url = '../data/spreadthewordlist.dict';
+  const url = './data/spreadthewordlist.dict';
   let minScore = 50;
 
   try {
