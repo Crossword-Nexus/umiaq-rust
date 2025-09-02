@@ -21,7 +21,7 @@
 //! - Patterns + optional Qat times live in `cases()` below.
 //! - I/O (printing) is kept outside the timed section.
 //! - One warm-up run per pattern is done (not included in timing).
-//! - We report the *median* over repeats (more robust than mean for small N).
+//! - We report the *median* over repeats (more robust than mean for small _N_).
 
 use clap::Parser;
 use std::hint::black_box;
@@ -54,7 +54,7 @@ struct Cli {
 
     /// Number of repeats per pattern (use >1 to reduce noise; median is reported)
     #[arg(short = 'r', long = "repeats", default_value_t = 1)]
-    repeats: usize,
+    num_repeats: usize,
 
     /// Print up to this many solutions per pattern (0 = print none)
     #[arg(short = 'p', long = "print", default_value_t = 0)]
@@ -73,9 +73,9 @@ struct Case {
     qat_s: Option<f64>,
 }
 
-/// Edit/add your patterns here. The summary will display the pattern text as the "name".
+/// Edit/add new patterns here. The summary will display the pattern text as the "name".
 /// The `qat_s` values below are results from Qat
-fn cases() -> Vec<Case> {
+fn get_cases() -> Vec<Case> {
     vec![
         Case { pattern: "AB;BA;|A|=2;|B|=2;!=AB", qat_s: Some(0.260) },
         // Note: this one is slow (for now?)
@@ -106,8 +106,9 @@ fn median(mut xs: Vec<f64>) -> f64 {
     }
 }
 
-fn main() -> std::io::Result<()> {
+const MAX_PATTERN_LEN: usize = 48;
 
+fn main() -> std::io::Result<()> {
     /// One row in the benchmark summary: (pattern name, elapsed seconds,
     /// number of results, optional reference time, optional other time).
     type SummaryRow = (String, f64, usize, Option<f64>, Option<f64>);
@@ -124,10 +125,9 @@ fn main() -> std::io::Result<()> {
     // Keep references to avoid reallocating strings during benchmarks.
     let words_ref: Vec<&str> = wl.entries.iter().map(String::as_str).collect();
 
-    let cases = cases();
-    // Store (pattern, median_seconds, tuples_last_run, qat_s, delta_pct_opt) for the summary.
-    let mut summary: Vec<SummaryRow> =
-        Vec::with_capacity(cases.len());
+    let cases = get_cases();
+    // Store (pattern, median_seconds, solutions_last_run, qat_s, delta_pct_opt) for the summary.
+    let mut summary: Vec<SummaryRow> = Vec::with_capacity(cases.len());
 
     for (idx, case) in cases.iter().enumerate() {
         let pattern = case.pattern;
@@ -139,10 +139,10 @@ fn main() -> std::io::Result<()> {
             .expect("solver warm-up failed");
 
         // Repeat the timed runs and collect durations.
-        let mut times = Vec::with_capacity(cli.repeats);
+        let mut times = Vec::with_capacity(cli.num_repeats);
         let mut last_solutions: Vec<Vec<Bindings>> = Vec::new();
 
-        for rep in 0..cli.repeats {
+        for rep in 0..cli.num_repeats {
             // Keep only the *core* operation inside the timed region.
             let t_solve = Instant::now();
             let solutions = solver::solve_equation(black_box(pattern), &words_ref, NUM_RESULTS)
@@ -156,25 +156,21 @@ fn main() -> std::io::Result<()> {
             last_solutions = solutions;
 
             eprintln!(
-                "  run {:>2}/{:>2}: {:.3}s ({} tuples)",
+                "  run {:>2}/{:>2}: {:.3}s ({} solutions)",
                 rep + 1,
-                cli.repeats,
+                cli.num_repeats,
                 solve_secs,
                 last_solutions.len()
             );
         }
 
-        // Prefer median for small N; it’s less sensitive to noisy outliers.
+        // Prefer median for small N--it’s less sensitive to noisy outliers.
         let med = median(times);
 
         // Optionally print a few solutions from the *last* run (outside timing).
         if cli.print_limit > 0 && !last_solutions.is_empty() {
             for sol in last_solutions.iter().take(cli.print_limit) {
-                let display = sol
-                    .iter()
-                    .map(|b| b.get_word().unwrap().to_ascii_uppercase())
-                    .collect::<Vec<_>>()
-                    .join(" • ");
+                let display = solution_to_string(sol);
                 println!("{display}");
             }
         }
@@ -189,12 +185,13 @@ fn main() -> std::io::Result<()> {
         });
 
         eprintln!(
-            "  → median {:.3}s over {} run(s); last run produced {} tuple(s).{}",
+            "  → median {:.3}s over {} run(s); last run produced {} {}.{}",
             med,
-            cli.repeats,
+            cli.num_repeats,
             last_solutions.len(),
+            pluralizer(last_solutions.len(), "solution".into(), None),
             match (case.qat_s, delta_pct) {
-                (Some(exp), Some(dp)) => format!("  (Qat {exp:.3}s, Δ = {dp:+.1}%)"),
+                (Some(exp), Some(dp)) => format!(" (Qat {exp:.3}s, Δ = {dp:+.1}%)"),
                 _ => String::new(),
             }
         );
@@ -211,28 +208,64 @@ fn main() -> std::io::Result<()> {
     // Compact summary at the end for a quick scan across all patterns.
     eprintln!("\n==== Summary ====");
     eprintln!(
-        "{:<48} | {:>10} | {:>8} | {:>10} | {:>8}",
-        "pattern", "median (s)", "tuples", "qat", "Δ %"
+        "{:<MAX_PATTERN_LEN$} | {:>10} | {:>11} | {:>10} | {:>8}",
+        "pattern", "median (s)", "# solutions", "qat (s)", "Δ %"
     );
     eprintln!(
-        "{:-<48}-+-{:-<10}-+-{:-<8}-+-{:-<10}-+-{:-<8}",
+        "{:-<MAX_PATTERN_LEN$}-+-{:-<10}-+-{:-<11}-+-{:-<10}-+-{:-<8}",
         "", "", "", "", ""
     );
-    for (pat, med, tuples, qat, delta_pct) in &summary {
+    for (pat, med, num_solutions, qat, delta_pct) in &summary {
         // Trim very long patterns for readability in the summary.
-        let display = if pat.len() > 48 {
-            format!("{}…", &pat[..47])
+        let display = if pat.len() > MAX_PATTERN_LEN {
+            // "- 1" for the "…"
+            format!("{}…", pat.chars().take(MAX_PATTERN_LEN - 1).collect::<String>())
         } else {
             pat.clone()
         };
-        let qat_str = qat.map(|x| format!("{x:+.1}")).unwrap_or_else(|| "—".into());
+        let qat_str = qat.map(|x| format!("{x:.1}")).unwrap_or_else(|| "—".into());
         let dp_str = delta_pct
             .map(|x| format!("{x:+.1}"))
             .unwrap_or_else(|| "—".into());
         eprintln!(
-            "{display:<48} | {med:>10.3} | {tuples:>8} | {qat_str:>10} | {dp_str:>8}"
+            "{display:<MAX_PATTERN_LEN$} | {med:>10.3} | {num_solutions:>11} | {qat_str:>10} | {dp_str:>8}"
         );
     }
 
     Ok(())
+}
+
+// TODO DRY w/main.rs solution_to_string
+// Put the results in uppercase and separated with a bullet
+fn solution_to_string(solution: &[Bindings]) -> String {
+    solution.iter()
+        .map(|b| b.get_word().unwrap().to_ascii_uppercase())
+        .collect::<Vec<_>>()
+        .join(" • ")
+}
+
+// TODO? put this elsewhere
+fn pluralizer(count: usize, singular: String, plural: Option<String>) -> String {
+    if count == 1 {
+        singular
+    } else {
+        plural.unwrap_or(singular + "s")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pluralizer() {
+        assert_eq!(pluralizer(0, "diameter".into(), None), "diameters");
+        assert_eq!(pluralizer(1, "diameter".into(), None), "diameter");
+        assert_eq!(pluralizer(2, "diameter".into(), None), "diameters");
+        assert_eq!(pluralizer(99, "diameter".into(), None), "diameters");
+        assert_eq!(pluralizer(0, "radius".into(), Some("radii".into())), "radii");
+        assert_eq!(pluralizer(1, "radius".into(), Some("radii".into())), "radius");
+        assert_eq!(pluralizer(2, "radius".into(), Some("radii".into())), "radii");
+        assert_eq!(pluralizer(99, "radius".into(), Some("radii".into())), "radii");
+    }
 }
