@@ -16,7 +16,7 @@
 //!
 //! NOTES
 //! -----
-//! - This is *not* Criterion. It’s quick and convenient, not statistically rigorous.
+//! - This is *not* Criterion. It's quick and convenient, not statistically rigorous.
 //! - Use the same machine and `--release` for more comparable numbers.
 //! - Patterns + optional Qat times live in `cases()` below.
 //! - I/O (printing) is kept outside the timed section.
@@ -164,7 +164,7 @@ fn main() -> std::io::Result<()> {
             );
         }
 
-        // Prefer median for small N--it’s less sensitive to noisy outliers.
+        // Prefer median for small N--it's less sensitive to noisy outliers.
         let med = median(times);
 
         // Optionally print a few solutions from the *last* run (outside timing).

@@ -14,13 +14,13 @@ use super::form::{FormPart, ParsedForm};
 ///
 /// - `OnceLock` ensures the cache is created at most once, on first use.
 /// - We wrap the `HashMap` in a `Mutex` to provide **interior mutability** and
-///   **thread safety**. A plain `HashMap` isn’t thread-safe and cannot be
+///   **thread safety**. A plain `HashMap` isn't thread-safe and cannot be
 ///   mutated through a shared reference; `Mutex` gives us a safe, exclusive
 ///   handle when inserting or reading.
 ///
 /// Locking strategy:
 /// - We hold the `Mutex` only while accessing the map (lookups/inserts).
-/// - We compile outside the lock to keep contention low, with a “double-check”
+/// - We compile outside the lock to keep contention low, with a "double-check"
 ///   before insert to avoid duplicate work in rare races.
 /// - `Regex` clones are cheap (internally ref-counted), so we release the lock quickly.
 static REGEX_CACHE: OnceLock<Mutex<HashMap<String, Regex>>> = OnceLock::new();
@@ -163,7 +163,7 @@ fn get_var_and_rev_var_counts(
 ///   to inline them into regex directly.
 /// - Reversed variables (`~A`) are left unchanged: enforcing a
 ///   reversed constraint at regex level would require reversing
-///   arbitrary sub-regexes, which isn’t practical here.
+///   arbitrary sub-regexes, which isn't practical here.
 /// - If no constraint exists for a variable, or no form is present,
 ///   behavior falls back to the original `.++` / `(.+)` scheme.
 pub(crate) fn form_to_regex_str_with_constraints(

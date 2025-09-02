@@ -208,10 +208,10 @@ fn scan_batch(
 ///
 /// This mirrors `recursive_filter` from `umiaq.py`. We walk patterns in order
 /// (index `idx`) and at each step select only the bucket of candidates whose
-/// shared variables agree with what we’ve already chosen (`env`).
+/// shared variables agree with what we've already chosen (`env`).
 ///
 /// Parameters:
-/// - `idx`: which pattern we’re placing now (0-based).
+/// - `idx`: which pattern we're placing now (0-based).
 /// - `words`: per-pattern candidate buckets (what you built during scanning).
 /// - `lookup_keys`: for each pattern, which variables must agree with previously
 ///   chosen patterns. `None` means "no lookup constraint" (use the `None` bucket).
@@ -238,12 +238,12 @@ fn recursive_join(
     joint_constraints: JointConstraints,
     seen: &mut HashSet<u64>,
 ) {
-    // Stop if we’ve met the requested quota of full solutions.
+    // Stop if we've met the requested quota of full solutions.
     if results.len() >= num_results_requested {
         return;
     }
 
-    // Base case: if we’ve placed all patterns, `selected` is a full solution.
+    // Base case: if we've placed all patterns, `selected` is a full solution.
     if idx == words.len() {
         if joint_constraints.all_strictly_satisfied_for_parts(selected) && seen.insert(solution_key(selected)) {
             results.push(selected.clone());
@@ -309,7 +309,7 @@ fn recursive_join(
                 if let Some(v) = env.get(&var) {
                     pairs.push((var, v.clone()));
                 } else {
-                    // If any required var isn’t bound yet, there can be no matches for this branch.
+                    // If any required var isn't bound yet, there can be no matches for this branch.
                     return;
                 }
             }
@@ -331,7 +331,7 @@ fn recursive_join(
     // Try each candidate binding for this pattern.
     for cand in bucket_candidates {
         if results.len() >= num_results_requested {
-            break; // stop early if we’ve already met the quota
+            break; // stop early if we've already met the quota
         }
 
         // Defensive compatibility check: if a variable is already in `env`,
@@ -342,7 +342,7 @@ fn recursive_join(
             continue;
         }
 
-        // Extend `env` with any *new* bindings from this candidate (don’t overwrite).
+        // Extend `env` with any *new* bindings from this candidate (don't overwrite).
         // Track what we added so we can backtrack cleanly.
         let mut added_vars: Vec<char> = vec![];
         for (k, v) in cand.iter() {

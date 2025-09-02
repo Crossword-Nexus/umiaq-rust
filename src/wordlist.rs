@@ -16,7 +16,7 @@
 //! - The final list is deduplicated and sorted by length first, then alphabetically.
 //!
 //! This module is designed to be **WASM-friendly** — no `std::fs` calls are made unless
-//! we’re on a native build. The public API provides:
+//! we're on a native build. The public API provides:
 //! - `parse_from_str(...)` — works everywhere, including WASM.
 //! - `load_from_path(...)` — **native-only** convenience method to read from a file path.
 //!
@@ -40,7 +40,7 @@ pub struct WordList {
 impl WordList {
     /// Parse a raw word list from an in-memory string.
     ///
-    /// This is **WASM-safe** because it doesn’t touch the filesystem —
+    /// This is **WASM-safe** because it doesn't touch the filesystem —
     /// you can pass the contents of a file fetched via JavaScript `fetch()` or read
     /// from the File API directly into this function.
     /// That said, we're not using this function in WASM at the moment.
@@ -91,7 +91,7 @@ impl WordList {
 
                 // Split into two parts: `word` and `score`.
                 // `splitn(2, ';')` ensures we only split on the first semicolon,
-                // so words containing semicolons later (unlikely, but robust) won’t break parsing.
+                // so words containing semicolons later (unlikely, but robust) won't break parsing.
                 let mut parts = line.splitn(2, ';');
 
                 // Extract the word and trim extra spaces.
