@@ -3,12 +3,10 @@ use crate::bindings::Bindings;
 use crate::patterns::FORM_SEPARATOR;
 use std::cmp::Ordering;
 use std::str::FromStr;
-use std::string::ToString;
 use std::sync::LazyLock;
 use fancy_regex::Regex;
 use crate::comparison_operator::ComparisonOperator;
 use crate::constraints::{VarConstraint, VarConstraints};
-use crate::errors::ParseError::ParseFailure;
 
 /// Compact representation of the relation between (sum) and (target).
 ///
@@ -134,26 +132,27 @@ fn resolve_var_len(parts: &[Bindings], v: char) -> Option<usize> {
 static JOINT_LEN_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\|(?<vars>[A-Z]{2,})\| *(?<op>=|!=|<=|>=|<|>) *(?<len>\d+)$").unwrap());
 
-
-/// Parse a single joint-length expression that **starts at** a `'|'`.
+// TODO should this be turning (potential) errors into `None`s (i.e., swallowing errors...)?
+/// Parse a single joint-length expression that **starts at** a `'|'`. Returns `None` on invalid
+/// input.
 ///
 /// Shape: `|VARS| OP NUMBER`
 ///  - `VARS`  : at least **two** ASCII uppercase letters (A–Z).
 ///  - `OP`    : one of `<=`, `>=`, `!=`, `<`, `>`, `=` (NB: two-char ops checked first).
 ///  - `NUMBER`: one or more ASCII digits (base 10).
-fn parse_joint_len(expr: &str) -> Result<JointConstraint, Box<ParseError>> {
+fn parse_joint_len(expr: &str) -> Option<JointConstraint> {
     if let Ok(Some(captures)) = JOINT_LEN_RE.captures(expr) {
-        let vars_match = captures.name("vars").ok_or(ParseFailure { s: expr.to_string() })?;
-        let target_match = captures.name("len").ok_or(ParseFailure { s: expr.to_string() })?;
-        let rel_mask_str_match = captures.name("op").ok_or(ParseFailure { s: expr.to_string() })?;
+        let vars_match = captures.name("vars")?;
+        let target_match = captures.name("len")?;
+        let op_str_match = captures.name("op")?;
 
-        Ok(JointConstraint {
-            vars: vars_match.as_str().chars().collect(),
-            target: target_match.as_str().parse()?,
-            rel: RelMask::from_str(rel_mask_str_match.as_str())?
-        })
+        let vars = vars_match.as_str().chars().collect();
+        let Ok(target) = target_match.as_str().parse() else { return None };
+        let Ok(rel) = RelMask::from_str(op_str_match.as_str()) else { return None };
+
+        Some(JointConstraint { vars, target, rel })
     } else {
-        Err(Box::new(ParseFailure { s: expr.to_string() }))
+        None
     }
 }
 
@@ -177,7 +176,7 @@ impl JointConstraints {
     /// `FORM_SEPARATOR` (i.e., ';'), feeding each part through `parse_joint_len`.
     pub(crate) fn parse_equation(equation: &str) -> JointConstraints {
         let jc_vec = equation.split(FORM_SEPARATOR).filter_map(|part| {
-            parse_joint_len(part.trim()).ok() // TODO? check error details (type, etc.)
+            parse_joint_len(part.trim())
         }).collect();
 
         JointConstraints { as_vec: jc_vec }
@@ -373,23 +372,23 @@ mod tests {
 
     #[test]
     fn parse_joint_len_single_var() {
-        assert!(parse_joint_len("|A|=3").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"|A|=3\""));
+        assert!(parse_joint_len("|A|=3").is_none());
     }
 
     #[test]
     fn parse_joint_len_lowercase() {
-        assert!(parse_joint_len("|Ab|=3").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"|Ab|=3\""));
+        assert!(parse_joint_len("|Ab|=3").is_none());
     }
 
     #[test]
     fn parse_joint_len_start_with_pipe() {
-        assert!(parse_joint_len("foo |AB|=3").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"foo |AB|=3\""));
+        assert!(parse_joint_len("foo |AB|=3").is_none());
     }
 
     #[test]
     fn parse_joint_len_end_with_number() {
         // Reject noise after length constraint
-        assert!(parse_joint_len("|AB|=3x").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"|AB|=3x\""));
+        assert!(parse_joint_len("|AB|=3x").is_none());
     }
 
     #[test]
