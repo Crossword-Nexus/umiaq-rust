@@ -9,7 +9,7 @@
 //   • joint group constraints from JointConstraints that refer ONLY to vars
 //     present in THIS form (e.g., "|AB|=6").
 //
-// The result can be used as a cheap prefilter: if a candidate word’s length does
+// The result can be used as a cheap prefilter: if a candidate word's length does
 // not satisfy these bounds, you can skip calling the heavy matcher altogether.
 //
 // Design notes:
@@ -19,8 +19,8 @@
 //   emerges it simply means "no candidates" for that form.
 // - "!=" (not-equal) group relations are ignored for tightening because they do
 //   not produce a contiguous interval--we conservatively skip tightening on them.
-// - Presence of '*' in the form makes the form’s max length unbounded for the
-//   hint’s purposes (even if unary-var maxima are finite), because '*' can soak
+// - Presence of '*' in the form makes the form's max length unbounded for the
+//   hint's purposes (even if unary-var maxima are finite), because '*' can soak
 //   an arbitrary number of extra characters.
 // -----------------------------------------------------------------------------
 
@@ -34,9 +34,9 @@ use crate::parser::{FormPart, ParsedForm};
 /// Resulting per-form hints.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PatternLenHints {
-    /// Lower bound on the form’s length. `None` = unbounded below.
+    /// Lower bound on the form's length. `None` = unbounded below.
     pub min_len: Option<usize>,
-    /// Upper bound on the form’s length. `None` = unbounded above.
+    /// Upper bound on the form's length. `None` = unbounded above.
     pub max_len: Option<usize>,
 }
 
@@ -87,13 +87,13 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
     }
 }
 
-/// Compute per-form hints from a `ParsedForm` *and* the equation’s constraints.
+/// Compute per-form hints from a `ParsedForm` *and* the equation's constraints.
 /// These are just length bounds for a parsed form
 ///
-/// - `vcs`: the full equation’s `VarConstraints` (we’ll only read vars present in form);
+/// - `vcs`: the full equation's `VarConstraints` (we'll only read vars present in form);
 ///   its `bounds(v)` must return normalized `(usize, usize)`, where `usize::MAX` encodes ∞.
-/// - `jcs`: the equation’s `JointConstraints` (we’ll filter to constraints whose
-///   variable set is a subset of the form’s variables)
+/// - `jcs`: the equation's `JointConstraints` (we'll filter to constraints whose
+///   variable set is a subset of the form's variables)
 pub(crate) fn form_len_hints_pf(
     form: &ParsedForm,
     vcs: &VarConstraints,
@@ -221,7 +221,7 @@ where
             }
 
             // Greedy: assign remaining letters to cheapest (Min) or priciest (Max) first.
-            // We still honor each row's individual capacity (ui - li). A row is “unbounded”
+            // We still honor each row's individual capacity (ui - li). A row is "unbounded"
             // iff r.ui == VarConstraint::DEFAULT_MAX.
             let mut order: Vec<&Row> = rows.iter().collect();
             match extreme {
@@ -248,7 +248,7 @@ where
                 }
             }
 
-            // If we reach here with rem != 0, `t` wasn’t feasible to begin with.
+            // If we reach here with rem != 0, `t` wasn't feasible to begin with.
             // TODO: throw an error?
             if rem != 0 {
                 return None;
@@ -262,7 +262,7 @@ where
             continue;
         }
 
-        // Intersect with the form’s variables (only consider vars that appear in this form)
+        // Intersect with the form's variables (only consider vars that appear in this form)
         let mut gvars: Vec<char> = g
             .vars
             .iter()
