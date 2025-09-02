@@ -17,10 +17,10 @@
     details.examples { margin-top: 2em;}
   </style>
   <!-- Word list processing -->
-  <script src="wordlist.js" type="text/javascript"></script>
+  <script src="./web/wordlist.js" type="text/javascript"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="skeleton.min.css" />
-  <link rel="stylesheet" href="umiaq.css" />
+  <link rel="stylesheet" href="./web/skeleton.min.css" />
+  <link rel="stylesheet" href="./web/umiaq.css" />
 </head>
 <body>
   <!-- modal box placeholder -->
@@ -57,7 +57,7 @@
     await getLocalWordList();
 
     // Set up the web worker
-    const worker = new Worker(new URL('./solver.worker.js', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('./web/solver.worker.js', import.meta.url), { type: 'module' });
 
     // Define elements
     const resultsEl = document.getElementById("results");
@@ -110,7 +110,7 @@
 
 
     // Load the examples
-    fetch("examples.html")
+    fetch("./web/examples.html")
       .then(response => response.text())
       .then(html => {
         document.getElementById("examples-container").innerHTML = html;
