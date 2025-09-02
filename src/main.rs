@@ -47,12 +47,7 @@ fn main() -> std::io::Result<()> {
     let solve_secs = t_solve.elapsed().as_secs_f64();
 
     for solution in &solutions {
-        // We display the results in uppercase and separated with a bullet
-        let display = solution.iter()
-            .map(|b| b.get_word().unwrap().to_ascii_uppercase())
-            .collect::<Vec<_>>()
-            .join(" • ");
-        println!("{display}");
+        println!("{}", solution_to_string(solution));
     }
 
     eprintln!(
@@ -61,4 +56,13 @@ fn main() -> std::io::Result<()> {
     );
 
     Ok(())
+}
+
+// TODO test solution_to_string
+// Put the results in uppercase and separated with a bullet
+fn solution_to_string(solution: &[Bindings]) -> String {
+    solution.iter()
+        .map(|b| b.get_word().unwrap().to_ascii_uppercase())
+        .collect::<Vec<_>>()
+        .join(" • ")
 }
