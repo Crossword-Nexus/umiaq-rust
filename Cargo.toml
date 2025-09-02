@@ -5,6 +5,7 @@ edition = "2024"
 description = "A Qat-like equation solver"
 repository = "https://github.com/crosswordnexus/umiaq"
 license = "MIT"
+default-run = "umiaq"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -12,6 +13,10 @@ crate-type = ["cdylib", "rlib"]
 [[bin]]
 name = "umiaq"
 path = "src/main.rs"
+
+[[bin]]
+name = "bench_local"
+path = "src/bin/bench_local.rs"
 
 [dependencies]
 nom = "8.0.0"
