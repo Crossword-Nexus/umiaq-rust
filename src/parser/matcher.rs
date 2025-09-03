@@ -272,10 +272,10 @@ mod tests {
 
     #[test]
     fn test_match_equation_exists() {
-        let patt1 = "abc".parse::<ParsedForm>().unwrap();
-        assert!(match_equation_exists("AARONJUDGE", &patt1, None, JointConstraints::default()));
-        assert!(!match_equation_exists("NOON", &patt1, None, JointConstraints::default()));
-        assert!(!match_equation_exists("TOON", &patt1, None, JointConstraints::default()));
+        let patt1 = "A~A[rstlne]/jon@#.*".parse::<ParsedForm>().unwrap();
+        assert!(match_equation_exists("aaronjudge", &patt1, None, JointConstraints::default()));
+        assert!(!match_equation_exists("noon", &patt1, None, JointConstraints::default()));
+        assert!(!match_equation_exists("toon", &patt1, None, JointConstraints::default()));
     }
 
     #[test]
