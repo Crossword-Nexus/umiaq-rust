@@ -345,28 +345,28 @@ impl Patterns {
         self.ordered_list.iter()
     }
 
-    /* -- Several unused functions but maybe some day?
-    /// Convenience (often handy with `len`)
-    fn is_empty(&self) -> bool {
-        self.ordered_list.is_empty()
-    }
-
-    /// Iterate in original (display) order
-    pub(crate) fn iter_original(&self) -> std::slice::Iter<'_, Pattern> {
-        self.list.iter()
-    }
-
-    /// Map a solver index to the original index
-    pub(crate) fn original_ix(&self, ordered_ix: usize) -> usize {
-        self.ordered_to_original[ordered_ix]
-    }
-
-    /// Map an original index to the solver index (if it was placed)
-    pub(crate) fn ordered_ix(&self, original_ix: usize) -> Option<usize> {
-        let ix = self.original_to_ordered.get(original_ix).copied()?;
-        (ix != usize::MAX).then_some(ix)
-    }
-    */
+    /* -- Several unused functions but maybe someday?
+     *    /// Convenience (often handy with `len`)
+     *    fn is_empty(&self) -> bool {
+     *        self.ordered_list.is_empty()
+     *    }
+     *
+     *    /// Iterate in original (display) order
+     *    pub(crate) fn iter_original(&self) -> std::slice::Iter<'_, Pattern> {
+     *        self.list.iter()
+     *    }
+     *
+     *    /// Map a solver index to the original index
+     *    pub(crate) fn original_ix(&self, ordered_ix: usize) -> usize {
+     *        self.ordered_to_original[ordered_ix]
+     *    }
+     *
+     *    /// Map an original index to the solver index (if it was placed)
+     *    pub(crate) fn ordered_ix(&self, original_ix: usize) -> Option<usize> {
+     *        let ix = self.original_to_ordered.get(original_ix).copied()?;
+     *        (ix != usize::MAX).then_some(ix)
+     *    }
+     */
 }
 
 impl FromStr for Patterns {

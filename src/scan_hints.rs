@@ -26,7 +26,6 @@
 
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
-
 use crate::constraints::{VarConstraint, VarConstraints};
 use crate::joint_constraints::{JointConstraint, JointConstraints, RelMask};
 use crate::parser::{FormPart, ParsedForm};
@@ -90,8 +89,7 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
 /// Compute per-form hints from a `ParsedForm` *and* the equation's constraints.
 /// These are just length bounds for a parsed form
 ///
-/// - `vcs`: the full equation's `VarConstraints` (we'll only read vars present in form);
-///   its `bounds(v)` must return normalized `(usize, usize)`, where `usize::MAX` encodes ∞.
+/// - `vcs`: the full equation's `VarConstraints` (we'll only read vars present in form)
 /// - `jcs`: the equation's `JointConstraints` (we'll filter to constraints whose
 ///   variable set is a subset of the form's variables)
 pub(crate) fn form_len_hints_pf(
@@ -101,7 +99,7 @@ pub(crate) fn form_len_hints_pf(
 ) -> PatternLenHints {
     form_len_hints_iter(
         form,
-        |c| vcs.bounds(c), // normalized (min,max) with defaults applied
+        |c| vcs.bounds(c),
         &group_constraints_for_form(form, jcs),
     )
 }
@@ -115,12 +113,12 @@ pub(crate) fn form_len_hints_iter<'a, I, F>(
 ) -> PatternLenHints
 where
     I: IntoIterator<Item = &'a FormPart>,
-    F: FnMut(char) -> (usize, usize), // normalized (min, max) where max==usize::MAX => ∞
+    F: FnMut(char) -> (Option<usize>, Option<usize>),
 {
     #[derive(Clone, Copy, Debug)]
     struct Bounds {
-        li: usize,
-        ui: usize, // usize::MAX encodes ∞
+        li: Option<usize>,
+        ui: Option<usize>
     }
 
     // 1. Scan tokens: accumulate fixed_base, detect '*', and count var frequencies
@@ -164,21 +162,17 @@ where
     let mut weighted_min = {
         let sum = vars
             .iter()
-            .map(|&v| get_weight(v) * bounds_map[&v].li)
+            .map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(VarConstraint::DEFAULT_MIN))
             .sum::<usize>();
         Some(fixed_base + sum)
     };
 
-    let mut weighted_max = if has_star
-        || vars
-        .iter()
-        .any(|&v| bounds_map[&v].ui == VarConstraint::DEFAULT_MAX)
-    {
+    let mut weighted_max = if has_star || vars.iter().any(|v| bounds_map[v].ui.is_none()) {
         None
     } else {
         let sum = vars
             .iter()
-            .map(|&v| get_weight(v) * bounds_map[&v].ui)
+            .map(|&v| get_weight(v) * bounds_map[&v].ui.unwrap()) // TODO? rewrite to avoid unwrap (though these are all Some...)
             .sum::<usize>();
         Some(fixed_base + sum)
     };
@@ -188,8 +182,8 @@ where
         #[derive(Clone, Copy)]
         struct Row {
             w: usize,
-            li: usize,
-            ui: usize, // usize::MAX encodes ∞
+            li: Option<usize>,
+            ui: Option<usize>
         }
 
         /// Compute the weighted extremal sum at fixed total `t` over the rows,
@@ -214,7 +208,7 @@ where
             }
 
             // Base cost at lower bounds
-            let base_weighted = rows.iter().map(|r| r.w.saturating_mul(r.li)).sum::<usize>();
+            let base_weighted = rows.iter().map(|r| r.w.saturating_mul(r.li.unwrap_or(VarConstraint::DEFAULT_MIN))).sum::<usize>();
             let mut rem = t - sum_li;
             if rem == 0 {
                 return Some(base_weighted);
@@ -232,10 +226,10 @@ where
             let mut extra = 0usize;
             for r in order {
                 // Per-row capacity above li
-                let cap = if r.ui == VarConstraint::DEFAULT_MAX {
-                    rem
+                let cap = if let Some(u) = r.ui {
+                    u.saturating_sub(r.li.unwrap_or(VarConstraint::DEFAULT_MIN)).min(rem)
                 } else {
-                    r.ui.saturating_sub(r.li).min(rem)
+                    rem
                 };
 
                 if cap > 0 {
@@ -283,13 +277,13 @@ where
             rows.push(Row {
                 w: get_weight(v),
                 li: b.li,
-                ui: b.ui,
+                ui: b.ui
             });
-            sum_li += b.li;
-            sum_ui_opt = if b.ui == VarConstraint::DEFAULT_MAX {
+            sum_li += b.li.unwrap_or(VarConstraint::DEFAULT_MIN);
+            sum_ui_opt = if b.ui.is_none() {
                 None
             } else {
-                sum_ui_opt.map(|a| a + b.ui)
+                sum_ui_opt.and_then(|a| b.ui.map(|u| a + u))
             };
         }
 
@@ -308,12 +302,8 @@ where
             .filter(|v| !var_frequency.contains_key(v))
             .fold((0usize, Some(0usize)), |(min_acc, max_acc_opt), &v| {
                 let (li, ui) = get_var_bounds(v);
-                let min_acc = min_acc + li;
-                let max_acc_opt = if ui == VarConstraint::DEFAULT_MAX {
-                    None
-                } else {
-                    max_acc_opt.map(|a| a + ui)
-                };
+                let min_acc = min_acc + li.unwrap_or(VarConstraint::DEFAULT_MIN);
+                let max_acc_opt = ui.and_then(|u| max_acc_opt.map(|a| a + u));
                 (min_acc, max_acc_opt)
             });
 
@@ -335,20 +325,17 @@ where
 
         let outside_min = outside
             .iter()
-            .map(|&v| get_weight(v) * bounds_map[&v].li)
+            .map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(VarConstraint::DEFAULT_MIN))
             .sum::<usize>();
 
-        let outside_max_opt: Option<usize> = if has_star
-            || outside
-            .iter()
-            .any(|&v| bounds_map[&v].ui == VarConstraint::DEFAULT_MAX)
+        let outside_max_opt: Option<usize> = if has_star || outside.iter().any(|&v| bounds_map[&v].ui.is_none())
         {
             None
         } else {
             Some(
                 outside
                     .iter()
-                    .map(|&v| get_weight(v) * bounds_map[&v].ui)
+                    .map(|&v| get_weight(v) * bounds_map[&v].ui.unwrap()) // TODO? rewrite to avoid unwrap (though these are all Some...)
                     .sum::<usize>(),
             )
         };
@@ -606,7 +593,7 @@ mod tests {
         // Here the normalized defaults are A∈[1,∞), B∈[1,∞) → we get
         // min_len = 1 (from A's min), and an effective upper bound of 5 (6 - min(B)).
         let expected = PatternLenHints {
-            min_len: Some(VarConstraint::DEFAULT_MIN),
+            min_len: Some(VarConstraint::DEFAULT_MIN), // TODO!!! (should this be None?)
             max_len: Some(5),
         };
         assert_eq!(expected, hints);
