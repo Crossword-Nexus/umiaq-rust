@@ -1,0 +1,123 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Umiaq Solver</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    input {font-size: 1.25em;}
+    pre {font-size: 1.25em;}
+    #results { margin-top: 1em; white-space: pre-wrap; }
+    #loading { font-style: italic; color: gray; }
+    #spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid #ccc; border-top: 2px solid #333; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 0.5em; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    #mainUI { display: none; }
+    details.examples { margin-top: 2em;}
+  </style>
+  <!-- Word list processing -->
+  <script src="./wordlist.js" type="text/javascript"></script>
+  <!-- Styles -->
+  <link rel="stylesheet" href="./skeleton.min.css" />
+  <link rel="stylesheet" href="./umiaq.css" />
+</head>
+<body>
+  <!-- modal box placeholder -->
+  <div class="cw-modal" id="cw-modal"></div>
+  <h1>Umiaq</h1>
+  <div id="loading"><span id="spinner"></span>Loading ...</div>
+
+  <div id="mainUI">
+    <form>
+      <label class="label">
+        <span class="label-text">Pattern:</span>
+        <input class="input" id="input" type="text" />
+      </label>
+      <button class="button-primary" type="submit">Search</button>
+    </form>
+
+    <button type="submit" id="wordlist-button" value="Upload wordlist">(Optional) Upload wordlist</button>
+
+    <div id="results"></div>
+    <div id="results-meta" style="margin-top:0.5em; font-style:italic; color:#bbb;"></div>
+
+    <div id="examples-container"></div>
+
+  </div>
+
+  <p>
+    <a href="https://www.youtube.com/watch?v=cZzTHqe1n-w" target="_blank">How-To Video</a>
+     •
+     <a href="https://github.com/Crossword-Nexus/umiaq" target="_blank">Source Code</a>
+  </p>
+
+  <script type="module">
+    // load and process the default wordlist
+    await getLocalWordList();
+
+    // Set up the web worker
+    const worker = new Worker(new URL('./solver.worker.js', import.meta.url), { type: 'module' });
+
+    // Define elements
+    const resultsEl = document.getElementById("results");
+    const inputEl = document.getElementById("input");
+
+    worker.postMessage({ type: 'init' });
+    worker.onmessage = (e) => {
+      if (e.data.type === 'ready') {
+        // Hide and show
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("mainUI").style.display = "block";
+      } else if (e.data.type === 'ok') {
+        const rows = e.data.results;
+        resultsEl.textContent = rows.map(r => r.join(' • ').toUpperCase()).join('\n') || 'No matches found.';
+
+        if (searchStart !== null) {
+          const elapsed = ((performance.now() - searchStart) / 1000).toFixed(2);
+          const count = rows.length;
+          document.getElementById("results-meta").textContent =
+                  `${count} result${count !== 1 ? 's' : ''} loaded in ${elapsed} seconds.`;
+        }
+
+      } else if (e.data.type === 'err') {
+        resultsEl.textContent = 'Error: ' + e.data.error;
+      }
+    };
+
+    // For timing
+    let searchStart = null;
+
+    async function solve(e) {
+      e.preventDefault();
+      resultsEl.textContent = 'Loading …';
+      document.getElementById("results-meta").textContent = '';
+      searchStart = performance.now();   // mark start time
+      worker.postMessage({
+        type: 'solve',
+        input: inputEl.value.trim(),
+        wordlist: window.wordlist,
+        numResults: 100,
+      });
+    }
+
+    // Add listener to "submit" button
+    document.querySelector("form").addEventListener("submit", solve);
+
+  </script>
+
+  <script>
+
+
+    // Load the examples
+    fetch("./examples.html")
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById("examples-container").innerHTML = html;
+      });
+    // attach listener
+    document.getElementById('wordlist-button').addEventListener('click', createWordlistModal);
+  </script>
+
+</body>
+</html>
