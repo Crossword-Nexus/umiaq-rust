@@ -1,0 +1,65 @@
+name: Pages   # Name of this workflow (shows up in Actions tab)
+
+on:
+  # Run the workflow whenever code is pushed to main,
+  # and also when a PR targets main (PRs only do build/test, not deploy).
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # Prevent overlapping runs: if you push twice quickly, the older one cancels.
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # First job: check out code, build wasm, and upload site files as an artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install wasm-pack
+        # wasm-pack compiles Rust to WebAssembly with the JS shim
+        run: |
+          curl -sSfL https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
+
+      - name: Build WASM into web/pkg
+        # Compile your crate to WASM + JS wrapper in web/pkg/
+        run: |
+          wasm-pack build --release --target web --out-dir web/pkg
+
+      - name: Ensure .nojekyll
+        # Make sure Jekyll doesn't interfere with pkg/ folder on Pages
+        run: |
+          touch web/.nojekyll
+
+      - name: Upload site artifact
+        # Package everything in web/ (index.html, pkg/, css, data, etc.)
+        # as an artifact for the deploy job
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    # Second job: only runs on push to main (not on PRs)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build   # Wait until the build job finishes
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        # Deploy the artifact (our web/ folder) to the GitHub Pages service
+        uses: actions/deploy-pages@v4
