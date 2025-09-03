@@ -288,7 +288,7 @@ impl Patterns {
         let mut p_list = self.p_list.clone();
         let mut ordered = Vec::with_capacity(p_list.len());
 
-        // Reusable tiebreak tail: (constraint_score desc, deterministic asc, original_index desc)
+        // Reusable tiebreak tail: (constraint_score desc, deterministic asc, original_index asc)
         // Note: Reverse(bool) makes false > true under max_by_key, i.e., ascending by bool.
         let tie_tail = |p: &Pattern| (p.constraint_score(), Reverse(p.is_deterministic), p.original_index);
 
@@ -310,13 +310,13 @@ impl Patterns {
                 .flat_map(|p| p.variables.iter().copied())
                 .collect();
 
-            // Next pick: maximize overlap; tiebreak by tail.
+            // Next pick: minimize difference; tiebreak by tail.
             let (ix, mut next_p) = p_list
                 .iter()
                 .enumerate()
                 .min_by_key(|(_, p)| {
-                    let overlap = p.variables.difference(&found_vars).count();
-                    (overlap, tie_tail(p))
+                    let var_diff = p.variables.difference(&found_vars).count();
+                    (var_diff, tie_tail(p))
                 })
                 .map(|(i, p)| (i, p.clone()))
                 .unwrap();
