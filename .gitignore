@@ -2,6 +2,7 @@
 /.idea
 /pkg
 /web/pkg
+/web/data
 /node_modules
 /dist
 *.xml

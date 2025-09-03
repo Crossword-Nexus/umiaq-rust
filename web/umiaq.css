@@ -334,3 +334,10 @@ hr {
     max-width: 40ch;     /* up to ~40 characters wide on larger screens */
     box-sizing: border-box; /* includes padding in the width */
 }
+
+/* Results */
+#results {
+  font-family: 'Space Mono', monospace;
+  margin-top: 1em;
+  white-space: pre-wrap;
+}
