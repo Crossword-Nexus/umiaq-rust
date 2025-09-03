@@ -63,7 +63,7 @@ static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").un
 /// - `lookup_keys`: `Option<HashSet<char>>`
 ///   - **What:** The subset of this form's variables that also appear in forms
 ///     that have already been placed earlier in `Patterns::ordered_list`.
-///   - **When it's set:** Assigned by `Patterns::ordered_partitions()` *after* the
+///   - **When it's set:** Assigned by `Patterns::ordered_patterns()` *after* the
 ///     forms have been reordered for solving.
 ///   - **Why it helps:** During the multi-form join, candidate bindings for this
 ///     form can be bucketed by the concrete values of these variables and then
@@ -182,7 +182,7 @@ pub struct Patterns {
     /// List of patterns directly extracted from the input string (not constraints)
     // TODO should we keep Vec<Pattern> for each order or just one (likely ordered_list) and use map
     //      (original_to_ordered) when other is needed?
-    pub list: Vec<Pattern>,
+    pub p_list: Vec<Pattern>,
     /// Map of variable names (A-Z) to their associated constraints
     pub var_constraints: VarConstraints,
     /// Reordered list of patterns, optimized for solving (most-constrained first)
@@ -195,7 +195,7 @@ pub struct Patterns {
 
 impl Patterns {
     fn build_order_maps(&mut self) {
-        let n = self.list.len();
+        let n = self.p_list.len();
         self.ordered_to_original = self
             .ordered_list
             .iter()
@@ -215,7 +215,7 @@ impl Patterns {
     /// - complex constraints (e.g., length + pattern) (e.g., `A=(3-5:a*)`)
     ///
     /// Non-constraint entries are added to `self.list` as actual patterns.
-    fn make_list(&mut self, input: &str) {
+    fn set_var_constraints(&mut self, input: &str) {
         let forms: Vec<&str> = input.split(FORM_SEPARATOR).collect();
         // Iterate through all parts of the input string, split by `;`
 
@@ -270,7 +270,7 @@ impl Patterns {
                 // TODO do we check for those separately?
                 // TODO avoid calling parse_form twice on the same form? (here and in solve_equation)
                 if let Ok(_parsed) = form.parse::<ParsedForm>() {
-                    self.list.push(Pattern::create(*form, next_form_ix));
+                    self.p_list.push(Pattern::create(*form, next_form_ix));
                     next_form_ix += 1;
                 } else {
                     // TODO throw exception
@@ -284,13 +284,13 @@ impl Patterns {
     /// First selects the pattern with the most variables,
     /// then repeatedly selects the next pattern with the most overlap with those already chosen.
     /// This helps early patterns prune the solution space.
-    fn ordered_partitions(&self) -> Vec<Pattern> {
-        let mut p_list = self.list.clone();
+    fn ordered_patterns(&self) -> Vec<Pattern> {
+        let mut p_list = self.p_list.clone();
         let mut ordered = Vec::with_capacity(p_list.len());
 
         // Reusable tiebreak tail: (constraint_score desc, deterministic asc, original_index desc)
         // Note: Reverse(bool) makes false > true under max_by_key, i.e., ascending by bool.
-        let tie_tail = |p: &Pattern| (p.constraint_score(), Reverse(p.is_deterministic), Reverse(p.original_index));
+        let tie_tail = |p: &Pattern| (p.constraint_score(), Reverse(p.is_deterministic), p.original_index);
 
         // First pick: most variables; tiebreak by tail.
         let first_ix = p_list
@@ -311,25 +311,25 @@ impl Patterns {
                 .collect();
 
             // Next pick: maximize overlap; tiebreak by tail.
-            let (ix, mut next) = p_list
+            let (ix, mut next_p) = p_list
                 .iter()
                 .enumerate()
-                .max_by_key(|(_, p)| {
-                    let overlap = p.variables.intersection(&found_vars).count();
+                .min_by_key(|(_, p)| {
+                    let overlap = p.variables.difference(&found_vars).count();
                     (overlap, tie_tail(p))
                 })
                 .map(|(i, p)| (i, p.clone()))
                 .unwrap();
 
             // Assign join keys for the chosen pattern
-            let lookup_keys: HashSet<char> = next.variables
+            let lookup_keys: HashSet<char> = next_p.variables
                 .intersection(&found_vars)
                 .copied()
                 .collect();
-            next.set_lookup_keys(lookup_keys);
+            next_p.set_lookup_keys(lookup_keys);
 
             p_list.remove(ix);
-            ordered.push(next);
+            ordered.push(next_p);
         }
 
         ordered
@@ -374,8 +374,8 @@ impl FromStr for Patterns {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut patterns = Patterns::default();
-        patterns.make_list(s);
-        patterns.ordered_list = patterns.ordered_partitions();
+        patterns.set_var_constraints(s);
+        patterns.ordered_list = patterns.ordered_patterns();
         // populate original_to_ordered and ordered_to_original
         patterns.build_order_maps();
         Ok(patterns)
@@ -474,7 +474,7 @@ mod tests {
         let patterns = "AB;|A|=3;!=AB;B=(2:b*)".parse::<Patterns>().unwrap();
 
         // Test raw pattern list
-        assert_eq!(vec!["AB".to_string()], patterns.list.iter().map(|p| p.raw_string.clone()).collect::<Vec<_>>());
+        assert_eq!(vec!["AB".to_string()], patterns.p_list.iter().map(|p| p.raw_string.clone()).collect::<Vec<_>>());
 
         // Test constraints
         let a = patterns.var_constraints.get('A').unwrap();
@@ -577,7 +577,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ordered_partitioning() {
+    fn test_ordered_patterns() {
         let input = "ABC;BC;C";
         let patterns = input.parse::<Patterns>().unwrap();
 

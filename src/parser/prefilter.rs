@@ -256,18 +256,17 @@ pub(crate) fn has_inlineable_var_form(parts: &[FormPart], constraints: &VarConst
     })
 }
 
-/// Build the best prefilter for this (form, constraints) pair:
-/// - If a var has a simple `.form`, build the constraint-aware regex (with lookaheads).
-/// - Otherwise, reuse the already-cached `ParsedForm.prefilter`.
+/// Try to improve the prefilter for this (form, constraints) pair by building a constraint-aware
+/// regex (with lookaheads) if possible; otherwise, reuse the already-cached `ParsedForm.prefilter`.
 pub(crate) fn build_prefilter_regex(
     parsed_form: &ParsedForm,
-    constraints: Option<&VarConstraints>,
+    vcs: &VarConstraints,
 ) -> Result<Regex, Box<ParseError>> {
-    if let Some(vcs) = constraints && has_inlineable_var_form(&parsed_form.parts, vcs) {
+    if has_inlineable_var_form(&parsed_form.parts, vcs) {
         let anchored = format!("^{}$", form_to_regex_str_with_constraints(&parsed_form.parts, Some(vcs))?);
         Ok(get_regex(&anchored).unwrap_or_else(|_| parsed_form.prefilter.clone()))
     } else {
-        Ok(parsed_form.prefilter.clone())
+        Ok(parsed_form.prefilter.clone()) // TODO DRY w/2 lines above
     }
 }
 
@@ -296,7 +295,7 @@ mod tests {
         vcs.insert('A', vc);
 
         assert!(pf.prefilter.is_match("abba").unwrap());
-        let upgraded = build_prefilter_regex(&pf, Some(&vcs)).unwrap();
+        let upgraded = build_prefilter_regex(&pf, &vcs).unwrap();
         pf.prefilter = upgraded;
 
         assert!(pf.prefilter.is_match("xya").unwrap());

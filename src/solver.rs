@@ -232,7 +232,7 @@ fn recursive_join(
     env: &mut HashMap<char, String>,
     results: &mut Vec<Vec<Bindings>>,
     num_results_requested: usize,
-    patterns: &Patterns,                 // for patt.deterministic / vars / lookup_keys
+    patterns: &Patterns,
     parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
     word_list_as_set: &HashSet<&str>,
     joint_constraints: JointConstraints,
@@ -282,7 +282,7 @@ fn recursive_join(
             selected.pop();
             return; // IMPORTANT: skip normal enumeration path
         } else {
-            // Not actually materializable (shouldn't happen if patt.deterministic is correct)
+            // Not actually materializable (shouldn't happen if variable bindings are correct)(?)
             // TODO throw error?
             return;
         }
@@ -391,7 +391,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
 
     // 1. Parse the input equation string into our `Patterns` struct.
     //    This holds each pattern string, its parsed form, and its `lookup_keys` (shared vars).
-    let patterns = input.parse::<Patterns>().unwrap();
+    let patterns = input.parse::<Patterns>()?;
 
     // 2. Build per-pattern lookup key specs (shared vars) for the join
     let lookup_keys: Vec<Option<HashSet<char>>> =
@@ -406,8 +406,8 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         words.push(CandidateBuckets::default());
     }
 
-    // 4. Parse each pattern's string form once into a vector of `FormPart`s.
-    //    These are index-aligned with `patterns`.
+    // 4. Parse each pattern's string form once into a `ParsedForm` (essentially a vector of
+    //    `FormPart`s). These are index-aligned with `patterns`.
     let mut parsed_forms: Vec<_> = patterns
         .iter()
         .map(|p| {
@@ -420,11 +420,11 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     let mut var_constraints = patterns.var_constraints.clone();
 
     // 6. Upgrade prefilters once per form (only if it helps)
-    // Specifically, if a variable has a "form" (like `g*`) we upgrade its prefilter
+    // Specifically, if a variable has a "form" (like `g*`), we upgrade its prefilter
     // from `.+` to `g.*`
     // TODO: why not do this when constructing Patterns?
     for pf in &mut parsed_forms {
-        let upgraded = build_prefilter_regex(pf, Some(&var_constraints))?;
+        let upgraded = build_prefilter_regex(pf, &var_constraints)?;
         pf.prefilter = upgraded;
     }
 
