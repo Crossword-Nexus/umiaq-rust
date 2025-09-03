@@ -1,4 +1,8 @@
 /target
 /.idea
+/pkg
+/web/pkg
+/node_modules
+/dist
 *.xml
 pkg/README.md
