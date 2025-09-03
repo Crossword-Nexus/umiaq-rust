@@ -72,7 +72,7 @@ impl Alphagram {
             if char_counts[c_as_num] == 0 {
                 return Ok(false);
             }
-            char_counts[c as usize] -= 1;
+            char_counts[c_as_num] -= 1;
         }
 
         Ok(char_counts.iter().all(|&count| count == 0))
