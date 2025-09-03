@@ -24,7 +24,6 @@ function processWordList(fileContents, minScore) {
 }
 
 async function getLocalWordList() {
-  // TODO: I do *not* like the way this is set up. Maybe when we have a better github pages setup?
   const url = './data/spreadthewordlist.dict';
   let minScore = 50;
 
