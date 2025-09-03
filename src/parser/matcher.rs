@@ -264,24 +264,24 @@ mod tests {
 
     #[test]
     fn test_palindrome_matching() {
-        let patt = "A~A".parse::<ParsedForm>().unwrap();
-        assert!(match_equation_exists("noon", &patt, None, JointConstraints::default()));
-        assert!(!match_equation_exists("radar", &patt, None, JointConstraints::default()));
-        assert!(!match_equation_exists("test", &patt, None, JointConstraints::default()));
+        let pf = "A~A".parse::<ParsedForm>().unwrap();
+        assert!(match_equation_exists("noon", &pf, None, JointConstraints::default()));
+        assert!(!match_equation_exists("radar", &pf, None, JointConstraints::default()));
+        assert!(!match_equation_exists("test", &pf, None, JointConstraints::default()));
     }
 
     #[test]
     fn test_match_equation_exists() {
-        let patt1 = "A~A[rstlne]/jon@#.*".parse::<ParsedForm>().unwrap();
-        assert!(match_equation_exists("aaronjudge", &patt1, None, JointConstraints::default()));
-        assert!(!match_equation_exists("noon", &patt1, None, JointConstraints::default()));
-        assert!(!match_equation_exists("toon", &patt1, None, JointConstraints::default()));
+        let pf = "A~A[rstlne]/jon@#.*".parse::<ParsedForm>().unwrap();
+        assert!(match_equation_exists("aaronjudge", &pf, None, JointConstraints::default()));
+        assert!(!match_equation_exists("noon", &pf, None, JointConstraints::default()));
+        assert!(!match_equation_exists("toon", &pf, None, JointConstraints::default()));
     }
 
     #[test]
     fn test_literal_matching() {
-        let patt = "abc".parse::<ParsedForm>().unwrap();
-        assert!(match_equation_exists("abc", &patt, None, JointConstraints::default()));
-        assert!(!match_equation_exists("xyz", &patt, None, JointConstraints::default()));
+        let pf = "abc".parse::<ParsedForm>().unwrap();
+        assert!(match_equation_exists("abc", &pf, None, JointConstraints::default()));
+        assert!(!match_equation_exists("xyz", &pf, None, JointConstraints::default()));
     }
 }

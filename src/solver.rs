@@ -165,11 +165,11 @@ fn scan_batch(
 
         let word = word_list[i_word];
 
-        for (i, patt) in patterns.iter().enumerate() {
+        for (i, p) in patterns.iter().enumerate() {
             // No per-pattern cap anymore
 
             // Skip deterministic fully keyed forms
-            if patt.is_deterministic && patt.all_vars_in_lookup_keys() {
+            if p.is_deterministic && p.all_vars_in_lookup_keys() {
                 continue;
             }
             // Cheap length prefilter
@@ -185,10 +185,10 @@ fn scan_batch(
             );
 
             for binding in matches {
-                let key = lookup_key_for_binding(&binding, patt.lookup_keys.as_ref());
+                let key = lookup_key_for_binding(&binding, p.lookup_keys.as_ref());
 
                 // If a required key is missing, skip
-                if key.as_ref().is_some_and(|v| v.is_empty() && patt.lookup_keys.as_ref().is_some_and(|ks| !ks.is_empty())) {
+                if key.as_ref().is_some_and(|v| v.is_empty() && p.lookup_keys.as_ref().is_some_and(|ks| !ks.is_empty())) {
                     continue;
                 }
 
@@ -252,8 +252,8 @@ fn recursive_join(
     }
 
     // ---- FAST PATH: deterministic + fully keyed ----------------------------
-    let patt = &patterns.ordered_list[idx];
-    if patt.is_deterministic && patt.all_vars_in_lookup_keys() {
+    let p = &patterns.ordered_list[idx];
+    if p.is_deterministic && p.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
         let pf = &parsed_forms[idx];
         if let Some(expected) = pf.materialize_deterministic_with_env(env) {
@@ -267,7 +267,7 @@ fn recursive_join(
             // - include only vars that belong to this pattern (they must already be in env)
             let mut binding = Bindings::default();
             binding.set_word(&expected);
-            for &v in &patt.variables {
+            for &v in &p.variables {
                 // safe to unwrap because all vars are in lookup_keys ⇒ must be in env
                 if let Some(val) = env.get(&v) {
                     binding.set(v, val.clone());

@@ -285,25 +285,25 @@ impl Patterns {
     /// then repeatedly selects the next pattern with the most overlap with those already chosen.
     /// This helps early patterns prune the solution space.
     fn ordered_partitions(&self) -> Vec<Pattern> {
-        let mut patt_list = self.list.clone();
-        let mut ordered = Vec::with_capacity(patt_list.len());
+        let mut p_list = self.list.clone();
+        let mut ordered = Vec::with_capacity(p_list.len());
 
         // Reusable tiebreak tail: (constraint_score desc, deterministic asc, original_index desc)
         // Note: Reverse(bool) makes false > true under max_by_key, i.e., ascending by bool.
         let tie_tail = |p: &Pattern| (p.constraint_score(), Reverse(p.is_deterministic), Reverse(p.original_index));
 
         // First pick: most variables; tiebreak by tail.
-        let first_ix = patt_list
+        let first_ix = p_list
             .iter()
             .enumerate()
             .max_by_key(|(_, p)| (p.variables.len(), tie_tail(p)))
             .map(|(i, _)| i)
             .unwrap();
 
-        let first = patt_list.remove(first_ix);
+        let first = p_list.remove(first_ix);
         ordered.push(first);
 
-        while !patt_list.is_empty() {
+        while !p_list.is_empty() {
             // Vars already "seen"
             let found_vars: HashSet<char> = ordered
                 .iter()
@@ -311,7 +311,7 @@ impl Patterns {
                 .collect();
 
             // Next pick: maximize overlap; tiebreak by tail.
-            let (ix, mut next) = patt_list
+            let (ix, mut next) = p_list
                 .iter()
                 .enumerate()
                 .max_by_key(|(_, p)| {
@@ -328,7 +328,7 @@ impl Patterns {
                 .collect();
             next.set_lookup_keys(lookup_keys);
 
-            patt_list.remove(ix);
+            p_list.remove(ix);
             ordered.push(next);
         }
 
@@ -483,7 +483,7 @@ mod tests {
             min_length: Some(3),
             max_length: Some(3),
             form: None,
-            not_equal: ['B'].into_iter().collect(),
+            not_equal: HashSet::from_iter(['B']),
             ..Default::default()
         };
         assert_eq!(expected_a, a.clone());
@@ -493,7 +493,7 @@ mod tests {
             min_length: Some(2),
             max_length: Some(2),
             form: Some("b*".to_string()),
-            not_equal: ['A'].into_iter().collect(),
+            not_equal: HashSet::from_iter(['A']),
             ..Default::default()
         };
         assert_eq!(expected_b, b.clone());
