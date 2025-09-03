@@ -172,10 +172,10 @@ impl FromStr for ParsedForm {
 
 // === Token parsers ===
 
-fn varref(input: &str) -> IResult<&str, FormPart> {
+fn var_ref(input: &str) -> IResult<&str, FormPart> {
     map(one_of(VARIABLE_CHARS), FormPart::Var).parse(input)
 }
-fn revref(input: &str) -> IResult<&str, FormPart> {
+fn rev_ref(input: &str) -> IResult<&str, FormPart> {
     map(preceded(tag("~"), one_of(VARIABLE_CHARS)), FormPart::RevVar).parse(input)
 }
 fn literal(input: &str) -> IResult<&str, FormPart> {
@@ -208,7 +208,7 @@ fn anagram(input: &str) -> IResult<&str, FormPart> {
 }
 
 fn equation_part(input: &str) -> IResult<&str, FormPart> {
-    alt((revref, varref, anagram, charset, literal, dot, star, vowel, consonant)).parse(input)
+    alt((rev_ref, var_ref, anagram, charset, literal, dot, star, vowel, consonant)).parse(input)
 }
 
 #[cfg(test)]
