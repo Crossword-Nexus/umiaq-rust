@@ -132,7 +132,7 @@ where
             FormPart::Dot | FormPart::Vowel | FormPart::Consonant | FormPart::Charset(_) => fixed_base += 1,
             FormPart::Lit(s) => fixed_base += s.len(),
             FormPart::Anagram(ag) => fixed_base += ag.len,
-            FormPart::Var(v) | FormPart::RevVar(v) => *var_frequency.entry(*v).or_insert(0) += 1,
+            FormPart::Var(v) | FormPart::RevVar(v) => *var_frequency.entry(*v).or_insert(0) += VarConstraint::DEFAULT_MIN,
         }
     }
 
@@ -593,7 +593,7 @@ mod tests {
         // Here the normalized defaults are A∈[1,∞), B∈[1,∞) → we get
         // min_len = 1 (from A's min), and an effective upper bound of 5 (6 - min(B)).
         let expected = PatternLenHints {
-            min_len: Some(1), // TODO!!! (should this be None?)
+            min_len: Some(VarConstraint::DEFAULT_MIN), // TODO!!! (should this be None?)
             max_len: Some(5),
         };
         assert_eq!(expected, hints);
