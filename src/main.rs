@@ -43,16 +43,22 @@ fn main() -> std::io::Result<()> {
     let words_ref: Vec<&str> = wl.entries.iter().map(String::as_str).collect();
 
     let t_solve = Instant::now();
-    let solutions: Vec<Vec<Bindings>> = solver::solve_equation(&cli.pattern, &words_ref, cli.num_results_requested).unwrap(); // TODO! handle better
+    let report = solver::solve_equation(&cli.pattern, &words_ref, cli.num_results_requested)
+        .unwrap(); // TODO: handle error/timeout better
+    
     let solve_secs = t_solve.elapsed().as_secs_f64();
 
-    for solution in &solutions {
+    if report.timed_out {
+        eprintln!("⚠️ Solver timed out");
+    }
+
+    for solution in &report.results {
         println!("{}", solution_to_string(solution));
     }
 
     eprintln!(
         "Loaded {} words in {:.3}s; solved in {:.3}s ({} tuples).",
-        wl.entries.len(), load_secs, solve_secs, solutions.len()
+        wl.entries.len(), load_secs, solve_secs, report.len()
     );
 
     Ok(())

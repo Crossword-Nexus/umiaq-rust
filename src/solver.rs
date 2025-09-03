@@ -237,10 +237,21 @@ fn recursive_join(
     word_list_as_set: &HashSet<&str>,
     joint_constraints: JointConstraints,
     seen: &mut HashSet<u64>,
-) {
+    budget: Option<&TimeBudget>,
+) -> bool {
     // Stop if we've met the requested quota of full solutions.
     if results.len() >= num_results_requested {
-        return;
+        return false;
+    }
+
+    // Respect the time budget at entry
+    if let Some(b) = budget {
+        if b.expired() { return true; }
+    }
+
+    // Keep original quota check again (idempotent)
+    if results.len() >= num_results_requested {
+        return false;
     }
 
     // Base case: if we've placed all patterns, `selected` is a full solution.
@@ -248,7 +259,7 @@ fn recursive_join(
         if joint_constraints.all_strictly_satisfied_for_parts(selected) && seen.insert(solution_key(selected)) {
             results.push(selected.clone());
         }
-        return;
+        return false;
     }
 
     // ---- FAST PATH: deterministic + fully keyed ----------------------------
@@ -256,35 +267,39 @@ fn recursive_join(
     if p.is_deterministic && p.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
         let pf = &parsed_forms[idx];
-        if let Some(expected) = pf.materialize_deterministic_with_env(env) {
-            if !word_list_as_set.contains(expected.as_str()) {
-                // This branch cannot succeed — prune immediately.
-                return;
-            }
-
-            // Build a minimal Bindings for this pattern:
-            // - include WORD_SENTINEL (whole word)
-            // - include only vars that belong to this pattern (they must already be in env)
-            let mut binding = Bindings::default();
-            binding.set_word(&expected);
-            for &v in &p.variables {
-                // safe to unwrap because all vars are in lookup_keys ⇒ must be in env
-                if let Some(val) = env.get(&v) {
-                    binding.set(v, val.clone());
+        return match pf.materialize_deterministic_with_env(env) {
+            Some(expected) => {
+                if !word_list_as_set.contains(expected.as_str()) {
+                    // This branch cannot succeed — prune immediately.
+                    return false;
                 }
-            }
 
-            selected.push(binding);
-            recursive_join(
-                idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                patterns, parsed_forms, word_list_as_set, joint_constraints, seen,
-            );
-            selected.pop();
-            return; // IMPORTANT: skip normal enumeration path
-        } else {
-            // Not actually materializable (shouldn't happen if variable bindings are correct)(?)
-            // TODO throw error?
-            return;
+                // Build a minimal Bindings for this pattern:
+                // - include WORD_SENTINEL (whole word)
+                // - include only vars that belong to this pattern (they must already be in env)
+                let mut binding = Bindings::default();
+                binding.set_word(&expected);
+                for &v in &p.variables {
+                    // safe to unwrap because all vars are in lookup_keys ⇒ must be in env
+                    if let Some(val) = env.get(&v) {
+                        binding.set(v, val.clone());
+                    }
+                }
+
+                selected.push(binding);
+                let hit_timeout = recursive_join(
+                    idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
+                    patterns, parsed_forms, word_list_as_set, joint_constraints, seen, budget,
+                );
+                selected.pop();
+                if hit_timeout { return true; }
+                false // IMPORTANT: skip normal enumeration path
+            }
+            None => {
+                // Not actually materializable (shouldn't happen if variable bindings are correct)(?)
+                // TODO throw error?
+                false
+            }
         }
     }
     // ------------------------------------------------------------------------
@@ -298,6 +313,7 @@ fn recursive_join(
     let bucket_candidates_opt: Option<&Vec<Bindings>> = match &lookup_keys[idx] {
         None => {
             // No shared vars for this pattern → use the None bucket.
+            // No shared vars for this pattern → use the None bucket.
             words[idx].buckets.get(&None)
         }
         Some(keys) => {
@@ -310,7 +326,7 @@ fn recursive_join(
                     pairs.push((var, v.clone()));
                 } else {
                     // If any required var isn't bound yet, there can be no matches for this branch.
-                    return;
+                    return false;
                 }
             }
             // Deterministic key: sort by the variable name.
@@ -323,16 +339,16 @@ fn recursive_join(
         }
     };
 
-    // If there are no candidates in that bucket, dead-end this branch.
     let Some(bucket_candidates) = bucket_candidates_opt else {
-        return;
+        // No candidates for this branch.
+        return false;
     };
 
-    // Try each candidate binding for this pattern.
+    // Enumerate candidates for pattern `idx`.
     for cand in bucket_candidates {
-        if results.len() >= num_results_requested {
-            break; // stop early if we've already met the quota
-        }
+        // Check budget and quota inside the loop, so we can stop mid-enumeration.
+        if let Some(b) = budget { if b.expired() { return true; } }
+        if results.len() >= num_results_requested { return false; }
 
         // Defensive compatibility check: if a variable is already in `env`,
         // its value must match the candidate. This *should* already be true
@@ -357,17 +373,38 @@ fn recursive_join(
 
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
-        recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                       patterns, parsed_forms, word_list_as_set, joint_constraints.clone(), seen);
+        let hit_timeout = recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
+                                         patterns, parsed_forms, word_list_as_set, joint_constraints.clone(), seen, budget);
         selected.pop();
+        if hit_timeout { return true; }
 
         // Backtrack: remove only what we added at this level.
         for k in added_vars {
             env.remove(&k);
         }
     }
+
+    false
 }
 
+
+/// Summary of a solve attempt.
+#[derive(Debug)]
+pub struct SolveReport {
+    pub results: Vec<Vec<Bindings>>,
+    /// True if the wall-clock limit was reached before we could finish exploring.
+    pub timed_out: bool,
+}
+
+impl SolveReport {
+    pub fn len(&self) -> usize {
+        self.results.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.results.is_empty()
+    }
+}
 
 /// Read in an equation string and return results from the word list
 ///
@@ -385,7 +422,11 @@ fn recursive_join(
 ///
 /// Will return a `ParseError` if a form cannot be parsed.
 // TODO? add more detail in Errors section
-pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: usize) -> Result<Vec<Vec<Bindings>>, Box<ParseError>> {
+pub fn solve_equation(
+    input: &str,
+    word_list: &[&str],
+    num_results_requested: usize,
+) -> Result<SolveReport, Box<ParseError>> {
     // 0. Make a hash set version of our word list
     let word_list_as_set: HashSet<&str> = word_list.iter().copied().collect();
 
@@ -442,8 +483,6 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         .collect();
 
     // 9. Iterate through every candidate word.
-    let budget = TimeBudget::new(Duration::from_secs(TIME_BUDGET));
-
     let mut results: Vec<Vec<Bindings>> = vec![];
     let mut selected: Vec<Bindings> = vec![];
     let mut env: HashMap<char, String> = HashMap::new();
@@ -458,6 +497,10 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     // batch_size controls how many words to scan this round (adaptive).
     let mut batch_size: usize = DEFAULT_BATCH_SIZE;
 
+    // Create a wall-clock budget for this solve.
+    let budget = TimeBudget::new(Duration::from_secs(TIME_BUDGET));
+    let mut timed_out = false;
+
     // High-level solver driver. Alternates between:
     //   1. scanning more words from the dictionary into candidate buckets
     //   2. recursively joining those buckets into full solutions
@@ -469,7 +512,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     {
         // 1. Scan the next batch_size words into candidate buckets.
         // Each candidate binding is grouped by its lookup key so later joins are fast.
-        let (new_pos, _is_time_up) = scan_batch(
+        let (new_pos, is_time_up) = scan_batch(
             word_list,
             scan_pos,
             batch_size,
@@ -482,14 +525,15 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             Some(&budget),
         );
         scan_pos = new_pos;
-
-        // Respect the TimeBudget
-        if budget.expired() { break; }
+        if is_time_up {
+            timed_out = true;
+            break;
+        }
 
         // 2. Attempt to build full solutions from the candidates accumulated so far.
         // This may rediscover old partials, so we use `seen` at the base case
         // to ensure only truly new solutions are added to `results`.
-        recursive_join(
+        let hit_timeout = recursive_join(
             0,
             &words,
             &lookup_keys,
@@ -502,7 +546,12 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &word_list_as_set,
             joint_constraints.clone(),
             &mut seen,
+            Some(&budget),
         );
+        if hit_timeout {
+            timed_out = true;
+            break;
+        }
 
         // We exit early in three cases
         // 1. We've hit the number of results requested
@@ -527,7 +576,10 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     }).collect::<Vec<_>>();
 
     // Return up to `num_results_requested` reordered solutions
-    Ok(reordered)
+    Ok(SolveReport {
+        results: reordered,
+        timed_out,
+    })
 }
 
 #[cfg(test)]
@@ -579,7 +631,7 @@ mod tests {
         // NB: this could give a false negative if SLY comes out before SKY (since we presumably shouldn't care about the order), so...
         // TODO allow order independence for equality... perhaps create a richer struct than just Vec<Bindings> that has a notion of order-independent equality
         let expected = vec![vec![sky_bindings, sly_bindings]];
-        assert_eq!(expected, results);
+        assert_eq!(expected, results.results);
     }
 
     #[test]
@@ -599,6 +651,6 @@ mod tests {
         chess_bindings.set('D', "ess".to_string());
         chess_bindings.set_word("chess".to_string().as_ref());
         let expected = vec![vec![inch_bindings, chess_bindings]];
-        assert_eq!(expected, results);
+        assert_eq!(expected, results.results);
     }
 }

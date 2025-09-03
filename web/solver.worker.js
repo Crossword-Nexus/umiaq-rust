@@ -12,8 +12,13 @@ self.onmessage = async (e) => {
     if (type === 'solve') {
         await ready;
         try {
-            const out = solve_equation_wasm(input, wordlist, numResults);
-            self.postMessage({ type: 'ok', results: out });
+            const { results, timed_out } = solve_equation_wasm(input, wordlist, numResults);
+            if (timed_out) {
+                console.log("Solver timed out.");
+                self.postMessage({ type: 'err', results: "Solver timed out." });
+            } else {
+                self.postMessage({ type: 'ok', results: results });
+            }
         } catch (err) {
             self.postMessage({ type: 'err', error: String(err) });
         }

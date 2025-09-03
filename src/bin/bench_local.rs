@@ -153,7 +153,7 @@ fn main() -> std::io::Result<()> {
             let _keep = black_box(solutions.len());
 
             times.push(solve_secs);
-            last_solutions = solutions;
+            last_solutions = solutions.results;
 
             eprintln!(
                 "  run {:>2}/{:>2}: {:.3}s ({} solutions)",
