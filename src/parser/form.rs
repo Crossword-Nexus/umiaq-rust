@@ -253,4 +253,13 @@ mod tests {
     #[test] fn test_parse_form_anagram_bad_char() {
         assert!(FormPart::anagram_of("aBc").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"Illegal char: 'B'\""));
     }
+
+    #[test]
+    fn test_is_anagram_negative_case() {
+        let ag = FormPart::anagram_of("abc").unwrap();
+        if let FormPart::Anagram(ag) = ag {
+            let word: Vec<char> = "abd".chars().collect();
+            assert!(!ag.is_anagram(&word).unwrap());
+        }
+    }
 }
