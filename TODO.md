@@ -13,4 +13,3 @@
 * "binding" vs. "bindings" in variable names, comments, etc.
 * use `Range`s for length ranges?
 * throw exception if cannot parse form in `make_list` (else case)
-* Split out parser.rs into multiple smaller files
