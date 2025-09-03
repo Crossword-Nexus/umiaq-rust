@@ -90,6 +90,8 @@ pub struct VarConstraint {
 }
 
 impl VarConstraint {
+    pub(crate) const DEFAULT_MIN: usize = 1; // TODO!!!
+
     /// Set both min and max to the same exact length.
     pub(crate) fn set_exact_len(&mut self, len: usize) {
         self.min_length = Some(len);

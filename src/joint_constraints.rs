@@ -6,7 +6,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 use fancy_regex::Regex;
 use crate::comparison_operator::ComparisonOperator;
-use crate::constraints::VarConstraints;
+use crate::constraints::{VarConstraint, VarConstraints};
 
 /// Compact representation of the relation between (sum) and (target).
 ///
@@ -250,7 +250,7 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
 
         for &v in &jc.vars {
             let (li, ui) = vcs.bounds(v);
-            sum_min += li.unwrap_or(1); // TODO!!!
+            sum_min += li.unwrap_or(VarConstraint::DEFAULT_MIN);
 
             // Track finite sum of maxes; if any is ∞, the group max is unbounded.
             sum_max_opt = ui.and_then(|u| sum_max_opt.map(|a| a + u));
@@ -267,7 +267,7 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
                 if let Some(l) = li {
                     vcs.ensure_entry_mut(v).set_exact_len(l);
                 } else {
-                    vcs.ensure_entry_mut(v).set_exact_len(1); // TODO!!! // TODO is this right?
+                    vcs.ensure_entry_mut(v).set_exact_len(VarConstraint::DEFAULT_MIN); // TODO is this right?
                 }
             }
             continue;
@@ -289,7 +289,7 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
             let sum_other_min: usize = jc.vars
                 .iter()
                 .filter(|&&w| w != v)
-                .map(|&w| vcs.bounds(w).0.unwrap_or(1)) // TODO!!!
+                .map(|&w| vcs.bounds(w).0.unwrap_or(VarConstraint::DEFAULT_MIN))
                 .sum();
 
             // Σ other finite maxes (None if any is ∞)

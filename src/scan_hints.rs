@@ -26,7 +26,7 @@
 
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
-use crate::constraints::VarConstraints;
+use crate::constraints::{VarConstraint, VarConstraints};
 use crate::joint_constraints::{JointConstraint, JointConstraints, RelMask};
 use crate::parser::{FormPart, ParsedForm};
 
@@ -162,7 +162,7 @@ where
     let mut weighted_min = {
         let sum = vars
             .iter()
-            .map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(1)) // TODO!!!
+            .map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(VarConstraint::DEFAULT_MIN))
             .sum::<usize>();
         Some(fixed_base + sum)
     };
@@ -208,7 +208,7 @@ where
             }
 
             // Base cost at lower bounds
-            let base_weighted = rows.iter().map(|r| r.w.saturating_mul(r.li.unwrap_or(1))).sum::<usize>(); // TODO!!!
+            let base_weighted = rows.iter().map(|r| r.w.saturating_mul(r.li.unwrap_or(VarConstraint::DEFAULT_MIN))).sum::<usize>();
             let mut rem = t - sum_li;
             if rem == 0 {
                 return Some(base_weighted);
@@ -227,7 +227,7 @@ where
             for r in order {
                 // Per-row capacity above li
                 let cap = if let Some(u) = r.ui {
-                    u.saturating_sub(r.li.unwrap_or(1)).min(rem) // TODO!!!
+                    u.saturating_sub(r.li.unwrap_or(VarConstraint::DEFAULT_MIN)).min(rem)
                 } else {
                     rem
                 };
@@ -279,7 +279,7 @@ where
                 li: b.li,
                 ui: b.ui
             });
-            sum_li += b.li.unwrap_or(1); // TODO!!!
+            sum_li += b.li.unwrap_or(VarConstraint::DEFAULT_MIN);
             sum_ui_opt = if b.ui.is_none() {
                 None
             } else {
@@ -302,7 +302,7 @@ where
             .filter(|v| !var_frequency.contains_key(v))
             .fold((0usize, Some(0usize)), |(min_acc, max_acc_opt), &v| {
                 let (li, ui) = get_var_bounds(v);
-                let min_acc = min_acc + li.unwrap_or(1); // TODO!!!
+                let min_acc = min_acc + li.unwrap_or(VarConstraint::DEFAULT_MIN);
                 let max_acc_opt = ui.and_then(|u| max_acc_opt.map(|a| a + u));
                 (min_acc, max_acc_opt)
             });
@@ -325,7 +325,7 @@ where
 
         let outside_min = outside
             .iter()
-            .map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(1)) // TODO!!!
+            .map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(VarConstraint::DEFAULT_MIN))
             .sum::<usize>();
 
         let outside_max_opt: Option<usize> = if has_star || outside.iter().any(|&v| bounds_map[&v].ui.is_none())
