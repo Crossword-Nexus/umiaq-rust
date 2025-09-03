@@ -257,9 +257,9 @@ mod tests {
     #[test]
     fn test_is_anagram_negative_case() {
         let ag = FormPart::anagram_of("abc").unwrap();
-        if let FormPart::Anagram(ag) = ag {
+        if let FormPart::Anagram(agi) = ag {
             let word: Vec<char> = "abd".chars().collect();
-            assert!(!ag.is_anagram(&word).unwrap());
+            assert!(!agi.is_anagram(&word).unwrap());
         }
     }
 }
