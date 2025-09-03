@@ -6,7 +6,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 use fancy_regex::Regex;
 use crate::comparison_operator::ComparisonOperator;
-use crate::constraints::{VarConstraint, VarConstraints};
+use crate::constraints::VarConstraints;
 
 /// Compact representation of the relation between (sum) and (target).
 ///
@@ -245,36 +245,38 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
         let mut sum_min = 0usize;
         let mut sum_max_opt: Option<usize> = Some(0);
 
-        let mut mins: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
+        let mut mins: Vec<(char, Option<usize>)> = Vec::with_capacity(jc.vars.len());
         let mut maxs: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
 
         for &v in &jc.vars {
             let (li, ui) = vcs.bounds(v);
-            sum_min += li;
+            sum_min += li.unwrap_or(1); // TODO!!!
 
             // Track finite sum of maxes; if any is ∞, the group max is unbounded.
-            if ui == VarConstraint::DEFAULT_MAX {
-                sum_max_opt = None; // TODO? feels dirty
-            } else {
-                sum_max_opt = sum_max_opt.map(|a| a + ui);
-            }
+            sum_max_opt = ui.and_then(|u| sum_max_opt.map(|a| a + u));
 
             mins.push((v, li));
-            maxs.push((v, ui));
+            if let Some(u) = ui {
+                maxs.push((v, u));
+            }
         }
 
         // Case 1: exact by mins
         if sum_min == jc.target {
             for (v, li) in mins {
-                vcs.ensure_entry_mut(v).set_exact_len(li);
+                if let Some(l) = li {
+                    vcs.ensure_entry_mut(v).set_exact_len(l);
+                } else {
+                    vcs.ensure_entry_mut(v).set_exact_len(1); // TODO!!! // TODO is this right?
+                }
             }
             continue;
         }
 
         // Case 2: exact by finite maxes
         if let Some(sum_max) = sum_max_opt && sum_max == jc.target {
-            for (v, ui) in maxs {
-                vcs.ensure_entry_mut(v).set_exact_len(ui);
+            for (v, u) in maxs {
+                vcs.ensure_entry_mut(v).set_exact_len(u);
             }
             continue;
         }
@@ -287,32 +289,29 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
             let sum_other_min: usize = jc.vars
                 .iter()
                 .filter(|&&w| w != v)
-                .map(|&w| vcs.bounds(w).0)
+                .map(|&w| vcs.bounds(w).0.unwrap_or(1)) // TODO!!!
                 .sum();
 
             // Σ other finite maxes (None if any is ∞)
             let mut sum_other_max_opt: Option<usize> = Some(0);
             for &w in jc.vars.iter().filter(|&&w| w != v) {
                 let (_, w_ui) = vcs.bounds(w);
-                if w_ui == VarConstraint::DEFAULT_MAX {
+                if w_ui.is_none() {
                     sum_other_max_opt = None;
                     break;
                 }
-                sum_other_max_opt = sum_other_max_opt.map(|a| a + w_ui);
+                sum_other_max_opt = sum_other_max_opt.and_then(|a| w_ui.map(|w| a + w));
             }
 
-            let lower_from_joint = match sum_other_max_opt {
-                Some(s) => jc.target.saturating_sub(s),
-                None => 0, // others can stretch arbitrarily
-            };
+            let lower_from_joint = sum_other_max_opt.map(|s| jc.target.saturating_sub(s));
             let upper_from_joint = jc.target.saturating_sub(sum_other_min);
 
             // Tighten and store
             let new_min = li.max(lower_from_joint);
-            let new_max = ui.min(upper_from_joint);
+            let new_max = ui.map_or(upper_from_joint, |u| u.min(upper_from_joint)); // TODO is there a better way to write this (NB: min(None, x) is always None (I think...))
 
             let e = vcs.ensure_entry_mut(v);
-            e.min_length = Some(new_min);
+            e.min_length = new_min;
             e.max_length = Some(new_max);
         }
     }
