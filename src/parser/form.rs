@@ -72,7 +72,7 @@ impl Alphagram {
             if char_counts[c_as_num] == 0 {
                 return Ok(false);
             }
-            char_counts[c as usize] -= 1;
+            char_counts[c_as_num] -= 1;
         }
 
         Ok(char_counts.iter().all(|&count| count == 0))
@@ -252,5 +252,14 @@ mod tests {
     // only lowercase is allowed
     #[test] fn test_parse_form_anagram_bad_char() {
         assert!(FormPart::anagram_of("aBc").is_err_and(|pe| pe.to_string() == "Form parsing failed: \"Illegal char: 'B'\""));
+    }
+
+    #[test]
+    fn test_is_anagram_negative_case() {
+        let ag = FormPart::anagram_of("abc").unwrap();
+        if let FormPart::Anagram(agi) = ag {
+            let word: Vec<char> = "abd".chars().collect();
+            assert!(!agi.is_anagram(&word).unwrap());
+        }
     }
 }
