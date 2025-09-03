@@ -3,7 +3,7 @@ name = "umiaq-rust"
 version = "0.1.0"
 edition = "2024"
 description = "A Qat-like equation solver"
-repository = "https://github.com/crosswordnexus/umiaq"
+repository = "https://github.com/Crossword-Nexus/umiaq"
 license = "MIT"
 default-run = "umiaq"
 
