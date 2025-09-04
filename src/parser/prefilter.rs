@@ -168,7 +168,7 @@ fn get_var_and_rev_var_counts(
 ///   behavior falls back to the original `.++` / `(.+)` scheme.
 pub(crate) fn form_to_regex_str_with_constraints(
     parts: &[FormPart],
-    constraints: Option<&VarConstraints>,
+    constraints: &VarConstraints,
 ) -> Result<String, Box<ParseError>> {
     use std::fmt::Write;
 
@@ -188,7 +188,7 @@ pub(crate) fn form_to_regex_str_with_constraints(
 
                 // If A has a nested form, turn that into regex once
                 let lookahead = constraints
-                    .and_then(|all| all.get(*c))
+                    .get(*c)
                     .and_then(|vc| vc.get_parsed_form())
                     .map(|pf| form_to_regex_str(&pf.parts))
                     .transpose()?; // constraint forms are var-free
@@ -263,7 +263,7 @@ pub(crate) fn build_prefilter_regex(
     vcs: &VarConstraints,
 ) -> Result<Regex, Box<ParseError>> {
     if has_inlineable_var_form(&parsed_form.parts, vcs) {
-        let anchored = format!("^{}$", form_to_regex_str_with_constraints(&parsed_form.parts, Some(vcs))?);
+        let anchored = format!("^{}$", form_to_regex_str_with_constraints(&parsed_form.parts, vcs)?);
         Ok(get_regex(&anchored).unwrap_or_else(|_| parsed_form.prefilter.clone()))
     } else {
         Ok(parsed_form.prefilter.clone()) // TODO DRY w/2 lines above
@@ -282,7 +282,7 @@ mod tests {
         let mut vc = VarConstraint::default();
         vc.form = Some("x*a".to_string());
         vcs.insert('A', vc);
-        let re_str = form_to_regex_str_with_constraints(&pf.parts, Some(&vcs)).unwrap();
+        let re_str = form_to_regex_str_with_constraints(&pf.parts, &vcs).unwrap();
         assert_eq!(re_str, "(?=x.*a).+");
     }
 
