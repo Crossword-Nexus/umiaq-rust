@@ -60,7 +60,7 @@ static NEQ_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!=([A-Z]+)$").un
 /// Use `parse_equation(&pattern.raw_string)` to get `Vec<FormPart>`.
 ///
 /// ## Solver metadata (what it is and why it exists)
-/// - `lookup_keys`: `Option<HashSet<char>>`
+/// - `lookup_keys`: `HashSet<char>`
 ///   - **What:** The subset of this form's variables that also appear in forms
 ///     that have already been placed earlier in `Patterns::ordered_list`.
 ///   - **When it's set:** Assigned by `Patterns::ordered_patterns()` *after* the
@@ -89,7 +89,7 @@ pub struct Pattern {
     pub raw_string: String,
     /// Set of variable names that this pattern shares with previously processed ones,
     /// used for optimizing lookups in recursive solving
-    pub lookup_keys: Option<HashSet<char>>,
+    pub lookup_keys: HashSet<char>,
     /// Position of this form among *forms only* in the original (display) order.
     /// This is stable and survives reordering/cloning.
     pub original_index: usize,
@@ -120,7 +120,7 @@ impl Pattern {
 
         Self {
             raw_string,
-            lookup_keys: None,
+            lookup_keys: HashSet::default(),
             original_index,
             is_deterministic: *deterministic,
             variables: vars,
@@ -130,10 +130,7 @@ impl Pattern {
     /// True iff every variable this pattern uses is included in its `lookup_keys`.
     /// (If `lookup_keys` is `None`, only patterns with zero variables return true.)
     pub(crate) fn all_vars_in_lookup_keys(&self) -> bool {
-        match &self.lookup_keys {
-            Some(keys) => self.variables.is_subset(keys),
-            None => self.variables.is_empty(),
-        }
+        self.variables.is_subset(&self.lookup_keys)
     }
 
     /// Weights for different pattern parts when computing constraint score.
@@ -156,11 +153,6 @@ impl Pattern {
                 }
             })
             .sum()
-    }
-
-    /// Set the lookup keys
-    pub(crate) fn set_lookup_keys(&mut self, keys: HashSet<char>) {
-        self.lookup_keys = Some(keys);
     }
 }
 
@@ -326,7 +318,7 @@ impl Patterns {
                 .intersection(&found_vars)
                 .copied()
                 .collect();
-            next_p.set_lookup_keys(lookup_keys);
+            next_p.lookup_keys = lookup_keys;
 
             p_list.remove(ix);
             ordered.push(next_p);

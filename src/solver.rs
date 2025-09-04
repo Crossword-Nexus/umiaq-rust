@@ -25,7 +25,7 @@ const HASH_SPLIT: u16 = 0xFFFFu16;
 ///   and implements `Eq`/`Hash` naturally. This mirrors Python's
 ///   `frozenset(dict(...).items())`, but with a stable order.
 /// - The sort happens once when we construct the key, not on hash/compare.
-pub type LookupKey = Option<Vec<(char, String)>>;
+pub type LookupKey = Vec<(char, String)>;
 
 /// All candidates for one pattern ("bucketed" by `LookupKey`).
 /// - `buckets`: groups candidate bindings that share the same values for the
@@ -109,22 +109,21 @@ impl TimeBudget {
 ///   - Some(empty vec): sentinel meaning "required key missing" → caller should skip
 fn lookup_key_for_binding(
     binding: &Bindings,
-    keys_opt: Option<&HashSet<char>>,
+    keys: HashSet<char>,
 ) -> LookupKey {
-    let keys = keys_opt?; // returning None means unkeyed
-
     // Collect (var, value) for all required keys; bail out immediately if any is missing.
     let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
-    for &var in keys {
+    for var in keys {
         match binding.get(var) {
             Some(val) => pairs.push((var, val.clone())),
-            None => return Some(Vec::new()), // "impossible" sentinel; caller will skip
+            None => return Vec::new(), // "impossible" sentinel; caller will skip // TODO is this right?
         }
     }
 
     // Normalize key order for stable hashing/equality
     pairs.sort_unstable_by_key(|(c, _)| *c);
-    Some(pairs)
+
+    pairs
 }
 
 
@@ -182,10 +181,10 @@ fn scan_batch(
             );
 
             for binding in matches {
-                let key = lookup_key_for_binding(&binding, p.lookup_keys.as_ref());
+                let key = lookup_key_for_binding(&binding, p.lookup_keys.clone());
 
                 // If a required key is missing, skip
-                if key.as_ref().is_some_and(|v| v.is_empty() && p.lookup_keys.as_ref().is_some_and(|ks| !ks.is_empty())) {
+                if key.is_empty() && !p.lookup_keys.is_empty() {
                     continue;
                 }
 
@@ -211,9 +210,7 @@ fn scan_batch(
 /// - `idx`: which pattern we're placing now (0-based).
 /// - `words`: per-pattern candidate buckets (what you built during scanning).
 /// - `lookup_keys`: for each pattern, which variables must agree with previously
-///   chosen patterns. `None` means "no lookup constraint" (use the `None` bucket).
-///   `Some(vec)` means we must look up a concrete `Some(sorted_pairs)` key—even if
-///   `vec` is empty.
+///   chosen patterns.
 /// - `selected`: the partial solution (one chosen Binding per pattern so far).
 /// - `env`: the accumulated variable → value environment from earlier choices.
 /// - `results`: completed solutions (each is a Vec<Binding>, one per pattern).
@@ -224,7 +221,7 @@ fn scan_batch(
 fn recursive_join(
     idx: usize,
     words: &Vec<CandidateBuckets>,
-    lookup_keys: &Vec<Option<HashSet<char>>>,
+    lookup_keys: &Vec<HashSet<char>>,
     selected: &mut Vec<Bindings>,
     env: &mut HashMap<char, String>,
     results: &mut Vec<Vec<Bindings>>,
@@ -288,36 +285,26 @@ fn recursive_join(
 
     // Decide which bucket of candidates to iterate for pattern `idx`.
     //
-    // - If this pattern has `None` lookup_keys, we use the `None` bucket.
-    // - If it has `Some(keys)`, we must create the deterministic key
+    // We must create the deterministic key
     //   `Some(sorted_pairs)` using the current `env` and fetch that bucket.
     //   (This includes the case keys.is_empty() → key is `Some([])`.)
-    let bucket_candidates_opt: Option<&Vec<Bindings>> = match &lookup_keys[idx] {
-        None => {
-            // No shared vars for this pattern → use the None bucket.
-            words[idx].buckets.get(&None)
-        }
-        Some(keys) => {
-            // Build (var, value) pairs from env using the set of shared vars.
-            // NOTE: HashSet iteration order is arbitrary — we sort the pairs below
-            // so the final key is stable/deterministic.
-            let mut pairs: Vec<(char, String)> = Vec::with_capacity(keys.len());
-            for &var in keys {
-                if let Some(v) = env.get(&var) {
-                    pairs.push((var, v.clone()));
-                } else {
-                    // If any required var isn't bound yet, there can be no matches for this branch.
-                    return;
-                }
+    let bucket_candidates_opt: Option<&Vec<Bindings>> = {
+        // Build (var, value) pairs from env using the set of shared vars.
+        // NOTE: HashSet iteration order is arbitrary — we sort the pairs below
+        // so the final key is stable/deterministic.
+        let mut pairs: Vec<(char, String)> = Vec::with_capacity(lookup_keys[idx].len());
+        for &var in &lookup_keys[idx] {
+            if let Some(v) = env.get(&var) {
+                pairs.push((var, v.clone()));
+            } else {
+                // If any required var isn't bound yet, there can be no matches for this branch.
+                return;
             }
-            // Deterministic key: sort by the variable name.
-            pairs.sort_unstable_by_key(|(c, _)| *c);
-
-            // IMPORTANT: if `keys` is empty, `pairs` is empty → we intentionally
-            // look up the `Some([])` bucket (not `None`). This matches the way you
-            // bucketed candidates during the scan phase.
-            words[idx].buckets.get(&Some(pairs))
         }
+        // Deterministic key: sort by the variable name.
+        pairs.sort_unstable_by_key(|(c, _)| *c);
+
+        words[idx].buckets.get(&pairs)
     };
 
     // If there are no candidates in that bucket, dead-end this branch.
@@ -391,7 +378,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
     let patterns = input.parse::<Patterns>()?;
 
     // 2. Build per-pattern lookup key specs (shared vars) for the join
-    let lookup_keys: Vec<Option<HashSet<char>>> =
+    let lookup_keys: Vec<HashSet<char>> =
         patterns.iter().map(|p| p.lookup_keys.clone()).collect();
 
     // 3. Prepare storage for candidate buckets, one per pattern.
