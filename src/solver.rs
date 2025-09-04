@@ -148,14 +148,14 @@ fn scan_batch(
     var_constraints: &crate::constraints::VarConstraints,
     joint_constraints: &JointConstraints,
     words: &mut [CandidateBuckets],
-    budget: Option<&TimeBudget>,
+    budget: &TimeBudget,
 ) -> (usize, bool) {
     let mut i_word = start_idx;
     let end = start_idx.saturating_add(batch_size).min(word_list.len());
 
     while i_word < end {
         // TODO: have this timeout bubble all the way up
-        if let Some(b) = budget && b.expired() {
+        if budget.expired() {
             return (i_word, true);
         }
 
@@ -463,7 +463,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &var_constraints,
             &joint_constraints,
             &mut words,
-            Some(&budget),
+            &budget,
         );
         scan_pos = new_pos;
 
