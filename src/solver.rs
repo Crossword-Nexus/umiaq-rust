@@ -1,10 +1,7 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
 use crate::errors::ParseError;
 use crate::joint_constraints::{propagate_joint_to_var_bounds, JointConstraints};
-use crate::parser::{
-    match_equation_all,
-    ParsedForm,
-};
+use crate::parser::{match_equation_all, ParsedForm};
 use crate::parser::prefilter::build_prefilter_regex;
 use crate::patterns::Patterns;
 use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
@@ -180,7 +177,7 @@ fn scan_batch(
             let matches = match_equation_all(
                 word,
                 &parsed_forms[i],
-                Some(var_constraints),
+                var_constraints,
                 joint_constraints.clone(),
             );
 
