@@ -62,8 +62,7 @@ impl WordList {
     /// 5. Converts `word` to lowercase.
     /// 6. Deduplicates the list (case-insensitive because we lowercase early).
     /// 7. Sorts by length, then alphabetically.
-    #[cfg(not(target_arch = "wasm32"))]
-    fn parse_from_str(
+    pub fn parse_from_str(
         contents: &str,
         min_score: i32,
         max_len: usize,
