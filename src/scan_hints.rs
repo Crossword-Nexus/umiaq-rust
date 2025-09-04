@@ -92,28 +92,10 @@ fn group_from_joint(jc: &JointConstraint) -> Option<GroupLenConstraint> {
 /// - `jcs`: the equation's `JointConstraints` (we'll filter to constraints whose
 ///   variable set is a subset of the form's variables)
 pub(crate) fn form_len_hints_pf(
-    form: &ParsedForm,
+    parts: &ParsedForm,
     vcs: &VarConstraints,
     jcs: &JointConstraints,
 ) -> PatternLenHints {
-    form_len_hints_iter(
-        form,
-        |c| vcs.bounds(c),
-        &group_constraints_for_form(form, jcs),
-    )
-}
-
-/// Core generic implementation — accepts any iterator yielding `&FormPart`
-/// (e.g., a `&ParsedForm` thanks to its `IntoIterator` impl or a slice).
-pub(crate) fn form_len_hints_iter<'a, I, F>(
-    parts: I,
-    mut get_var_bounds: F,
-    form_groups: &[GroupLenConstraint],
-) -> PatternLenHints
-where
-    I: IntoIterator<Item = &'a FormPart>,
-    F: FnMut(char) -> (usize, Option<usize>), // TODO!!! return `Bounds` instead?
-{
     #[derive(Clone, Copy, Debug)]
     struct Bounds {
         li: usize,
@@ -150,7 +132,7 @@ where
     let bounds_map = &vars
         .iter()
         .map(|&v| {
-            let (li, ui) = get_var_bounds(v);
+            let (li, ui) = vcs.bounds(v);
             (v, Bounds { li, ui })
         })
         .collect::<HashMap<char, Bounds>>();
@@ -177,7 +159,7 @@ where
     };
 
     // 3. Tighten with group constraints valid for this form
-    for g in form_groups {
+    for g in &group_constraints_for_form(parts, jcs) {
         #[derive(Clone, Copy)]
         struct Row {
             w: usize,
@@ -300,7 +282,7 @@ where
             .iter()
             .filter(|v| !var_frequency.contains_key(v))
             .fold((0usize, Some(0usize)), |(min_acc, max_acc_opt), &v| {
-                let (li, ui) = get_var_bounds(v);
+                let (li, ui) = vcs.bounds(v);
                 let min_acc = min_acc + li;
                 let max_acc_opt = ui.and_then(|u| max_acc_opt.map(|a| a + u));
                 (min_acc, max_acc_opt)
