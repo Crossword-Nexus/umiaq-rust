@@ -131,16 +131,16 @@ impl Eq for VarConstraint {}
 ///
 /// This is intended for debugging / logs, not for round-tripping.
 /// It summarizes:
-/// - the allowed length range (e.g., `[3–5]`, `[≥3]`)
+/// - the allowed length range (e.g., `[3,5]`, `[3,∞)`)
 /// - the optional form string (or `*` if absent)
 /// - the set of variables it must not equal, in sorted order
 impl fmt::Display for VarConstraint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Format the length range nicely.
-        // Handle each case: both bounds, only min, only max, or none.
+        // Handle both cases: both bounds or only max.
         let len_str = self.max_length
-            .map(|max_len| { format!("[{}-{max_len}]", self.min_length) })
-            .unwrap_or(format!("[≥{}]", self.min_length));
+            .map(|max_len| { format!("[{},{max_len}]", self.min_length) })
+            .unwrap_or(format!("[{},∞)", self.min_length));
 
         // Show the "form" string if present, otherwise `-`
         let form_str = self.form.as_deref().unwrap_or("*");
@@ -198,7 +198,7 @@ mod tests {
         vc.not_equal.extend(['C', 'B']); // out of order on purpose
         let shown = vc.to_string();
         // not_equal should be sorted -> {BC}
-        assert_eq!("len=[2-4]; form=a*; not_equal=BC", shown);
+        assert_eq!("len=[2,4]; form=a*; not_equal=BC", shown);
     }
 
     #[test]
@@ -219,9 +219,9 @@ mod tests {
         let lines: Vec<&str> = s.lines().collect();
 
         let expected = vec![
-            "A: len=[≥1]; form=*; not_equal=∅",
-            "B: len=[≥1]; form=*x*; not_equal=∅", // TODO!!! are we OK not distinguishing between "*" and "≥1"?
-            "C: len=[1-2]; form=*; not_equal=∅" // TODO!!! are we OK not distinguishing between "≤2" and "1-2"?
+            "A: len=[1,∞); form=*; not_equal=∅",
+            "B: len=[1,∞); form=*x*; not_equal=∅", // TODO!!! are we OK not distinguishing between "*" and "≥1"?
+            "C: len=[1,2]; form=*; not_equal=∅" // TODO!!! are we OK not distinguishing between "≤2" and "1-2"?
         ];
 
         assert_eq!(expected, lines);
