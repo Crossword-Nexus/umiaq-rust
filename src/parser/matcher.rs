@@ -13,12 +13,8 @@ use super::form::{FormPart, ParsedForm};
 /// 3. The value must not equal any variable listed in `not_equal` that is already bound.
 fn is_valid_binding(val: &str, constraints: &VarConstraint, bindings: &Bindings) -> bool {
     // 1. Length checks (if configured)
-    if constraints
-        .min_length
-        .is_some_and(|min_len| val.len() < min_len)
-        || constraints
-            .max_length
-            .is_some_and(|max_len| val.len() > max_len)
+    if val.len() < constraints.min_length
+        || constraints.max_length.is_some_and(|max_len| val.len() > max_len)
     {
         return false;
     }
@@ -156,8 +152,7 @@ fn match_equation_internal(
                     let min_len = hp
                         .constraints
                         .and_then(|c| c.get(*var_name).map(|vc| vc.min_length))
-                        .flatten()
-                        .unwrap_or(1usize);
+                        .unwrap_or(VarConstraint::DEFAULT_MIN);
                     let max_len_cfg = hp
                         .constraints
                         .and_then(|c| c.get(*var_name).map(|vc| vc.max_length))

@@ -245,12 +245,12 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
         let mut sum_min = 0usize;
         let mut sum_max_opt: Option<usize> = Some(0);
 
-        let mut mins: Vec<(char, Option<usize>)> = Vec::with_capacity(jc.vars.len());
+        let mut mins: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
         let mut maxs: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
 
         for &v in &jc.vars {
             let (li, ui) = vcs.bounds(v);
-            sum_min += li.unwrap_or(VarConstraint::DEFAULT_MIN);
+            sum_min += li;
 
             // Track finite sum of maxes; if any is ∞, the group max is unbounded.
             sum_max_opt = ui.and_then(|u| sum_max_opt.map(|a| a + u));
@@ -264,11 +264,7 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
         // Case 1: exact by mins
         if sum_min == jc.target {
             for (v, li) in mins {
-                if let Some(l) = li {
-                    vcs.ensure_entry_mut(v).set_exact_len(l);
-                } else {
-                    vcs.ensure_entry_mut(v).set_exact_len(VarConstraint::DEFAULT_MIN); // TODO is this right?
-                }
+                vcs.ensure_entry_mut(v).set_exact_len(li);
             }
             continue;
         }
@@ -289,7 +285,7 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
             let sum_other_min: usize = jc.vars
                 .iter()
                 .filter(|&&w| w != v)
-                .map(|&w| vcs.bounds(w).0.unwrap_or(VarConstraint::DEFAULT_MIN))
+                .map(|&w| vcs.bounds(w).0)
                 .sum();
 
             // Σ other finite maxes (None if any is ∞)
@@ -303,7 +299,7 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
                 sum_other_max_opt = sum_other_max_opt.and_then(|a| w_ui.map(|w| a + w));
             }
 
-            let lower_from_joint = sum_other_max_opt.map(|s| jc.target.saturating_sub(s));
+            let lower_from_joint = sum_other_max_opt.map_or(VarConstraint::DEFAULT_MIN, |s| jc.target.saturating_sub(s)); // TODO!!!
             let upper_from_joint = jc.target.saturating_sub(sum_other_min);
 
             // Tighten and store
@@ -324,7 +320,7 @@ mod tests {
     use crate::constraints::VarConstraints;
 
     // Helper: extract (min,max) from VarConstraints quickly
-    fn bounds_of(vcs: &VarConstraints, v: char) -> (Option<usize>, Option<usize>) {
+    fn bounds_of(vcs: &VarConstraints, v: char) -> (usize, Option<usize>) {
         vcs.bounds(v)
     }
 
@@ -332,25 +328,25 @@ mod tests {
     fn propagate_exact_by_mins_all_explicit() {
         // |AB| = 5, with A.min=2, B.min=3
         let mut vcs = VarConstraints::default();
-        vcs.ensure_entry_mut('A').min_length = Some(2);
-        vcs.ensure_entry_mut('B').min_length = Some(3);
+        vcs.ensure_entry_mut('A').min_length = 2;
+        vcs.ensure_entry_mut('B').min_length = 3;
 
         let jc = JointConstraint { vars: vec!['A','B'], target: 5, rel: RelMask::EQ };
         let jcs = JointConstraints::of(vec![jc]);
 
         propagate_joint_to_var_bounds(&mut vcs, &jcs);
 
-        assert_eq!(bounds_of(&vcs,'A'), (Some(2), Some(2)));
-        assert_eq!(bounds_of(&vcs,'B'), (Some(3), Some(3)));
+        assert_eq!(bounds_of(&vcs,'A'), (2, Some(2)));
+        assert_eq!(bounds_of(&vcs,'B'), (3, Some(3)));
     }
 
     #[test]
     fn propagate_exact_by_mins_with_implicit_default() {
         // |ABC| = 7, with A.min=3, B.min=None (implicit default=1), C.min=3
         let mut vcs = VarConstraints::default();
-        vcs.ensure_entry_mut('A').min_length = Some(3);
-        // B left unconstrained -> min=None
-        vcs.ensure_entry_mut('C').min_length = Some(3);
+        vcs.ensure_entry_mut('A').min_length = 3;
+        // B left unconstrained -> min_length=None
+        vcs.ensure_entry_mut('C').min_length = 3;
 
         let jc = JointConstraint { vars: vec!['A','B','C'], target: 7, rel: RelMask::EQ };
         let jcs = JointConstraints::of(vec![jc]);
@@ -358,17 +354,17 @@ mod tests {
         propagate_joint_to_var_bounds(&mut vcs, &jcs);
 
         // All should be exact, B should lock to default=1
-        assert_eq!(bounds_of(&vcs,'A'), (Some(3), Some(3)));
-        assert_eq!(bounds_of(&vcs,'B'), (Some(1), Some(1)));
-        assert_eq!(bounds_of(&vcs,'C'), (Some(3), Some(3)));
+        assert_eq!(bounds_of(&vcs,'A'), (3, Some(3)));
+        assert_eq!(bounds_of(&vcs,'B'), (1, Some(1)));
+        assert_eq!(bounds_of(&vcs,'C'), (3, Some(3)));
     }
 
     #[test]
     fn propagate_no_exact_when_sum_min_lt_target() {
-        // |ABC| = 8, A.min=3, B.min=None (implicit=1), C.min=3 → sum_min=7 < 8
+        // |ABC| = 8, A.min=3, B.min=1 (from lack of explicit min), C.min=3 → sum_min=7 < 8
         let mut vcs = VarConstraints::default();
-        vcs.ensure_entry_mut('A').min_length = Some(3);
-        vcs.ensure_entry_mut('C').min_length = Some(3);
+        vcs.ensure_entry_mut('A').min_length = 3;
+        vcs.ensure_entry_mut('C').min_length = 3;
 
         let jc = JointConstraint { vars: vec!['A','B','C'], target: 8, rel: RelMask::EQ };
         let jcs = JointConstraints::of(vec![jc]);
@@ -376,9 +372,9 @@ mod tests {
         propagate_joint_to_var_bounds(&mut vcs, &jcs);
 
         // Nothing should be forced exact
-        assert_eq!(bounds_of(&vcs,'A'), (Some(3), Some(4)));
-        assert_eq!(bounds_of(&vcs,'B'), (None, Some(2)));
-        assert_eq!(bounds_of(&vcs,'C'), (Some(3), Some(4)));
+        assert_eq!(bounds_of(&vcs,'A'), (3, Some(4)));
+        assert_eq!(bounds_of(&vcs,'B'), (VarConstraint::DEFAULT_MIN, Some(2))); // TODO!!! VC::D_M or just "1"?
+        assert_eq!(bounds_of(&vcs,'C'), (3, Some(4)));
     }
 
     #[test]
@@ -393,8 +389,8 @@ mod tests {
 
         propagate_joint_to_var_bounds(&mut vcs, &jcs);
 
-        assert_eq!(bounds_of(&vcs,'A'), (Some(4), Some(4))); // exact=4
-        assert_eq!(bounds_of(&vcs,'B'), (Some(3), Some(3))); // exact=3
+        assert_eq!(bounds_of(&vcs,'A'), (4, Some(4))); // exact=4
+        assert_eq!(bounds_of(&vcs,'B'), (3, Some(3))); // exact=3
     }
 
     #[test]

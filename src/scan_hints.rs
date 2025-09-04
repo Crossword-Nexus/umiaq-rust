@@ -33,8 +33,8 @@ use crate::parser::{FormPart, ParsedForm};
 /// Resulting per-form hints.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PatternLenHints {
-    /// Lower bound on the form's length. `None` = unbounded below.
-    pub min_len: Option<usize>,
+    /// Lower bound on the form's length.
+    pub min_len: usize,
     /// Upper bound on the form's length. `None` = unbounded above.
     pub max_len: Option<usize>,
 }
@@ -46,8 +46,7 @@ enum Extreme { Min, Max }
 impl PatternLenHints {
     /// Quick check for a candidate word length against this hint.
     pub(crate) fn is_word_len_possible(&self, len: usize) -> bool {
-        self.min_len.is_none_or(|min_len| len >= min_len)
-            && self.max_len.is_none_or(|max_len| len <= max_len)
+        len >= self.min_len && self.max_len.is_none_or(|max_len| len <= max_len)
     }
 }
 
@@ -113,11 +112,11 @@ pub(crate) fn form_len_hints_iter<'a, I, F>(
 ) -> PatternLenHints
 where
     I: IntoIterator<Item = &'a FormPart>,
-    F: FnMut(char) -> (Option<usize>, Option<usize>),
+    F: FnMut(char) -> (usize, Option<usize>), // TODO!!! return `Bounds` instead?
 {
     #[derive(Clone, Copy, Debug)]
     struct Bounds {
-        li: Option<usize>,
+        li: usize,
         ui: Option<usize>
     }
 
@@ -139,7 +138,7 @@ where
     // Exact case (exit early): no variables and no star ⇒ exact fixed length
     if var_frequency.is_empty() && !has_star {
         return PatternLenHints {
-            min_len: Some(fixed_base),
+            min_len: fixed_base,
             max_len: Some(fixed_base),
         };
     }
@@ -151,7 +150,7 @@ where
     let bounds_map = &vars
         .iter()
         .map(|&v| {
-            let (li, ui) = get_var_bounds(v); // normalized
+            let (li, ui) = get_var_bounds(v);
             (v, Bounds { li, ui })
         })
         .collect::<HashMap<char, Bounds>>();
@@ -162,9 +161,9 @@ where
     let mut weighted_min = {
         let sum = vars
             .iter()
-            .map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(VarConstraint::DEFAULT_MIN))
+            .map(|&v| get_weight(v) * bounds_map[&v].li)
             .sum::<usize>();
-        Some(fixed_base + sum)
+        fixed_base + sum
     };
 
     let mut weighted_max = if has_star || vars.iter().any(|v| bounds_map[v].ui.is_none()) {
@@ -182,7 +181,7 @@ where
         #[derive(Clone, Copy)]
         struct Row {
             w: usize,
-            li: Option<usize>,
+            li: usize,
             ui: Option<usize>
         }
 
@@ -208,7 +207,7 @@ where
             }
 
             // Base cost at lower bounds
-            let base_weighted = rows.iter().map(|r| r.w.saturating_mul(r.li.unwrap_or(VarConstraint::DEFAULT_MIN))).sum::<usize>();
+            let base_weighted = rows.iter().map(|r| r.w.saturating_mul(r.li)).sum::<usize>();
             let mut rem = t - sum_li;
             if rem == 0 {
                 return Some(base_weighted);
@@ -227,7 +226,7 @@ where
             for r in order {
                 // Per-row capacity above li
                 let cap = if let Some(u) = r.ui {
-                    u.saturating_sub(r.li.unwrap_or(VarConstraint::DEFAULT_MIN)).min(rem)
+                    u.saturating_sub(r.li).min(rem)
                 } else {
                     rem
                 };
@@ -279,7 +278,7 @@ where
                 li: b.li,
                 ui: b.ui
             });
-            sum_li += b.li.unwrap_or(VarConstraint::DEFAULT_MIN);
+            sum_li += b.li;
             sum_ui_opt = if b.ui.is_none() {
                 None
             } else {
@@ -302,7 +301,7 @@ where
             .filter(|v| !var_frequency.contains_key(v))
             .fold((0usize, Some(0usize)), |(min_acc, max_acc_opt), &v| {
                 let (li, ui) = get_var_bounds(v);
-                let min_acc = min_acc + li.unwrap_or(VarConstraint::DEFAULT_MIN);
+                let min_acc = min_acc + li;
                 let max_acc_opt = ui.and_then(|u| max_acc_opt.map(|a| a + u));
                 (min_acc, max_acc_opt)
             });
@@ -325,7 +324,7 @@ where
 
         let outside_min = outside
             .iter()
-            .map(|&v| get_weight(v) * bounds_map[&v].li.unwrap_or(VarConstraint::DEFAULT_MIN))
+            .map(|&v| get_weight(v) * bounds_map[&v].li)
             .sum::<usize>();
 
         let outside_max_opt: Option<usize> = if has_star || outside.iter().any(|&v| bounds_map[&v].ui.is_none())
@@ -341,7 +340,7 @@ where
         };
 
         if let Some(gmin) = gmin_w {
-            weighted_min = weighted_min.map(|wm| wm.max(fixed_base + gmin + outside_min));
+            weighted_min = weighted_min.max(fixed_base + gmin + outside_min);
         }
 
         // Candidate upper bound from this group + outside
@@ -412,7 +411,7 @@ mod tests {
         let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
 
         let expected = PatternLenHints {
-            min_len: Some(5),
+            min_len: 5,
             max_len: Some(5),
         };
         assert_eq!(expected, hints);
@@ -427,13 +426,13 @@ mod tests {
 
         // A in [2,4]
         let a = vcs.ensure('A');
-        a.min_length = Some(2);
+        a.min_length = 2;
         a.max_length = Some(4);
 
         let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
 
         let expected = PatternLenHints {
-            min_len: Some(5),
+            min_len: 5,
             max_len: None,
         };
         assert_eq!(expected, hints);
@@ -446,17 +445,17 @@ mod tests {
         let mut vcs = VarConstraints::default();
 
         let a = vcs.ensure('A');
-        a.min_length = Some(2);
+        a.min_length = 2;
         a.max_length = Some(3);
 
         let b = vcs.ensure('B');
-        b.min_length = Some(1);
+        b.min_length = 1;
         b.max_length = Some(5);
 
         let hints = form_len_hints_pf(&form, &vcs, &JointConstraints::default());
 
         let expected = PatternLenHints {
-            min_len: Some(4),
+            min_len: 4,
             max_len: Some(9),
         };
         assert_eq!(expected, hints);
@@ -484,7 +483,7 @@ mod tests {
         // At fixed |AB|=6, minimizing weighted length puts as much as possible on cheaper B,
         // maximizing puts as much as possible on A.
         let expected = PatternLenHints {
-            min_len: Some(7),
+            min_len: 7,
             max_len: Some(11),
         };
         assert_eq!(expected, hints);
@@ -502,7 +501,7 @@ mod tests {
         let mut vcs = VarConstraints::default();
 
         let a = vcs.ensure('A');
-        a.min_length = Some(2);
+        a.min_length = 2;
         a.max_length = Some(2);
 
         let jc = JointConstraint {
@@ -514,7 +513,7 @@ mod tests {
         let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         let expected = PatternLenHints {
-            min_len: Some(8),
+            min_len: 8,
             max_len: Some(8),
         };
         assert_eq!(expected, hints);
@@ -527,11 +526,11 @@ mod tests {
         let mut vcs = VarConstraints::default();
 
         let a = vcs.ensure('A');
-        a.min_length = Some(1);
+        a.min_length = 1;
         a.max_length = Some(5);
 
         let b = vcs.ensure('B');
-        b.min_length = Some(0);
+        b.min_length = 0; // TODO!!! do we allow this?
         b.max_length = Some(10);
 
         let g1 = JointConstraint {
@@ -548,7 +547,7 @@ mod tests {
         let hints = form_len_hints_pf(&form, &vcs, &jcs);
 
         let expected = PatternLenHints {
-            min_len: Some(4),
+            min_len: 4,
             max_len: Some(6),
         };
         assert_eq!(expected, hints);
@@ -569,7 +568,7 @@ mod tests {
 
         // star contributes 0 to min_len
         let expected = PatternLenHints {
-            min_len: Some(6),
+            min_len: 6,
             max_len: None,
         };
         assert_eq!(expected, hints);
@@ -593,7 +592,7 @@ mod tests {
         // Here the normalized defaults are A∈[1,∞), B∈[1,∞) → we get
         // min_len = 1 (from A's min), and an effective upper bound of 5 (6 - min(B)).
         let expected = PatternLenHints {
-            min_len: Some(VarConstraint::DEFAULT_MIN), // TODO!!! (should this be None?)
+            min_len: VarConstraint::DEFAULT_MIN,
             max_len: Some(5),
         };
         assert_eq!(expected, hints);
