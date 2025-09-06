@@ -214,13 +214,13 @@ struct RecursiveJoinParameters {
 ///
 /// Parameters:
 /// - `idx`: which pattern we're placing now (0-based).
-/// - `words`: per-pattern candidate buckets (what you built during scanning).
-/// - `lookup_keys`: for each pattern, which variables must agree with previously
-///   chosen patterns.
-/// - `selected`: the partial solution (one chosen Binding per pattern so far).
+/// - `selected`: the partial solution (one chosen `Bindings` per pattern so far).
 /// - `env`: the accumulated variable → value environment from earlier choices.
-/// - `results`: completed solutions (each is a Vec<Binding>, one per pattern).
+/// - `results`: completed solutions (each is a `Vec<Binding>`, one per pattern).
 /// - `num_results_requested`: cap on how many full solutions to collect.
+/// - `rjp.candidate_buckets`: per-pattern candidate buckets (what you built during scanning).
+/// - `rjp.lookup_keys`: for each pattern, which variables must agree with previously chosen
+///   patterns.
 ///
 /// Return:
 /// - This function mutates `results` and stops early once it has `num_results_requested`.
@@ -249,11 +249,11 @@ fn recursive_join(
     }
 
     // ---- FAST PATH: deterministic + fully keyed ----------------------------
-    let p = &rjp[idx].patterns_ordered_list;
+    let rjp_cur = &rjp[idx];
+    let p = &rjp_cur.patterns_ordered_list;
     if p.is_deterministic && p.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
-        let pf = &rjp[idx].parsed_form;
-        let Some(expected) = pf.materialize_deterministic_with_env(env) else { return Err(MaterializationError) };
+        let Some(expected) = (&rjp_cur.parsed_form).materialize_deterministic_with_env(env) else { return Err(MaterializationError) };
 
         if !word_list_as_set.contains(expected.as_str()) {
             // This branch cannot succeed — prune immediately.
@@ -288,8 +288,8 @@ fn recursive_join(
         // Build (var, value) pairs from env using the set of shared vars.
         // NOTE: HashSet iteration order is arbitrary — we sort the pairs below
         // so the final key is stable/deterministic.
-        let mut pairs: Vec<(char, String)> = Vec::with_capacity(rjp[idx].lookup_keys.len());
-        for &var in &rjp[idx].lookup_keys {
+        let mut pairs: Vec<(char, String)> = Vec::with_capacity(rjp_cur.lookup_keys.len());
+        for &var in &rjp_cur.lookup_keys {
             if let Some(v) = env.get(&var) {
                 pairs.push((var, v.clone()));
             } else {
@@ -300,7 +300,7 @@ fn recursive_join(
         // Deterministic key: sort by the variable name.
         pairs.sort_unstable_by_key(|(c, _)| *c);
 
-        rjp[idx].candidate_buckets.buckets.get(&pairs)
+        rjp_cur.candidate_buckets.buckets.get(&pairs)
     };
 
     // If there are no candidates in that bucket, dead-end this branch.
