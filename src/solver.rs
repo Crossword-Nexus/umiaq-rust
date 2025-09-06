@@ -248,11 +248,7 @@ fn recursive_join(
     if p.is_deterministic && p.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
         let pf = &parsed_forms[idx];
-        let expected_opt = pf.materialize_deterministic_with_env(env);
-        if expected_opt.is_none() {
-            return Err(MaterializationError);
-        }
-        let expected = expected_opt.unwrap();
+        let Some(expected) = pf.materialize_deterministic_with_env(env) else { return Err(MaterializationError) };
 
         if !word_list_as_set.contains(expected.as_str()) {
             // This branch cannot succeed — prune immediately.
