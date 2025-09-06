@@ -284,7 +284,7 @@ impl Patterns {
 
         while !p_list.is_empty() {
             // Vars already "seen" in previously chosen patterns
-            let seen: HashSet<char> = ordered
+            let found_vars: HashSet<char> = ordered
                 .iter()
                 .flat_map(|p: &Pattern| p.variables.iter().copied())
                 .collect();
@@ -296,7 +296,7 @@ impl Patterns {
                     (usize::MAX - p.variables.len(), tie_tail(p))
                 } else {
                     // Later picks: fewer new vars ranks smaller
-                    (p.variables.difference(&seen).count(), tie_tail(p))
+                    (p.variables.difference(&found_vars).count(), tie_tail(p))
                 }
             };
 
@@ -311,7 +311,7 @@ impl Patterns {
 
             if !ordered.is_empty() {
                 // Assign join keys only after the first pick
-                chosen.lookup_keys = chosen.variables.intersection(&seen).copied().collect();
+                chosen.lookup_keys = chosen.variables.intersection(&found_vars).copied().collect();
             }
 
             ordered.push(chosen);
