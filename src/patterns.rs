@@ -283,7 +283,7 @@ impl Patterns {
         let tie_tail = |p: &Pattern| (p.constraint_score(), Reverse(p.is_deterministic), p.original_index);
 
         while !p_list.is_empty() {
-            // Vars already “seen” in previously chosen patterns
+            // Vars already "seen" in previously chosen patterns
             let seen: HashSet<char> = ordered
                 .iter()
                 .flat_map(|p: &Pattern| p.variables.iter().copied())
