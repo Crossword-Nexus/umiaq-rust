@@ -33,6 +33,7 @@ pub type LookupKey = Vec<(char, String)>;
 /// - `count`: mirrors Python's `word_counts[i]` and is used to stop early when a global cap
 ///   per-pattern is reached (e.g., `MAX_WORD_COUNT`). We track it here to avoid recomputing.
 #[derive(Debug, Default)]
+#[derive(Clone)]
 pub struct CandidateBuckets {
     /// Mapping from lookup key -> all bindings that fit that key
     pub buckets: HashMap<LookupKey, Vec<Bindings>>,
@@ -198,6 +199,13 @@ fn scan_batch(
 
 
 
+struct RecursiveJoinParameters {
+    words: Vec<CandidateBuckets>,
+    lookup_keys: Vec<HashSet<char>>,
+    patterns_ordered_list: Vec<Pattern>,
+    parsed_forms: Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
+}
+
 /// Depth-first recursive join of per-pattern candidate buckets into full solutions.
 ///
 /// This mirrors `recursive_filter` from `umiaq.py`. We walk patterns in order
@@ -218,17 +226,14 @@ fn scan_batch(
 /// - This function mutates `results` and stops early once it has `num_results_requested`.
 fn recursive_join(
     idx: usize,
-    words: &Vec<CandidateBuckets>,
-    lookup_keys: &Vec<HashSet<char>>,
     selected: &mut Vec<Bindings>,
     env: &mut HashMap<char, String>,
     results: &mut Vec<Vec<Bindings>>,
     num_results_requested: usize,
-    patterns_ordered_list: &Vec<Pattern>,
-    parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
     word_list_as_set: &HashSet<&str>,
     joint_constraints: JointConstraints,
     seen: &mut HashSet<u64>,
+    rjp: &RecursiveJoinParameters
 ) -> Result<(), MaterializationError> {
     // Stop if we've met the requested quota of full solutions.
     if results.len() >= num_results_requested {
@@ -236,7 +241,7 @@ fn recursive_join(
     }
 
     // Base case: if we've placed all patterns, `selected` is a full solution.
-    if idx == words.len() {
+    if idx == rjp.words.len() {
         if joint_constraints.all_strictly_satisfied_for_parts(selected) && seen.insert(solution_key(selected)) {
             results.push(selected.clone());
         }
@@ -244,10 +249,10 @@ fn recursive_join(
     }
 
     // ---- FAST PATH: deterministic + fully keyed ----------------------------
-    let p = &patterns_ordered_list[idx];
+    let p = &rjp.patterns_ordered_list[idx];
     if p.is_deterministic && p.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
-        let pf = &parsed_forms[idx];
+        let pf = &rjp.parsed_forms[idx];
         let Some(expected) = pf.materialize_deterministic_with_env(env) else { return Err(MaterializationError) };
 
         if !word_list_as_set.contains(expected.as_str()) {
@@ -268,10 +273,7 @@ fn recursive_join(
         }
 
         selected.push(binding);
-        recursive_join(
-            idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-            patterns_ordered_list, parsed_forms, word_list_as_set, joint_constraints, seen,
-        )?;
+        recursive_join(idx + 1, selected, env, results, num_results_requested, word_list_as_set, joint_constraints, seen, rjp)?;
         selected.pop();
         return Ok(()); // IMPORTANT: skip normal enumeration path
     }
@@ -286,8 +288,8 @@ fn recursive_join(
         // Build (var, value) pairs from env using the set of shared vars.
         // NOTE: HashSet iteration order is arbitrary — we sort the pairs below
         // so the final key is stable/deterministic.
-        let mut pairs: Vec<(char, String)> = Vec::with_capacity(lookup_keys[idx].len());
-        for &var in &lookup_keys[idx] {
+        let mut pairs: Vec<(char, String)> = Vec::with_capacity(rjp.lookup_keys[idx].len());
+        for &var in &rjp.lookup_keys[idx] {
             if let Some(v) = env.get(&var) {
                 pairs.push((var, v.clone()));
             } else {
@@ -298,7 +300,7 @@ fn recursive_join(
         // Deterministic key: sort by the variable name.
         pairs.sort_unstable_by_key(|(c, _)| *c);
 
-        words[idx].buckets.get(&pairs)
+        rjp.words[idx].buckets.get(&pairs)
     };
 
     // If there are no candidates in that bucket, dead-end this branch.
@@ -335,8 +337,7 @@ fn recursive_join(
 
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
-        recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                       patterns_ordered_list, parsed_forms, word_list_as_set, joint_constraints.clone(), seen)?;
+        recursive_join(idx + 1, selected, env, results, num_results_requested, word_list_as_set, joint_constraints.clone(), seen, rjp)?;
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -469,19 +470,22 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         // 2. Attempt to build full solutions from the candidates accumulated so far.
         // This may rediscover old partials, so we use `seen` at the base case
         // to ensure only truly new solutions are added to `results`.
+        let rjp = RecursiveJoinParameters {
+            words: words.clone(),
+            lookup_keys: lookup_keys.clone(),
+            patterns_ordered_list: patterns.ordered_list.clone(),
+            parsed_forms: parsed_forms.clone(),
+        };
         let rj_result = recursive_join(
             0,
-            &words,
-            &lookup_keys,
             &mut selected,
             &mut env,
             &mut results,
             num_results_requested,
-            &patterns.ordered_list,
-            &parsed_forms,
             &word_list_as_set,
             joint_constraints.clone(),
             &mut seen,
+            &rjp
         );
         if let Err(e) = rj_result {
             // e is a `MaterializationError` // TODO check/enforce this?
