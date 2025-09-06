@@ -1,5 +1,5 @@
 use crate::bindings::{Bindings, WORD_SENTINEL};
-use crate::errors::ParseError;
+use crate::errors::{MaterializationError, ParseError};
 use crate::joint_constraints::{propagate_joint_to_var_bounds, JointConstraints};
 use crate::parser::{match_equation_all, ParsedForm};
 use crate::parser::prefilter::build_prefilter_regex;
@@ -134,8 +134,6 @@ fn push_binding(words: &mut [CandidateBuckets], i: usize, key: LookupKey, bindin
 }
 
 /// Scan a slice of the word list and incrementally fill candidate buckets.
-/// Returns whether we hit the per-pattern cap and the last index scanned (exclusive).
-/// Scan a slice of the word list and incrementally fill candidate buckets.
 /// Returns a pair containing (in order) the new scan position and a boolean stating if time is up.
 // TODO reword last sentence to be umm better
 fn scan_batch(
@@ -231,10 +229,10 @@ fn recursive_join(
     word_list_as_set: &HashSet<&str>,
     joint_constraints: JointConstraints,
     seen: &mut HashSet<u64>,
-) {
+) -> Result<(), MaterializationError> {
     // Stop if we've met the requested quota of full solutions.
     if results.len() >= num_results_requested {
-        return;
+        return Ok(());
     }
 
     // Base case: if we've placed all patterns, `selected` is a full solution.
@@ -242,7 +240,7 @@ fn recursive_join(
         if joint_constraints.all_strictly_satisfied_for_parts(selected) && seen.insert(solution_key(selected)) {
             results.push(selected.clone());
         }
-        return;
+        return Ok(());
     }
 
     // ---- FAST PATH: deterministic + fully keyed ----------------------------
@@ -250,36 +248,36 @@ fn recursive_join(
     if p.is_deterministic && p.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
         let pf = &parsed_forms[idx];
-        if let Some(expected) = pf.materialize_deterministic_with_env(env) {
-            if !word_list_as_set.contains(expected.as_str()) {
-                // This branch cannot succeed — prune immediately.
-                return;
-            }
-
-            // Build a minimal Bindings for this pattern:
-            // - include WORD_SENTINEL (whole word)
-            // - include only vars that belong to this pattern (they must already be in env)
-            let mut binding = Bindings::default();
-            binding.set_word(&expected);
-            for &v in &p.variables {
-                // safe to unwrap because all vars are in lookup_keys ⇒ must be in env
-                if let Some(val) = env.get(&v) {
-                    binding.set(v, val.clone());
-                }
-            }
-
-            selected.push(binding);
-            recursive_join(
-                idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                patterns, parsed_forms, word_list_as_set, joint_constraints, seen,
-            );
-            selected.pop();
-            return; // IMPORTANT: skip normal enumeration path
-        } else {
-            // Not actually materializable (shouldn't happen if variable bindings are correct)(?)
-            // TODO throw error?
-            return;
+        let expected_opt = pf.materialize_deterministic_with_env(env);
+        if expected_opt.is_none() {
+            return Err(MaterializationError);
         }
+        let expected = expected_opt.unwrap();
+
+        if !word_list_as_set.contains(expected.as_str()) {
+            // This branch cannot succeed — prune immediately.
+            return Ok(());
+        }
+
+        // Build a minimal Bindings for this pattern:
+        // - include WORD_SENTINEL (whole word)
+        // - include only vars that belong to this pattern (they must already be in env)
+        let mut binding = Bindings::default();
+        binding.set_word(&expected);
+        for &v in &p.variables {
+            // safe to unwrap because all vars are in lookup_keys ⇒ must be in env
+            if let Some(val) = env.get(&v) {
+                binding.set(v, val.clone());
+            }
+        }
+
+        selected.push(binding);
+        recursive_join(
+            idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
+            patterns, parsed_forms, word_list_as_set, joint_constraints, seen,
+        )?;
+        selected.pop();
+        return Ok(()); // IMPORTANT: skip normal enumeration path
     }
     // ------------------------------------------------------------------------
 
@@ -298,7 +296,7 @@ fn recursive_join(
                 pairs.push((var, v.clone()));
             } else {
                 // If any required var isn't bound yet, there can be no matches for this branch.
-                return;
+                return Ok(());
             }
         }
         // Deterministic key: sort by the variable name.
@@ -309,7 +307,7 @@ fn recursive_join(
 
     // If there are no candidates in that bucket, dead-end this branch.
     let Some(bucket_candidates) = bucket_candidates_opt else {
-        return;
+        return Ok(());
     };
 
     // Try each candidate binding for this pattern.
@@ -342,7 +340,7 @@ fn recursive_join(
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
         recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                       patterns, parsed_forms, word_list_as_set, joint_constraints.clone(), seen);
+                       patterns, parsed_forms, word_list_as_set, joint_constraints.clone(), seen)?;
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -350,6 +348,8 @@ fn recursive_join(
             env.remove(&k);
         }
     }
+
+    Ok(())
 }
 
 
@@ -473,7 +473,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         // 2. Attempt to build full solutions from the candidates accumulated so far.
         // This may rediscover old partials, so we use `seen` at the base case
         // to ensure only truly new solutions are added to `results`.
-        recursive_join(
+        if recursive_join(
             0,
             &words,
             &lookup_keys,
@@ -486,7 +486,9 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &word_list_as_set,
             joint_constraints.clone(),
             &mut seen,
-        );
+        ).is_err() {
+            return Err(Box::new(ParseError::ParseFailure { s: MaterializationError.to_string() }))
+        }
 
         // We exit early in three cases
         // 1. We've hit the number of results requested
