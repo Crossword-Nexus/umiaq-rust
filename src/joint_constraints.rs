@@ -246,69 +246,67 @@ pub fn propagate_joint_to_var_bounds(vcs: &mut VarConstraints, jcs: &JointConstr
         let mut sum_max_opt: Option<usize> = Some(0);
 
         let mut mins: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
-        let mut maxs: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
+        let mut maxes: Vec<(char, usize)> = Vec::with_capacity(jc.vars.len());
 
         for &v in &jc.vars {
             let (li, ui) = vcs.bounds(v);
             sum_min += li;
 
             // Track finite sum of maxes; if any is ∞, the group max is unbounded.
-            sum_max_opt = ui.and_then(|u| sum_max_opt.map(|a| a + u));
+            sum_max_opt = sum_max_opt.and_then(|a| ui.map(|u| a + u));
 
             mins.push((v, li));
             if let Some(u) = ui {
-                maxs.push((v, u));
+                maxes.push((v, u));
             }
         }
 
-        // Case 1: exact by mins
         if sum_min == jc.target {
+            // Case 1: exact by mins
             for (v, li) in mins {
                 vcs.ensure_entry_mut(v).set_exact_len(li);
             }
-            continue;
-        }
-
-        // Case 2: exact by finite maxes
-        if let Some(sum_max) = sum_max_opt && sum_max == jc.target {
-            for (v, u) in maxs {
+        } else if let Some(sum_max) = sum_max_opt && sum_max == jc.target {
+            // Case 2: exact by finite maxes
+            for (v, u) in maxes {
                 vcs.ensure_entry_mut(v).set_exact_len(u);
             }
-            continue;
-        }
+        } else {
+            // Case 3: generic tightening
+            for &v in &jc.vars {
+                let (li, ui) = vcs.bounds(v);
 
-        // Case 3: generic tightening
-        for &v in &jc.vars {
-            let (li, ui) = vcs.bounds(v);
+                // Σ other mins
+                let sum_other_min: usize = jc.vars
+                    .iter()
+                    .filter(|&&w| w != v)
+                    .map(|&w| vcs.bounds(w).0)
+                    .sum();
 
-            // Σ other mins
-            let sum_other_min: usize = jc.vars
-                .iter()
-                .filter(|&&w| w != v)
-                .map(|&w| vcs.bounds(w).0)
-                .sum();
-
-            // Σ other finite maxes (None if any is ∞)
-            let mut sum_other_max_opt: Option<usize> = Some(0);
-            for &w in jc.vars.iter().filter(|&&w| w != v) {
-                let (_, w_ui) = vcs.bounds(w);
-                if w_ui.is_none() {
-                    sum_other_max_opt = None;
-                    break;
+                // Σ other finite maxes (None if any is ∞)
+                let mut sum_other_max_opt: Option<usize> = Some(0);
+                for &w in jc.vars.iter().filter(|&&w| w != v) {
+                    let (_, w_ui) = vcs.bounds(w);
+                    if w_ui.is_none() {
+                        sum_other_max_opt = None;
+                    }
+                    sum_other_max_opt = sum_other_max_opt.and_then(|a| w_ui.map(|w| a + w));
+                    if sum_other_max_opt.is_none() {
+                        break;
+                    }
                 }
-                sum_other_max_opt = sum_other_max_opt.and_then(|a| w_ui.map(|w| a + w));
+
+                let lower_from_joint = sum_other_max_opt.map_or(VarConstraint::DEFAULT_MIN, |s| jc.target.saturating_sub(s)); // TODO!!!
+                let upper_from_joint = jc.target.saturating_sub(sum_other_min);
+
+                // Tighten and store
+                let new_min = li.max(lower_from_joint);
+                let new_max = ui.map_or(upper_from_joint, |u| u.min(upper_from_joint)); // TODO is there a better way to write this (NB: min(None, x) is always None (I think...))
+
+                let e = vcs.ensure_entry_mut(v);
+                e.min_length = new_min;
+                e.max_length = Some(new_max);
             }
-
-            let lower_from_joint = sum_other_max_opt.map_or(VarConstraint::DEFAULT_MIN, |s| jc.target.saturating_sub(s)); // TODO!!!
-            let upper_from_joint = jc.target.saturating_sub(sum_other_min);
-
-            // Tighten and store
-            let new_min = li.max(lower_from_joint);
-            let new_max = ui.map_or(upper_from_joint, |u| u.min(upper_from_joint)); // TODO is there a better way to write this (NB: min(None, x) is always None (I think...))
-
-            let e = vcs.ensure_entry_mut(v);
-            e.min_length = new_min;
-            e.max_length = Some(new_max);
         }
     }
 }
