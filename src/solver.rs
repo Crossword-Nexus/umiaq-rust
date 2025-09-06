@@ -3,7 +3,7 @@ use crate::errors::{MaterializationError, ParseError};
 use crate::joint_constraints::{propagate_joint_to_var_bounds, JointConstraints};
 use crate::parser::{match_equation_all, ParsedForm};
 use crate::parser::prefilter::build_prefilter_regex;
-use crate::patterns::Patterns;
+use crate::patterns::{Pattern, Patterns};
 use crate::scan_hints::{form_len_hints_pf, PatternLenHints};
 
 use std::collections::{HashMap, HashSet};
@@ -224,7 +224,7 @@ fn recursive_join(
     env: &mut HashMap<char, String>,
     results: &mut Vec<Vec<Bindings>>,
     num_results_requested: usize,
-    patterns: &Patterns,
+    patterns_ordered_list: &Vec<Pattern>,
     parsed_forms: &Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
     word_list_as_set: &HashSet<&str>,
     joint_constraints: JointConstraints,
@@ -244,7 +244,7 @@ fn recursive_join(
     }
 
     // ---- FAST PATH: deterministic + fully keyed ----------------------------
-    let p = &patterns.ordered_list[idx];
+    let p = &patterns_ordered_list[idx];
     if p.is_deterministic && p.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
         let pf = &parsed_forms[idx];
@@ -270,7 +270,7 @@ fn recursive_join(
         selected.push(binding);
         recursive_join(
             idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-            patterns, parsed_forms, word_list_as_set, joint_constraints, seen,
+            patterns_ordered_list, parsed_forms, word_list_as_set, joint_constraints, seen,
         )?;
         selected.pop();
         return Ok(()); // IMPORTANT: skip normal enumeration path
@@ -336,7 +336,7 @@ fn recursive_join(
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
         recursive_join(idx + 1, words, lookup_keys, selected, env, results, num_results_requested,
-                       patterns, parsed_forms, word_list_as_set, joint_constraints.clone(), seen)?;
+                       patterns_ordered_list, parsed_forms, word_list_as_set, joint_constraints.clone(), seen)?;
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -477,7 +477,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &mut env,
             &mut results,
             num_results_requested,
-            &patterns,
+            &patterns.ordered_list,
             &parsed_forms,
             &word_list_as_set,
             joint_constraints.clone(),
