@@ -72,7 +72,8 @@ function handleWordlistClick() {
           r.onload = (function () {
               return function (e) {
                   let contents = e.target.result;
-                  processWordList(contents, minScore);
+                  // parse the wordlist using the Rust function
+                  window.wordlist = window.parse_wordlist(contents, minScore);
                   closeModalBox();
               };
           })(f);
