@@ -128,7 +128,6 @@ impl Pattern {
     }
 
     /// True iff every variable this pattern uses is included in its `lookup_keys`.
-    /// (If `lookup_keys` is `None`, only patterns with zero variables return true.)
     pub(crate) fn all_vars_in_lookup_keys(&self) -> bool {
         self.variables.is_subset(&self.lookup_keys)
     }

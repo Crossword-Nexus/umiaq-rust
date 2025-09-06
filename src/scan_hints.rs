@@ -148,15 +148,18 @@ pub(crate) fn form_len_hints_pf(
         fixed_base + sum
     };
 
-    let mut weighted_max = if has_star || vars.iter().any(|v| bounds_map[v].ui.is_none()) {
-        None
-    } else {
-        let sum = vars
-            .iter()
-            .map(|&v| get_weight(v) * bounds_map[&v].ui.unwrap()) // TODO? rewrite to avoid unwrap (though these are all Some...)
-            .sum::<usize>();
-        Some(fixed_base + sum)
+    // small helper function for maxes
+    let sum_weighted_ui_opt = |vars: &[char]| -> Option<usize> {
+        if has_star {
+            return None;
+        }
+        vars.iter().copied().try_fold(0usize, |acc, v| {
+            bounds_map[&v].ui.map(|u| acc + get_weight(v) * u)
+        })
     };
+
+    let sum_opt = sum_weighted_ui_opt(&vars);
+    let mut weighted_max = sum_opt.map(|s| fixed_base + s);
 
     // 3. Tighten with group constraints valid for this form
     for g in &group_constraints_for_form(parts, jcs) {
@@ -216,7 +219,8 @@ pub(crate) fn form_len_hints_pf(
                 if cap > 0 {
                     extra = extra.saturating_add(r.w.saturating_mul(cap));
                     rem -= cap;
-                    // TODO: can rem ever go negative? Should we add a test for it?
+                    // Invariant: `rem` never goes negative because `cap <= rem` at each step.
+                    // A debug_assert at the end checks that rem reaches 0 if t was feasible.
                     if rem == 0 {
                         break;
                     }
@@ -309,17 +313,7 @@ pub(crate) fn form_len_hints_pf(
             .map(|&v| get_weight(v) * bounds_map[&v].li)
             .sum::<usize>();
 
-        let outside_max_opt: Option<usize> = if has_star || outside.iter().any(|&v| bounds_map[&v].ui.is_none())
-        {
-            None
-        } else {
-            Some(
-                outside
-                    .iter()
-                    .map(|&v| get_weight(v) * bounds_map[&v].ui.unwrap()) // TODO? rewrite to avoid unwrap (though these are all Some...)
-                    .sum::<usize>(),
-            )
-        };
+        let outside_max_opt = sum_weighted_ui_opt(&outside);
 
         if let Some(gmin) = gmin_w {
             weighted_min = weighted_min.max(fixed_base + gmin + outside_min);
@@ -503,7 +497,7 @@ mod tests {
 
     #[test]
     fn ranged_group_bounds() {
-        // A B with unary: A in [1,5], B in [0,10]; group |AB| in [4,6]
+        // A B with unary: A in [1,5], B in [1,10]; group |AB| in [4,6]
         let form = pf(vec![FormPart::Var('A'), FormPart::Var('B')]);
         let mut vcs = VarConstraints::default();
 
@@ -512,7 +506,7 @@ mod tests {
         a.max_length = Some(5);
 
         let b = vcs.ensure('B');
-        b.min_length = 0; // TODO!!! do we allow this?
+        b.min_length = 1;
         b.max_length = Some(10);
 
         let g1 = JointConstraint {
@@ -579,4 +573,68 @@ mod tests {
         };
         assert_eq!(expected, hints);
     }
+
+    #[test]
+    fn ranged_group_bounds_unary_pushes_min() {
+        // A in [3,5], B in [2,10]; |AB| in [4,6]
+        // sum_li = 3+2 = 5, so the group’s GE(4) is weaker than unary mins.
+        // Max is still capped by LE(6).
+        let form = pf(vec![FormPart::Var('A'), FormPart::Var('B')]);
+        let mut vcs = VarConstraints::default();
+
+        let a = vcs.ensure('A');
+        a.min_length = 3;
+        a.max_length = Some(5);
+
+        let b = vcs.ensure('B');
+        b.min_length = 2;
+        b.max_length = Some(10);
+
+        let g1 = JointConstraint { vars: vec!['A','B'], target: 4, rel: RelMask::GE };
+        let g2 = JointConstraint { vars: vec!['A','B'], target: 6, rel: RelMask::LE };
+        let jcs = JointConstraints::of(vec![g1, g2]);
+
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
+
+        // Without the group we’d have [5, 15]; the group tightens max to 6, min stays 5.
+        let expected = PatternLenHints { min_len: 5, max_len: Some(6) };
+        assert_eq!(expected, hints);
+    }
+
+    #[test]
+    fn ranged_group_bounds_with_outside_var() {
+        // Form has only A,B. Group is |ABC| in [10, 12].
+        // C is outside the form with C in [3,4], so:
+        // - tmin_eff = 10 - max(C) = 10 - 4 = 6
+        // - tmax_eff = 12 - min(C) = 12 - 3 = 9
+        // A in [2,5], B in [1,7].
+        let form = pf(vec![FormPart::Var('A'), FormPart::Var('B')]);
+        let mut vcs = VarConstraints::default();
+
+        let a = vcs.ensure('A');
+        a.min_length = 2;
+        a.max_length = Some(5);
+
+        let b = vcs.ensure('B');
+        b.min_length = 1;
+        b.max_length = Some(7);
+
+        let c = vcs.ensure('C');
+        c.min_length = 3;
+        c.max_length = Some(4);
+
+        let ge = JointConstraint { vars: vec!['A','B','C'], target: 10, rel: RelMask::GE };
+        let le = JointConstraint { vars: vec!['A','B','C'], target: 12, rel: RelMask::LE };
+        let jcs = JointConstraints::of(vec![ge, le]);
+
+        let hints = form_len_hints_pf(&form, &vcs, &jcs);
+
+        // Base (no group): min = 2+1 = 3, max = 5+7 = 12.
+        // With group & outside C: A+B must be in [6,9].
+        // So final form length is [6,9].
+        let expected = PatternLenHints { min_len: 6, max_len: Some(9) };
+        assert_eq!(expected, hints);
+    }
+
+
 }
