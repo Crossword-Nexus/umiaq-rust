@@ -48,8 +48,8 @@ pub fn solve_equation_wasm(
 }
 
 #[wasm_bindgen]
-pub fn parse_wordlist(text: &str, min_score: i32, max_len: usize) -> JsValue {
-    let wl = WordList::parse_from_str(text, min_score, max_len);
+pub fn parse_wordlist(text: &str, min_score: i32) -> JsValue {
+    let wl = WordList::parse_from_str(text, min_score);
     // Convert Vec<String> to a real JS array
     to_value(&wl.entries).expect("serde_wasm_bindgen conversion failed")
 }
