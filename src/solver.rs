@@ -225,7 +225,6 @@ struct RecursiveJoinParameters {
 /// Return:
 /// - This function mutates `results` and stops early once it has `num_results_requested`.
 fn recursive_join(
-    idx: usize,
     selected: &mut Vec<Bindings>,
     env: &mut HashMap<char, String>,
     results: &mut Vec<Vec<Bindings>>,
@@ -233,7 +232,7 @@ fn recursive_join(
     word_list_as_set: &HashSet<&str>,
     joint_constraints: JointConstraints,
     seen: &mut HashSet<u64>,
-    rjp: &Vec<RecursiveJoinParameters>
+    rjp: &[RecursiveJoinParameters]
 ) -> Result<(), MaterializationError> {
     // Stop if we've met the requested quota of full solutions.
     if results.len() >= num_results_requested {
@@ -241,19 +240,20 @@ fn recursive_join(
     }
 
     // Base case: if we've placed all patterns, `selected` is a full solution.
-    if idx == rjp.len() {
+    if rjp.is_empty() {
         if joint_constraints.all_strictly_satisfied_for_parts(selected) && seen.insert(solution_key(selected)) {
             results.push(selected.clone());
         }
         return Ok(());
     }
 
+    let rjp_cur = &rjp.first().unwrap();
+
     // ---- FAST PATH: deterministic + fully keyed ----------------------------
-    let rjp_cur = &rjp[idx];
     let p = &rjp_cur.patterns_ordered_list;
     if p.is_deterministic && p.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
-        let Some(expected) = (&rjp_cur.parsed_form).materialize_deterministic_with_env(env) else { return Err(MaterializationError) };
+        let Some(expected) = rjp_cur.parsed_form.materialize_deterministic_with_env(env) else { return Err(MaterializationError) };
 
         if !word_list_as_set.contains(expected.as_str()) {
             // This branch cannot succeed — prune immediately.
@@ -273,7 +273,7 @@ fn recursive_join(
         }
 
         selected.push(binding);
-        recursive_join(idx + 1, selected, env, results, num_results_requested, word_list_as_set, joint_constraints, seen, rjp)?;
+        recursive_join(selected, env, results, num_results_requested, word_list_as_set, joint_constraints, seen, &rjp[1..])?;
         selected.pop();
         return Ok(()); // IMPORTANT: skip normal enumeration path
     }
@@ -337,7 +337,7 @@ fn recursive_join(
 
         // Choose this candidate for pattern `idx` and recurse for `idx + 1`.
         selected.push(cand.clone());
-        recursive_join(idx + 1, selected, env, results, num_results_requested, word_list_as_set, joint_constraints.clone(), seen, rjp)?;
+        recursive_join(selected, env, results, num_results_requested, word_list_as_set, joint_constraints.clone(), seen, &rjp[1..])?;
         selected.pop();
 
         // Backtrack: remove only what we added at this level.
@@ -480,7 +480,6 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
                 }
             }).collect::<Vec<_>>();
         let rj_result = recursive_join(
-            0,
             &mut selected,
             &mut env,
             &mut results,
