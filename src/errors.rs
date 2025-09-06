@@ -1,4 +1,5 @@
-use std::io;
+use std::{fmt, io};
+use std::fmt::Formatter;
 use std::num::ParseIntError;
 use crate::errors::ParseError::ParseFailure;
 
@@ -35,5 +36,14 @@ impl From<ParseIntError> for Box<ParseError> {
 impl From<Box<fancy_regex::Error>> for Box<ParseError> {
     fn from(e: Box<fancy_regex::Error>) -> Self {
         ParseFailure { s: (*e).to_string() }.into()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct MaterializationError;
+
+impl fmt::Display for MaterializationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "unexpected inability to materialize in bucket joining") // TODO word better (and is this even always correct?)
     }
 }
