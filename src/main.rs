@@ -1,9 +1,9 @@
 use clap::Parser;
 use std::time::Instant;
 
-use umiaq_rust::bindings::Bindings;
-use umiaq_rust::wordlist;
-use umiaq_rust::solver;
+use umiaq::bindings::Bindings;
+use umiaq::wordlist;
+use umiaq::solver;
 
 /// Umiaq pattern solver
 #[derive(Parser, Debug)]
