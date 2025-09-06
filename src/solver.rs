@@ -200,10 +200,10 @@ fn scan_batch(
 
 
 struct RecursiveJoinParameters {
-    words: Vec<CandidateBuckets>,
-    lookup_keys: Vec<HashSet<char>>,
-    patterns_ordered_list: Vec<Pattern>,
-    parsed_forms: Vec<ParsedForm>,      // same order as `words` / `patterns.ordered_list`
+    candidate_buckets: CandidateBuckets,
+    lookup_keys: HashSet<char>,
+    patterns_ordered_list: Pattern,
+    parsed_form: ParsedForm,
 }
 
 /// Depth-first recursive join of per-pattern candidate buckets into full solutions.
@@ -233,7 +233,7 @@ fn recursive_join(
     word_list_as_set: &HashSet<&str>,
     joint_constraints: JointConstraints,
     seen: &mut HashSet<u64>,
-    rjp: &RecursiveJoinParameters
+    rjp: &Vec<RecursiveJoinParameters>
 ) -> Result<(), MaterializationError> {
     // Stop if we've met the requested quota of full solutions.
     if results.len() >= num_results_requested {
@@ -241,7 +241,7 @@ fn recursive_join(
     }
 
     // Base case: if we've placed all patterns, `selected` is a full solution.
-    if idx == rjp.words.len() {
+    if idx == rjp.len() {
         if joint_constraints.all_strictly_satisfied_for_parts(selected) && seen.insert(solution_key(selected)) {
             results.push(selected.clone());
         }
@@ -249,10 +249,10 @@ fn recursive_join(
     }
 
     // ---- FAST PATH: deterministic + fully keyed ----------------------------
-    let p = &rjp.patterns_ordered_list[idx];
+    let p = &rjp[idx].patterns_ordered_list;
     if p.is_deterministic && p.all_vars_in_lookup_keys() {
         // The word is fully determined by literals + already-bound vars in `env`.
-        let pf = &rjp.parsed_forms[idx];
+        let pf = &rjp[idx].parsed_form;
         let Some(expected) = pf.materialize_deterministic_with_env(env) else { return Err(MaterializationError) };
 
         if !word_list_as_set.contains(expected.as_str()) {
@@ -288,8 +288,8 @@ fn recursive_join(
         // Build (var, value) pairs from env using the set of shared vars.
         // NOTE: HashSet iteration order is arbitrary — we sort the pairs below
         // so the final key is stable/deterministic.
-        let mut pairs: Vec<(char, String)> = Vec::with_capacity(rjp.lookup_keys[idx].len());
-        for &var in &rjp.lookup_keys[idx] {
+        let mut pairs: Vec<(char, String)> = Vec::with_capacity(rjp[idx].lookup_keys.len());
+        for &var in &rjp[idx].lookup_keys {
             if let Some(v) = env.get(&var) {
                 pairs.push((var, v.clone()));
             } else {
@@ -300,7 +300,7 @@ fn recursive_join(
         // Deterministic key: sort by the variable name.
         pairs.sort_unstable_by_key(|(c, _)| *c);
 
-        rjp.words[idx].buckets.get(&pairs)
+        rjp[idx].candidate_buckets.buckets.get(&pairs)
     };
 
     // If there are no candidates in that bucket, dead-end this branch.
@@ -470,12 +470,15 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         // 2. Attempt to build full solutions from the candidates accumulated so far.
         // This may rediscover old partials, so we use `seen` at the base case
         // to ensure only truly new solutions are added to `results`.
-        let rjp = RecursiveJoinParameters {
-            words: words.clone(),
-            lookup_keys: lookup_keys.clone(),
-            patterns_ordered_list: patterns.ordered_list.clone(),
-            parsed_forms: parsed_forms.clone(),
-        };
+        let rjp = words.iter().zip(lookup_keys.iter()).zip(patterns.ordered_list.iter()).zip(parsed_forms.iter())
+            .map(|(((candidate_buckets, lookup_keys), p), parsed_form)| {
+                RecursiveJoinParameters {
+                    candidate_buckets: candidate_buckets.clone(),
+                    lookup_keys: lookup_keys.clone(),
+                    patterns_ordered_list: p.clone(),
+                    parsed_form: parsed_form.clone(),
+                }
+            }).collect::<Vec<_>>();
         let rj_result = recursive_join(
             0,
             &mut selected,
