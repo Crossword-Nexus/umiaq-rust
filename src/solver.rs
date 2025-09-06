@@ -473,7 +473,7 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
         // 2. Attempt to build full solutions from the candidates accumulated so far.
         // This may rediscover old partials, so we use `seen` at the base case
         // to ensure only truly new solutions are added to `results`.
-        if recursive_join(
+        let rj_result = recursive_join(
             0,
             &words,
             &lookup_keys,
@@ -486,8 +486,10 @@ pub fn solve_equation(input: &str, word_list: &[&str], num_results_requested: us
             &word_list_as_set,
             joint_constraints.clone(),
             &mut seen,
-        ).is_err() {
-            return Err(Box::new(ParseError::ParseFailure { s: MaterializationError.to_string() }))
+        );
+        if let Err(e) = rj_result {
+            // e is a `MaterializationError` // TODO check/enforce this?
+            return Err(Box::new(ParseError::ParseFailure { s: e.to_string() }))
         }
 
         // We exit early in three cases
