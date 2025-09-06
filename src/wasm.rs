@@ -25,21 +25,34 @@ pub fn solve_equation_wasm(
     input: &str,
     word_list: JsValue,
     num_results_requested: usize,
-) -> Result<JsValue, JsValue> {
-    // word_list: string[] -> Vec<String>
-    let words: Vec<String> = serde_wasm_bindgen::from_value(word_list)
-        .map_err(|e| JsValue::from_str(&format!("word_list must be string[]: {e}")))?;
-    // Borrow as &[&str] for the solver
+) -> JsValue {
+    // Try to parse the JS word list into Vec<String>.
+    let words: Vec<String> = match serde_wasm_bindgen::from_value(word_list) {
+        Ok(w) => w,
+        Err(_) => wasm_bindgen::throw_str("word_list must be string[]"),
+    };
     let refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
 
-    let raw = solve_equation(input, &refs, num_results_requested)?; // Vec<Vec<Bindings>>
+    // Call solver. If it panics, wasm will trap, but the panic hook will log details.
+    let raw = match solve_equation(input, &refs, num_results_requested) {
+        Ok(r) => r,
+        Err(_) => wasm_bindgen::throw_str("Input parsing failed — see browser console for details"),
+    };
 
-    // Keep only the "*" word from each Bindings
+    // Convert Vec<Vec<Bindings>> → Vec<Vec<String>>.
     let js_ready: Vec<Vec<String>> = raw
         .into_iter()
         .map(|row| row.into_iter().filter_map(|b| binding_to_word(&b)).collect())
         .collect();
 
-    serde_wasm_bindgen::to_value(&js_ready)
-        .map_err(|e| JsValue::from_str(&format!("serialization failed: {e}")))
+    // Serialize into JsValue for JS side.
+    match serde_wasm_bindgen::to_value(&js_ready) {
+        Ok(val) => val,
+        Err(_) => wasm_bindgen::throw_str("Serialization failed — see browser console for details"),
+    }
 }
+
+
+
+
+

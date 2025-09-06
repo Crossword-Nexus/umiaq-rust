@@ -27,7 +27,8 @@ instant = { version = "0.1.13", features = ["wasm-bindgen"] }
 
 # --- WASM-only deps (compiled only when target_arch = "wasm32") ---
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2"
+wasm-bindgen = "0.2.101"
 serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
-console_error_panic_hook = "0.1"
+console_error_panic_hook = "0.1.7"
+
